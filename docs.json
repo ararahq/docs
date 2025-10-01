@@ -16,7 +16,7 @@
           {
             "group": "Primeiros Passos",
             "pages": [
-              "introduction",
+              "index",
               "quickstart",
               "development"
             ]
