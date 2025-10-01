@@ -1,0 +1,226 @@
+---
+title: 'Agendamento de Mensagens'
+description: 'Aprenda como agendar mensagens para serem enviadas em uma data e hora específicas'
+---
+
+# Agendamento de Mensagens
+
+O agendamento de mensagens permite que você programe o envio de mensagens de template para uma data e hora futura. Isso é especialmente útil para campanhas de marketing, lembretes e comunicações programadas.
+
+## Como Funciona
+
+Você pode agendar mensagens simplesmente incluindo o parâmetro `scheduledAt` na sua requisição. A Arara processará e enviará a mensagem no momento especificado.
+
+## Visão Geral
+
+O agendamento de mensagens funciona de forma transparente:
+
+1. **Você faz a requisição** com o parâmetro `scheduledAt`
+2. **A Arara valida** a data e hora
+3. **A mensagem é agendada** e armazenada
+4. **No momento especificado**, a mensagem é enviada automaticamente
+
+<Info>
+  As mensagens agendadas são processadas com a mesma confiabilidade das mensagens enviadas imediatamente. O sistema garante que a mensagem será enviada no horário especificado (com tolerância de alguns segundos para processamento).
+</Info>
+
+## Formato do Parâmetro
+
+O parâmetro `scheduledAt` deve estar no formato **ISO 8601** (UTC):
+
+```
+2024-01-15T14:30:00Z
+```
+
+### Exemplo de Requisição
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5583991768778",
+    "templateName": "template_teste_inicio_conversa",
+    "variables": [],
+    "scheduledAt": "2024-01-15T14:30:00Z"
+  }'
+```
+
+```python Python
+import requests
+from datetime import datetime, timezone
+
+url = "https://api.ararahq.com/v1/messages"
+headers = {
+    "Authorization": "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "Content-Type": "application/json"
+}
+
+# Agendar para 2 horas a partir de agora
+scheduled_time = datetime.now(timezone.utc).replace(
+    hour=14, minute=30, second=0, microsecond=0
+).isoformat()
+
+payload = {
+    "receiver": "whatsapp:+5583991768778",
+    "templateName": "template_teste_inicio_conversa",
+    "variables": [],
+    "scheduledAt": scheduled_time
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+const fetch = require('node-fetch');
+
+const url = 'https://api.ararahq.com/v1/messages';
+const headers = {
+  'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+  'Content-Type': 'application/json'
+};
+
+// Agendar para uma data específica
+const scheduledAt = new Date('2024-01-15T14:30:00Z').toISOString();
+
+const body = {
+  receiver: 'whatsapp:+5583991768778',
+  templateName: 'template_teste_inicio_conversa',
+  variables: [],
+  scheduledAt: scheduledAt
+};
+
+fetch(url, {
+  method: 'POST',
+  headers: headers,
+  body: JSON.stringify(body)
+})
+  .then(res => res.json())
+  .then(data => console.log(data));
+```
+
+```typescript TypeScript
+const url = 'https://api.ararahq.com/v1/messages';
+const headers = {
+  'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+  'Content-Type': 'application/json'
+};
+
+// Agendar para uma data específica
+const scheduledAt = new Date('2024-01-15T14:30:00Z').toISOString();
+
+const body = {
+  receiver: 'whatsapp:+5583991768778',
+  templateName: 'template_teste_inicio_conversa',
+  variables: [],
+  scheduledAt: scheduledAt
+};
+
+const response = await fetch(url, {
+  method: 'POST',
+  headers: headers,
+  body: JSON.stringify(body)
+});
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+## Regras e Limitações
+
+### Antecedência Mínima
+
+As mensagens devem ser agendadas com pelo menos **5 minutos de antecedência**. Tentativas de agendar para um horário muito próximo serão rejeitadas.
+
+### Antecedência Máxima
+
+Você pode agendar mensagens com até **1 ano de antecedência**. Isso permite planejamento de campanhas de longo prazo.
+
+### Fuso Horário
+
+<Warning>
+  **Importante**: Sempre use o formato UTC (com o sufixo `Z`) para o parâmetro `scheduledAt`. A Arara processa todos os agendamentos em UTC para evitar problemas com fusos horários.
+</Warning>
+
+### Validação
+
+O sistema valida automaticamente:
+- Formato da data (deve ser ISO 8601)
+- Data não pode ser no passado
+- Data deve estar dentro do limite de 1 ano
+- Antecedência mínima de 5 minutos
+
+## Resposta de Sucesso
+
+Quando uma mensagem é agendada com sucesso, você receberá uma resposta similar a:
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "receiver": "whatsapp:+5583991768778",
+  "templateName": "template_teste_inicio_conversa",
+  "status": "SCHEDULED",
+  "scheduledAt": "2024-01-15T14:30:00Z",
+  "messageType": "TEMPLATE",
+  "createdAt": "2024-01-15T10:00:00Z"
+}
+```
+
+## Casos de Uso
+
+### Campanhas de Marketing
+
+Agende mensagens promocionais para horários de maior engajamento:
+
+```python
+# Agendar para o horário de pico (14h)
+scheduled_time = datetime(2024, 1, 15, 14, 0, 0, tzinfo=timezone.utc).isoformat()
+```
+
+### Lembretes
+
+Envie lembretes para clientes sobre eventos, pagamentos ou compromissos:
+
+```javascript
+// Lembrete 1 dia antes do evento
+const reminderDate = new Date('2024-01-20T09:00:00Z');
+reminderDate.setDate(reminderDate.getDate() - 1);
+const scheduledAt = reminderDate.toISOString();
+```
+
+### Sequências de Mensagens
+
+Crie sequências de mensagens agendadas para nutrir leads:
+
+```typescript
+// Primeira mensagem: imediata
+await sendMessage({ ...params });
+
+// Segunda mensagem: 24 horas depois
+const followUp = new Date();
+followUp.setHours(followUp.getHours() + 24);
+await sendMessage({ ...params, scheduledAt: followUp.toISOString() });
+```
+
+## Cancelamento de Mensagens Agendadas
+
+Se você precisar cancelar uma mensagem agendada, você pode fazer uma requisição para atualizar o status. Consulte a documentação de gerenciamento de mensagens para mais detalhes.
+
+<Info>
+  Mensagens agendadas podem ser canceladas até 1 minuto antes do horário de envio programado.
+</Info>
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/send">
+    Aprenda a enviar mensagens imediatas
+  </Card>
+  <Card title="Recuperação de Carrinho" icon="cart-shopping" href="/api-reference/endpoint/cart-recovery">
+    Use agendamento para recuperar carrinhos abandonados
+  </Card>
+</CardGroup>
+

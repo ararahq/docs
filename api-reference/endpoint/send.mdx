@@ -1,0 +1,314 @@
+---
+title: 'Enviar Mensagem'
+description: 'Envie mensagens de template via WhatsApp usando a Arara'
+---
+
+# Enviar Mensagem
+
+O endpoint de envio de mensagens permite que você envie mensagens de template do WhatsApp para qualquer número válido.
+
+## Endpoint
+
+`POST /v1/messages`
+
+## Autenticação
+
+Este endpoint requer autenticação. Inclua sua chave de API no cabeçalho `Authorization`:
+
+```bash
+Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+## Corpo da Requisição
+
+O corpo da requisição deve ser um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `receiver` | string | Sim | Número do destinatário no formato `whatsapp:+5583991768778` |
+| `templateName` | string | Sim | Nome do template que foi criado no dashboard |
+| `variables` | array | Não | Lista de variáveis para preencher o template (padrão: `[]`) |
+
+### Formato do Número
+
+O número do destinatário deve estar no formato:
+- Prefixo: `whatsapp:+`
+- Código do país: `55` (Brasil)
+- DDD: `83`
+- Número: `991768778`
+- **Formato completo**: `whatsapp:+5583991768778`
+
+<Info>
+  O formato do número é importante! Sempre use o prefixo `whatsapp:+` seguido do código do país e o número completo sem espaços ou caracteres especiais.
+</Info>
+
+<Warning>
+  **Importante**: O número de celular precisa ser cadastrado previamente pela equipe de suporte da Arara, junto com a documentação da empresa. Entre em contato com suporte@ararahq.com para solicitar o cadastro do número antes de começar a enviar mensagens.
+</Warning>
+
+## Exemplo de Requisição
+
+### Requisição Básica (sem variáveis)
+
+```bash curl
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5583991768778",
+    "templateName": "template_teste_inicio_conversa",
+    "variables": []
+  }'
+```
+
+### Requisição com Variáveis
+
+Se seu template possui variáveis (como `{{1}}`, `{{2}}`, etc), você pode preenchê-las passando os valores no array `variables`:
+
+```bash curl
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5583991768778",
+    "templateName": "template_teste_inicio_conversa",
+    "variables": ["João", "R$ 100,00"]
+  }'
+```
+
+<Warning>
+  **Importante**: O template deve ter sido criado previamente no dashboard da Arara. Você não pode enviar mensagens usando templates que não existem na sua conta.
+</Warning>
+
+## Resposta de Sucesso
+
+Quando a mensagem é aceita para processamento, você receberá uma resposta `202 Accepted`:
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "receiver": "whatsapp:+5583991768778",
+  "templateName": "template_teste_inicio_conversa",
+  "status": "PENDING",
+  "messageType": "TEMPLATE",
+  "createdAt": "2024-01-15T10:30:00Z"
+}
+```
+
+### Campos da Resposta
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | string (UUID) | Identificador único da mensagem |
+| `receiver` | string | Número do destinatário |
+| `templateName` | string | Nome do template usado |
+| `status` | string | Status atual da mensagem (`PENDING`, `SENT_TO_PROVIDER`, `DELIVERED`, `FAILED`) |
+| `messageType` | string | Tipo da mensagem (sempre `TEMPLATE` para este endpoint) |
+| `createdAt` | string (ISO 8601) | Data e hora de criação da mensagem |
+
+## Códigos de Erro
+
+### 400 Bad Request
+
+A requisição está malformada ou faltam campos obrigatórios:
+
+```json
+{
+  "error": "Bad Request",
+  "message": "receiver is required"
+}
+```
+
+### 401 Unauthorized
+
+A chave de API é inválida ou não foi fornecida:
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid or missing API key"
+}
+```
+
+### 404 Not Found
+
+O template especificado não existe ou não pertence à sua conta:
+
+```json
+{
+  "error": "Not Found",
+  "message": "Template 'template_teste_inicio_conversa' not found"
+}
+```
+
+### 422 Unprocessable Entity
+
+O número do destinatário está em formato inválido ou o template não está aprovado:
+
+```json
+{
+  "error": "Unprocessable Entity",
+  "message": "Invalid receiver format. Expected format: whatsapp:+5583991768778"
+}
+```
+
+## Exemplos em Diferentes Linguagens
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5583991768778",
+    "templateName": "template_teste_inicio_conversa",
+    "variables": []
+  }'
+```
+
+```python Python
+import requests
+
+url = "https://api.ararahq.com/v1/messages"
+headers = {
+    "Authorization": "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "Content-Type": "application/json"
+}
+payload = {
+    "receiver": "whatsapp:+5583991768778",
+    "templateName": "template_teste_inicio_conversa",
+    "variables": []
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+const fetch = require('node-fetch');
+
+const url = 'https://api.ararahq.com/v1/messages';
+const headers = {
+  'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+  'Content-Type': 'application/json'
+};
+const body = {
+  receiver: 'whatsapp:+5583991768778',
+  templateName: 'template_teste_inicio_conversa',
+  variables: []
+};
+
+fetch(url, {
+  method: 'POST',
+  headers: headers,
+  body: JSON.stringify(body)
+})
+  .then(res => res.json())
+  .then(data => console.log(data));
+```
+
+```typescript TypeScript
+const url = 'https://api.ararahq.com/v1/messages';
+const headers = {
+  'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+  'Content-Type': 'application/json'
+};
+const body = {
+  receiver: 'whatsapp:+5583991768778',
+  templateName: 'template_teste_inicio_conversa',
+  variables: []
+};
+
+const response = await fetch(url, {
+  method: 'POST',
+  headers: headers,
+  body: JSON.stringify(body)
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```java Java
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.URI;
+import java.time.Duration;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+HttpClient client = HttpClient.newBuilder()
+    .connectTimeout(Duration.ofSeconds(10))
+    .build();
+
+ObjectMapper mapper = new ObjectMapper();
+String jsonBody = mapper.writeValueAsString(Map.of(
+    "receiver", "whatsapp:+5583991768778",
+    "templateName", "template_teste_inicio_conversa",
+    "variables", List.of()
+));
+
+HttpRequest request = HttpRequest.newBuilder()
+    .uri(URI.create("https://api.ararahq.com/v1/messages"))
+    .header("Authorization", "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    .header("Content-Type", "application/json")
+    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+    .build();
+
+HttpResponse<String> response = client.send(request, 
+    HttpResponse.BodyHandlers.ofString());
+System.out.println(response.body());
+```
+
+```kotlin Kotlin
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.net.URI
+import java.time.Duration
+
+@Serializable
+data class MessageRequest(
+    val receiver: String,
+    val templateName: String,
+    val variables: List<String> = emptyList()
+)
+
+val client = HttpClient.newBuilder()
+    .connectTimeout(Duration.ofSeconds(10))
+    .build()
+
+val requestBody = MessageRequest(
+    receiver = "whatsapp:+5583991768778",
+    templateName = "template_teste_inicio_conversa",
+    variables = emptyList()
+)
+
+val jsonBody = Json.encodeToString(requestBody)
+
+val request = HttpRequest.newBuilder()
+    .uri(URI.create("https://api.ararahq.com/v1/messages"))
+    .header("Authorization", "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    .header("Content-Type", "application/json")
+    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+    .build()
+
+val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+println(response.body())
+```
+</CodeGroup>
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Criar Templates" icon="bezier-curve" href="/business-rules/template-management">
+    Aprenda a criar templates no dashboard
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/webhook">
+    Configure webhooks para receber notificações
+  </Card>
+</CardGroup>
+

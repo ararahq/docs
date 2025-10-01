@@ -1,32 +1,36 @@
 ---
-title: 'Roadmap do MVP (Produto Mínimo Viável)'
-description: 'Acompanhe o progresso da Arara API através das fases de construção do nosso MVP, com o que já foi concluído e o que está por vir.'
+title: "Roadmap do MVP"
+description: "Acompanhe o progresso da Arara através das fases de construção do nosso MVP, com o que já foi concluído e o que está por vir."
 ---
 
 ## Nosso Caminho até o Lançamento
 
-O desenvolvimento da Arara API está dividido em fases claras, com marcos definidos para garantir a construção de um produto robusto, intuitivo e focado na Experiência do Desenvolvedor (DX).
+O desenvolvimento da Arara está dividido em fases claras, com marcos definidos para garantir a construção de um produto robusto, intuitivo e focado na Experiência do Desenvolvedor (DX).
 
 ---
 
 ## Fase 1: Fundação Técnica e Confiabilidade
 
-<Card
-  title="Objetivo Principal da Fase 1"
-  icon="code-branch"
->
+<Card title="Objetivo Principal da Fase 1" icon="code-branch">
   Construir um backend robusto e seguro que pode enviar uma mensagem de forma confiável através de uma chamada de API. Foco 100% no backend.
 </Card>
 
 <Steps>
-  <h3>Tarefas Chave</h3>
   <Step title="Infra & DevOps">
-    <Check>Repositório Git no GitHub criado.</Check>
-    <Check>Projeto backend em Kotlin (Spring Boot) configurado com dependências principais.</Check>
+    <Check>
+      Repositório Git no GitHub criado.
+    </Check>
+     <Check>
+      Projeto backend em Kotlin (Spring Boot) configurado com dependências principais.
+    </Check>
   </Step>
   <Step title="Banco de Dados">
-    <Check>Schema inicial no PostgreSQL definido e criado com ferramenta de migration (Flyway/Liquibase).</Check>
-    <Check>Tabelas `accounts`, `api_keys` (com hash da chave) e `messages` (logs) incluídas.</Check>
+    <Check>
+      Schema inicial no PostgreSQL definido e criado com ferramenta de migration (Flyway/Liquibase).
+    </Check>
+     <Check>
+      Tabelas `accounts`, `api_keys` (com hash da chave) e `messages` (logs) incluídas.
+    </Check>
   </Step>
   <Step title="Autenticação">
     Implementar o interceptor na API que valida a API Key enviada no `Authorization Header`, retornando `401 Unauthorized` se a chave for inválida.
@@ -36,14 +40,16 @@ O desenvolvimento da Arara API está dividido em fases claras, com marcos defini
   </Step>
   <Step title="Core (Worker)">
     Criar o "consumer" do Kafka. Este serviço será responsável por:
+
     - Conectar-se à API da Meta.
     - Implementar a lógica de Retry com backoff para falhas de envio.
     - Enviar mensagens para uma Dead-Letter Queue (DLQ) após N tentativas.
     - Atualizar o status da mensagem na tabela `messages`.
   </Step>
-  <h3>Critério de Conclusão</h3>
   <Step title="Critério de Conclusão da Fase 1">
-    <Check>Uma chamada `POST /v1/messages` feita via Postman/curl com uma API Key válida envia uma mensagem de template via WhatsApp e grava um log de "sucesso" no banco de dados.</Check>
+    <Check>
+      Uma chamada `POST /v1/messages` feita via Postman/curl com uma API Key válida envia uma mensagem de template via WhatsApp e grava um log de "sucesso" no banco de dados.
+    </Check>
   </Step>
 </Steps>
 
@@ -51,15 +57,11 @@ O desenvolvimento da Arara API está dividido em fases claras, com marcos defini
 
 ## Fase 2: Experiência Mínima do Desenvolvedor
 
-<Card
-  title="Objetivo Principal da Fase 2"
-  icon="laptop-code"
->
+<Card title="Objetivo Principal da Fase 2" icon="laptop-code">
   Permitir que um desenvolvedor se cadastre, gere chaves de API, envie mensagens de teste (dev_mode) e veja os logs. Foco em conectar o frontend ao backend.
 </Card>
 
 <Steps>
-  <h3>Tarefas Chave</h3>
   <Step title="Frontend">
     Iniciar o projeto Next.js + Bun e configurar as rotas principais.
   </Step>
@@ -75,9 +77,10 @@ O desenvolvimento da Arara API está dividido em fases claras, com marcos defini
   <Step title="Dashboard: Logs">
     Criar a tela de "Logs" que busca e exibe as mensagens da tabela `messages` pertencentes ao usuário logado.
   </Step>
-  <h3>Critério de Conclusão</h3>
   <Step title="Critério de Conclusão da Fase 2">
-    <Check>Um novo desenvolvedor consegue se cadastrar no dashboard, gerar uma chave de teste, e usar essa chave para enviar uma mensagem de teste que aparece em tempo real na tela de logs.</Check>
+    <Check>
+      Um novo desenvolvedor consegue se cadastrar no dashboard, gerar uma chave de teste, e usar essa chave para enviar uma mensagem de teste que aparece em tempo real na tela de logs.
+    </Check>
   </Step>
 </Steps>
 
@@ -85,15 +88,11 @@ O desenvolvimento da Arara API está dividido em fases claras, com marcos defini
 
 ## Fase 3: A "Mágica" (Lançamento do MVP)
 
-<Card
-  title="Objetivo Principal da Fase 3"
-  icon="sparkles"
->
+<Card title="Objetivo Principal da Fase 3" icon="sparkles">
   Implementar as funcionalidades de alto valor que resolvem a dor do cliente, completando a jornada para o lançamento.
 </Card>
 
 <Steps>
-  <h3>Tarefas Chave</h3>
   <Step title="Onboarding Live Mode">
     Construir o fluxo no dashboard para o usuário ativar o modo de produção, que inclui o processo de conexão do seu próprio número de WhatsApp.
   </Step>
@@ -106,8 +105,9 @@ O desenvolvimento da Arara API está dividido em fases claras, com marcos defini
   <Step title="API & Backend: Agendamento">
     Implementar a funcionalidade de Agendamento de Mensagens, incluindo o campo `scheduled_at` na API e o serviço `scheduler` no backend.
   </Step>
-  <h3>Critério de Conclusão</h3>
   <Step title="Critério de Conclusão da Fase 3">
-    <Check>Um cliente pode se cadastrar, testar no dev_mode, ativar o live_mode, criar um template, agendar uma mensagem e enviá-la com sucesso usando seu próprio número.</Check>
+    <Check>
+      Um cliente pode se cadastrar, testar no dev_mode, ativar o live_mode, criar um template, agendar uma mensagem e enviá-la com sucesso usando seu próprio número.
+    </Check>
   </Step>
 </Steps>

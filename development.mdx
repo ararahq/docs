@@ -1,122 +1,590 @@
 ---
-title: "Ambiente de Desenvolvimento da Documentação"
-description: "Guia para configurar seu ambiente local e contribuir com a documentação da Arara API."
+title: "Desenvolvimento"
+description: "Guia para configurar seu ambiente local, contribuir com a documentação e criar SDKs para a Arara."
 ---
 
-## Boas-vindas aos Contribuidores!
+## SDKs de Código Aberto
 
-Este guia detalha os passos para configurar seu ambiente de desenvolvimento e começar a contribuir com a documentação da Arara API.
+A Arara acredita que a melhor experiência do desenvolvedor vem de SDKs bem construídos e mantidos pela comunidade. Por isso, incentivamos e suportamos a criação de SDKs de código aberto para diferentes linguagens e frameworks.
 
-<Card title="Comece em Minutos" icon="hourglass-start">
-  Siga os passos abaixo para ter o ambiente de preview da documentação rodando localmente.
-</Card>
+## Por Que SDKs?
 
-## Pré-requisitos
+SDKs facilitam a integração, reduzem erros comuns, fornecem autocomplete e documentação inline, e tornam a experiência de desenvolvimento muito mais agradável. Eles são essenciais para uma excelente DX (Developer Experience).
+
+### SDKs Disponíveis e Planejados
+
+<CardGroup cols={2}>
+  <Card title="Node.js/TypeScript" icon="node-js" href="https://github.com/ararahq/arara-js">
+    SDK oficial para Node.js e TypeScript
+  </Card>
+  <Card title="Python" icon="python" href="https://github.com/ararahq/arara-python">
+    SDK oficial para Python
+  </Card>
+  <Card title="Java" icon="java" href="https://github.com/ararahq/arara-java">
+    SDK oficial para Java
+  </Card>
+  <Card title="Kotlin" icon="code" href="https://github.com/ararahq/arara-kotlin">
+    SDK oficial para Kotlin
+  </Card>
+  <Card title="PHP" icon="php" href="https://github.com/ararahq/arara-php">
+    SDK oficial para PHP
+  </Card>
+  <Card title="Ruby" icon="gem" href="https://github.com/ararahq/arara-ruby">
+    SDK oficial para Ruby
+  </Card>
+  <Card title="Go" icon="code" href="https://github.com/ararahq/arara-go">
+    SDK oficial para Go
+  </Card>
+  <Card title="Rust" icon="code" href="https://github.com/ararahq/arara-rust">
+    SDK oficial para Rust
+  </Card>
+</CardGroup>
 
 <Info>
-  **Pré-requisitos**:
-
-  - Node.js (versão 19 ou superior)
-  - Um clone local do repositório da documentação da Arara (via GitHub).
+  Não encontrou um SDK para sua linguagem favorita? Siga o guia abaixo para criar o seu próprio! SDKs da comunidade são muito bem-vindos e podem se tornar oficiais com o tempo.
 </Info>
 
-## Passo a Passo: Configuração do Ambiente
+## Criando um Novo SDK
+
+Se você quer criar um SDK para uma linguagem que ainda não tem suporte, siga este guia para garantir consistência e qualidade.
+
+### Regras e Diretrizes
+
+Antes de começar, certifique-se de seguir estas regras:
+
+#### 1. Estrutura do Repositório
+
+- **Nome**: Use o padrão `arara-{linguagem}` (ex: `arara-python`, `arara-java`)
+- **Organização**: Crie o repositório na organização `ararahq` no GitHub
+- **Licença**: Use a licença MIT
+- **README**: Deve incluir:
+  - Instalação
+  - Exemplo básico de uso
+  - Link para documentação completa
+  - Badges (build status, version, license)
+
+#### 2. Funcionalidades Mínimas
+
+Todo SDK deve implementar pelo menos:
+
+- **Autenticação**: Suporte a API Key via header `Authorization`
+- **Envio de Mensagens**: Método para `POST /v1/messages`
+- **Tratamento de Erros**: Classes/exceções específicas para cada tipo de erro HTTP
+- **Validação**: Validação básica de parâmetros antes de enviar
+- **Type Safety**: Tipos fortes quando a linguagem suporta (TypeScript, Java, etc.)
+
+#### 3. Padrões de Código
+
+- **Nomenclatura**: Siga as convenções da linguagem
+- **Documentação**: Documente todas as funções públicas
+- **Testes**: Inclua testes unitários e de integração
+- **Exemplos**: Forneça exemplos práticos no README e na documentação
+
+#### 4. Gerenciamento de Versões
+
+- Use [Semantic Versioning](https://semver.org/) (MAJOR.MINOR.PATCH)
+- Mantenha um CHANGELOG.md atualizado
+- Tag releases no GitHub
+
+### Passo a Passo: Criando um SDK
 
 <Steps>
-  <Step title="Instalação Global da CLI">
-    A CLI do Mintlify permite que você execute a documentação localmente e utilize ferramentas de validação.
+  <Step title="1. Planejamento">
+    Antes de começar a codificar:
 
-    <CodeGroup>
-
-    ```bash npm
-    npm install -g mint
-    ```
-
-    
-    ```bash yarn
-    yarn global add mint
-    ```
-
-    </CodeGroup>
-  </Step>
-  <Step title="Inicie o Servidor de Preview">
-    Navegue até o diretório raiz da sua documentação (onde o arquivo `docs.json` está localizado) e execute o seguinte comando:
-
-    ```bash
-    mint dev
-    ```
-
-    Um preview local da sua documentação estará disponível em `http://localhost:3000`.
+    1. **Verifique se já existe**: Consulte a lista de SDKs acima e o GitHub da Arara
+    2. **Abra uma Issue**: Crie uma issue no repositório principal da Arara anunciando sua intenção
+    3. **Planeje a estrutura**: Decida sobre:
+       - Gerenciador de pacotes (npm, pip, maven, etc.)
+       - Biblioteca HTTP (fetch, requests, okhttp, etc.)
+       - Estrutura de pastas
+       - Sistema de testes
 
     <Tip>
-      O preview é atualizado automaticamente sempre que você salva um arquivo, sem precisar reiniciar o servidor.
+      Consulte SDKs existentes de outras APIs populares (Stripe, Twilio) na mesma linguagem para inspiração na estrutura.
     </Tip>
+  </Step>
+
+  <Step title="2. Configuração Inicial">
+    Configure o projeto básico:
+
+    - Crie o repositório no GitHub
+    - Configure o gerenciador de pacotes
+    - Configure ferramentas de build/test
+    - Adicione arquivos essenciais (README, LICENSE, .gitignore)
+    - Configure CI/CD básico (GitHub Actions, etc.)
+
+    <CodeGroup>
+    ```bash Node.js/TypeScript
+    # Estrutura sugerida
+    arara-js/
+    ├── src/
+    │   ├── client.ts
+    │   ├── resources/
+    │   │   └── messages.ts
+    │   └── types.ts
+    ├── tests/
+    ├── package.json
+    ├── tsconfig.json
+    └── README.md
+    ```
+
+    ```bash Python
+    # Estrutura sugerida
+    arara-python/
+    ├── arara/
+    │   ├── __init__.py
+    │   ├── client.py
+    │   └── resources/
+    │       └── messages.py
+    ├── tests/
+    ├── setup.py
+    ├── requirements.txt
+    └── README.md
+    ```
+
+    ```bash Java
+    # Estrutura sugerida
+    arara-java/
+    ├── src/
+    │   └── main/
+    │       └── java/
+    │           └── com/
+    │               └── arara/
+    │                   ├── AraraClient.java
+    │                   └── resources/
+    │                       └── Messages.java
+    ├── pom.xml
+    └── README.md
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="3. Implementação do Cliente Base">
+    Crie a classe/função principal do cliente:
+
+    - **Inicialização**: Recebe a API Key
+    - **Configuração HTTP**: Base URL, headers padrão, timeout
+    - **Tratamento de Erros**: Mapeamento de códigos HTTP para exceções
+    - **Método genérico de requisição**: Para fazer chamadas HTTP
+
+    <CodeGroup>
+    ```typescript TypeScript
+    export class AraraClient {
+      private apiKey: string;
+      private baseURL: string = 'https://api.ararahq.com';
+      
+      constructor(apiKey: string) {
+        if (!apiKey) {
+          throw new Error('API Key is required');
+        }
+        this.apiKey = apiKey;
+      }
+      
+      private async request(
+        method: string,
+        path: string,
+        body?: any
+      ): Promise<any> {
+        const response = await fetch(`${this.baseURL}${path}`, {
+          method,
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        
+        if (!response.ok) {
+          throw new AraraError(response.status, await response.json());
+        }
+        
+        return response.json();
+      }
+    }
+    ```
+
+    ```python Python
+    import requests
+    from typing import Optional, Dict, Any
+
+    class AraraClient:
+        def __init__(self, api_key: str):
+            if not api_key:
+                raise ValueError("API Key is required")
+            self.api_key = api_key
+            self.base_url = "https://api.ararahq.com"
+        
+        def _request(
+            self, 
+            method: str, 
+            path: str, 
+            data: Optional[Dict[str, Any]] = None
+        ) -> Dict[str, Any]:
+            url = f"{self.base_url}{path}"
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            }
+            
+            response = requests.request(
+                method=method,
+                url=url,
+                headers=headers,
+                json=data
+            )
+            
+            if not response.ok:
+                raise AraraError(response.status_code, response.json())
+            
+            return response.json()
+    ```
+
+    ```java Java
+    public class AraraClient {
+        private final String apiKey;
+        private final String baseURL = "https://api.ararahq.com";
+        private final HttpClient httpClient;
+        
+        public AraraClient(String apiKey) {
+            if (apiKey == null || apiKey.isEmpty()) {
+                throw new IllegalArgumentException("API Key is required");
+            }
+            this.apiKey = apiKey;
+            this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+        }
+        
+        private HttpResponse<String> request(
+            String method,
+            String path,
+            String body
+        ) throws IOException, InterruptedException {
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create(baseURL + path))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json");
+            
+            if (body != null) {
+                requestBuilder.method(method, HttpRequest.BodyPublishers.ofString(body));
+            } else {
+                requestBuilder.method(method, HttpRequest.BodyPublishers.noBody());
+            }
+            
+            HttpResponse<String> response = httpClient.send(
+                requestBuilder.build(),
+                HttpResponse.BodyHandlers.ofString()
+            );
+            
+            if (response.statusCode() >= 400) {
+                throw new AraraException(response.statusCode(), response.body());
+            }
+            
+            return response;
+        }
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="4. Implementação do Recurso de Mensagens">
+    Crie a classe/função para enviar mensagens:
+
+    - **Método `send`**: Recebe `receiver`, `templateName`, `variables`
+    - **Validação**: Valida formato do número e parâmetros obrigatórios
+    - **Retorno tipado**: Retorna um objeto com os dados da mensagem
+
+    <CodeGroup>
+    ```typescript TypeScript
+    export interface SendMessageParams {
+      receiver: string;
+      templateName: string;
+      variables?: string[];
+    }
+    
+    export interface Message {
+      id: string;
+      receiver: string;
+      templateName: string;
+      status: string;
+      createdAt: string;
+    }
+    
+    export class Messages {
+      constructor(private client: AraraClient) {}
+      
+      async send(params: SendMessageParams): Promise<Message> {
+        // Validação
+        if (!params.receiver.startsWith('whatsapp:+')) {
+          throw new Error('Receiver must be in format whatsapp:+5583991768778');
+        }
+        
+        return this.client.request('POST', '/v1/messages', {
+          receiver: params.receiver,
+          templateName: params.templateName,
+          variables: params.variables || [],
+        });
+      }
+    }
+    ```
+
+    ```python Python
+    from typing import List, Optional
+    from dataclasses import dataclass
+
+    @dataclass
+    class SendMessageParams:
+        receiver: str
+        template_name: str
+        variables: Optional[List[str]] = None
+
+    @dataclass
+    class Message:
+        id: str
+        receiver: str
+        template_name: str
+        status: str
+        created_at: str
+
+    class Messages:
+        def __init__(self, client: AraraClient):
+            self.client = client
+        
+        def send(self, params: SendMessageParams) -> Message:
+            # Validação
+            if not params.receiver.startswith('whatsapp:+'):
+                raise ValueError(
+                    'Receiver must be in format whatsapp:+5583991768778'
+                )
+            
+            data = {
+                'receiver': params.receiver,
+                'templateName': params.template_name,
+                'variables': params.variables or [],
+            }
+            
+            response = self.client._request('POST', '/v1/messages', data)
+            return Message(**response)
+    ```
+
+    ```java Java
+    public class SendMessageParams {
+        private String receiver;
+        private String templateName;
+        private List<String> variables;
+        
+        // Getters, setters, construtor
+    }
+    
+    public class Message {
+        private String id;
+        private String receiver;
+        private String templateName;
+        private String status;
+        private String createdAt;
+        
+        // Getters, setters
+    }
+    
+    public class Messages {
+        private final AraraClient client;
+        
+        public Messages(AraraClient client) {
+            this.client = client;
+        }
+        
+        public Message send(SendMessageParams params) 
+                throws IOException, InterruptedException {
+            // Validação
+            if (!params.getReceiver().startsWith("whatsapp:+")) {
+                throw new IllegalArgumentException(
+                    "Receiver must be in format whatsapp:+5583991768778"
+                );
+            }
+            
+            Map<String, Object> body = new HashMap<>();
+            body.put("receiver", params.getReceiver());
+            body.put("templateName", params.getTemplateName());
+            body.put("variables", params.getVariables() != null 
+                ? params.getVariables() : Collections.emptyList());
+            
+            String jsonBody = new ObjectMapper().writeValueAsString(body);
+            HttpResponse<String> response = client.request(
+                "POST", "/v1/messages", jsonBody
+            );
+            
+            return new ObjectMapper()
+                .readValue(response.body(), Message.class);
+        }
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="5. Tratamento de Erros">
+    Implemente classes de erro específicas:
+
+    - **AraraError/AraraException**: Classe base
+    - **Erros específicos**: 400, 401, 404, 422, 500
+    - **Mensagens claras**: Erros devem ter mensagens descritivas
+
+    <CodeGroup>
+    ```typescript TypeScript
+    export class AraraError extends Error {
+      constructor(
+        public statusCode: number,
+        public response: any
+      ) {
+        super(response?.message || `HTTP ${statusCode}`);
+        this.name = 'AraraError';
+      }
+    }
+    
+    export class AraraAuthenticationError extends AraraError {
+      constructor(response: any) {
+        super(401, response);
+        this.name = 'AraraAuthenticationError';
+      }
+    }
+    ```
+
+    ```python Python
+    class AraraError(Exception):
+        def __init__(self, status_code: int, response: dict):
+            self.status_code = status_code
+            self.response = response
+            message = response.get('message', f'HTTP {status_code}')
+            super().__init__(message)
+
+    class AraraAuthenticationError(AraraError):
+        def __init__(self, response: dict):
+            super().__init__(401, response)
+    ```
+
+    ```java Java
+    public class AraraException extends Exception {
+        private final int statusCode;
+        private final String responseBody;
+        
+        public AraraException(int statusCode, String responseBody) {
+            super("HTTP " + statusCode);
+            this.statusCode = statusCode;
+            this.responseBody = responseBody;
+        }
+    }
+    
+    public class AraraAuthenticationException extends AraraException {
+        public AraraAuthenticationException(String responseBody) {
+            super(401, responseBody);
+        }
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="6. Testes">
+    Crie testes abrangentes:
+
+    - **Testes unitários**: Para cada método
+    - **Testes de integração**: Com a API real (use API Key de teste)
+    - **Testes de erro**: Para cada tipo de erro HTTP
+    - **Cobertura**: Almeje pelo menos 80% de cobertura
+
+    <Tip>
+      Use mocks para testes unitários e uma API Key de teste para testes de integração. Nunca commite API Keys reais!
+    </Tip>
+  </Step>
+
+  <Step title="7. Documentação e Exemplos">
+    Documente tudo:
+
+    - **README completo**: Com instalação, uso básico e exemplos
+    - **Documentação de API**: Use ferramentas como JSDoc, Sphinx, JavaDoc
+    - **Exemplos práticos**: Casos de uso comuns
+    - **CHANGELOG**: Mantenha um changelog atualizado
+
+    Exemplo de README mínimo deve incluir:
+
+    - Título e descrição do SDK
+    - Seção de instalação com comandos específicos
+    - Exemplo básico de uso
+    - Link para documentação completa
+    - Instruções de contribuição
+
+    Estrutura sugerida:
+
+    ```
+    # Arara SDK para [Linguagem]
+
+    SDK oficial da Arara para [linguagem].
+
+    ## Instalação
+    [comandos de instalação]
+
+    ## Uso Básico
+    [exemplo de código]
+
+    ## Documentação
+    [link para documentação completa]
+
+    ## Contribuindo
+    [instruções de contribuição]
+    ```
+  </Step>
+
+  <Step title="8. Publicação e Manutenção">
+    Publique e mantenha:
+
+    1. **Publique no gerenciador de pacotes**:
+       - npm (Node.js)
+       - PyPI (Python)
+       - Maven Central (Java)
+       - etc.
+
+    2. **Configure CI/CD**:
+       - Testes automáticos
+       - Publicação automática de releases
+
+    3. **Mantenha atualizado**:
+       - Monitore mudanças na API
+       - Atualize quando necessário
+       - Responda a issues e PRs
+
+    <Warning>
+      Antes de publicar, certifique-se de que o SDK está completo, testado e documentado. Primeiras impressões são importantes!
+    </Warning>
   </Step>
 </Steps>
 
-## Configurações Avançadas
+## Contribuindo com SDKs Existentes
 
-### Portas Personalizadas
+Se você quer contribuir com um SDK existente:
 
-Por padrão, o Mintlify utiliza a porta `3000`. Você pode customizá-la usando a flag `--port`. Por exemplo, para rodar na porta `3333`:
+1. **Fork o repositório** do SDK
+2. **Crie uma branch** para sua feature/correção
+3. **Siga as diretrizes** de contribuição do repositório
+4. **Escreva testes** para suas mudanças
+5. **Abra um Pull Request** com descrição clara
 
-```bash
-mint dev --port 3333
-```
+<Info>
+  Contribuições são sempre bem-vindas! Mesmo pequenas melhorias como correções de documentação, exemplos adicionais ou melhorias de performance são valiosas.
+</Info>
 
-Se a porta escolhida já estiver em uso, o Mintlify tentará a próxima porta disponível:
+## SDKs da Comunidade
 
-```md
-Port 3000 is already in use. Trying 3001 instead.
-```
+SDKs criados pela comunidade também são bem-vindos! Se você criou um SDK que não está na lista oficial:
 
-### Versões do Mintlify CLI
+1. **Adicione na documentação**: Abra um PR adicionando seu SDK na lista acima
+2. **Mantenha atualizado**: Certifique-se de manter o SDK compatível com a API
+3. **Siga as diretrizes**: Use as mesmas regras e padrões dos SDKs oficiais
 
-Cada release da CLI está associada a uma versão específica do Mintlify. Se o seu preview local não estiver alinhado com a versão de produção, atualize a CLI:
+## Recursos Úteis
 
-<CodeGroup>
+- [API Reference](/api-reference/introduction) - Documentação completa da API
+- [GitHub da Arara](https://github.com/ararahq) - Repositórios oficiais
+- [Discord/Slack da Comunidade](https://discord.gg/arara) - Para dúvidas e discussões
 
-```bash npm
-npm install -g mint@latest
-```
+## Contribuições
 
-
-```bash yarn
-yarn global upgrade mint
-```
-
-</CodeGroup>
-
-### Validação de Links
-
-A CLI pode ajudar a identificar links quebrados em sua documentação. Para verificar, use o comando:
-
-```bash
-mint broken-links
-```
-
-## Ferramentas e Troubleshooting
-
-### Formatação de Código
-
-Recomendamos o uso de extensões em seu IDE para reconhecer e formatar arquivos MDX. Para usuários do VS Code, considere:
-
-- [**MDX VSCode extension**](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx) para _syntax highlighting_.
-- [**Prettier**](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) para formatação de código consistente.
-
-### Solução de Problemas (Troubleshooting)
-
-<AccordionGroup>
-  <Accordion title='Erro: Não foi possível carregar o módulo "sharp" com o runtime darwin-arm64'>
-    Este erro pode ser devido a uma versão desatualizada do Node.js. Tente o seguinte:
-
-    1. Remova a versão atualmente instalada da CLI: `npm remove -g mint`
-    2. Atualize para o Node.js v19 ou superior.
-    3. Reinstale a CLI: `npm install -g mint`
-  </Accordion>
-  <Accordion title="Problema: Erro desconhecido">
-    **Solução:** Vá para a raiz do seu sistema e delete a pasta `~/.mintlify`. Em seguida, execute `mint dev` novamente.
-  </Accordion>
-</AccordionGroup>
-
-Curioso sobre o que mudou na última versão da CLI? [Confira o changelog da CLI.](https://www.npmjs.com/package/mint?activeTab=versions)
+SDKs de código aberto são fundamentais para o sucesso da Arara. Cada contribuição, grande ou pequena, faz a diferença e ajuda a melhorar a experiência de desenvolvimento para toda a comunidade.

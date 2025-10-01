@@ -1,58 +1,73 @@
 ---
-title: "Bem-vindo à Arara API"
-description: "Sua plataforma definitiva para comunicação via WhatsApp no Brasil. Simples, robusta e focada no desenvolvedor."
+title: "Introdução"
+description: "Bem-vindo à Arara! Sua plataforma definitiva para comunicação via WhatsApp no Brasil. Simples, robusta e focada no desenvolvedor."
 ---
 
 <img
   className="block dark:hidden"
-  src="/logo/light.svg"
-  alt="Logo Arara Light"
+  src="/logo/logo-black-transparente.png"
+  alt="Logo Arara"
   width="180"
 />
 
 <img
   className="hidden dark:block"
-  src="/logo/dark.svg"
-  alt="Logo Arara Dark"
+  src="/logo/logo-white-transparente.png"
+  alt="Logo Arara"
   width="180"
   style={{ width:"98%" }}
 />
 
-# Arara API: Descomplicando o WhatsApp no Brasil
+# Arara: Descomplicando o WhatsApp no Brasil
 
-Sua jornada para integrar a comunicação via WhatsApp nunca foi tão simples e eficiente. A Arara API é a plataforma que abstrai toda a complexidade da Meta, permitindo que você envie mensagens de template em **menos de 5 minutos**.
+Sua jornada para integrar a comunicação via WhatsApp nunca foi tão simples e eficiente. A Arara é a plataforma que abstrai toda a complexidade da Meta, permitindo que você envie mensagens de template em **menos de 5 minutos**.
 
 ## Visão Geral
 
-A Arara API é a solução ideal para desenvolvedores, startups de SaaS e agências digitais no Brasil que buscam **simplicidade radical** e uma **Experiência do Desenvolvedor (DX) de primeira classe**.
+A Arara é a solução ideal para desenvolvedores, startups de SaaS e agências digitais no Brasil que buscam **simplicidade radical** e uma **Experiência do Desenvolvedor (DX) de primeira classe**.
 
 - **Para Quem?** Desenvolvedores, Startups de SaaS, Agências Digitais.
 - **Por Quê?** Eliminar a frustração da API oficial do WhatsApp com uma solução focada no mercado brasileiro.
-- **O Quê?** Uma API para envio de mensagens de template, agendamento e um dashboard visual para gerenciamento.
+- **O Quê?** Uma API para envio de mensagens de template via WhatsApp com templates gerenciados visualmente e webhooks para integração com carrinhos de compra.
+
+## Como Funciona
+
+A Arara funciona de forma simples e direta:
+
+1. **Autenticação**: Faça login no dashboard e receba sua chave de API única (mostrada apenas uma vez)
+2. **Templates**: Crie seus templates de mensagem diretamente no dashboard
+3. **Envio**: Use nossa API REST para enviar mensagens usando os templates criados
+4. **Webhooks**: Configure webhooks para receber notificações de eventos, como atualizações de carrinho
 
 ## Comece a Construir Agora
 
-Entenda a Arara API em poucos passos e comece a integrar imediatamente.
+Entenda a Arara em poucos passos e comece a integrar imediatamente.
 
 <CardGroup cols={2}>
   <Card title="Guia Rápido" icon="rocket" href="/quickstart">
     Envie sua primeira mensagem em 5 minutos.
   </Card>
-  <Card title="Ambiente de Desenvolvimento" icon="laptop-code" href="/development">
-    Configure o projeto Arara localmente e contribua.
+  <Card title="Autenticação" icon="key" href="/api-reference/authentication">
+    Aprenda como obter sua chave de API.
+  </Card>
+  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/send">
+    Documentação completa do endpoint de envio.
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/webhook">
+    Configure webhooks para eventos do sistema.
   </Card>
 </CardGroup>
 
 ## Explore a Plataforma
 
-Mergulhe nos detalhes técnicos e de negócio da Arara API.
+Mergulhe nos detalhes técnicos e de negócio da Arara.
 
 <CardGroup cols={2}>
   <Card title="Arquitetura" icon="diagram-project" href="/architecture/overview">
     Conheça a robustez do nosso backend, frontend e infraestrutura.
   </Card>
-  <Card title="Regras de Negócio" icon="scale-balanced" href="/business-rules/pricing-model">
-    Entenda nossa precificação e gerenciamento de templates.
+  <Card title="Gerenciamento de Templates" icon="bezier-curve" href="/business-rules/template-management">
+    Aprenda a criar e gerenciar templates de mensagem.
   </Card>
   <Card title="Roadmap do Projeto" icon="timeline" href="/planning/mvp-roadmap">
     Veja o que construímos, o que estamos construindo e o que virá.

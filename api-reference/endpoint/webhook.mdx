@@ -1,4 +1,322 @@
 ---
-title: 'New Plant'
-openapi: 'WEBHOOK /plant/webhook'
+title: 'Webhooks'
+description: 'Configure webhooks para receber notificações de eventos da Arara, como atualizações de carrinho'
 ---
+
+# Webhooks
+
+Webhooks permitem que você receba notificações em tempo real sobre eventos que acontecem na Arara. Isso é especialmente útil para integrações com carrinhos de compra e outros sistemas que precisam reagir a mudanças.
+
+## O Que São Webhooks?
+
+Webhooks são chamadas HTTP que a Arara faz para uma URL que você configurou, sempre que um evento específico acontece. É como receber uma "notificação push" do nosso servidor para o seu.
+
+## Configurando Webhooks
+
+### Passo 1: Acesse o Dashboard
+
+1. Faça login no [Dashboard da Arara](https://dashboard.ararahq.com)
+2. Navegue até a seção **"Webhooks"** ou **"Configurações"**
+
+### Passo 2: Configure a URL do Webhook
+
+Você precisará fornecer uma URL pública onde deseja receber as notificações:
+
+```
+https://api.meusite.com/webhook/arara
+```
+
+<Warning>
+  A URL do webhook deve ser:
+  - **Pública**: Acessível da internet (não localhost)
+  - **HTTPS**: Usar protocolo seguro (HTTPS)
+  - **Válida**: Responder corretamente às requisições
+</Warning>
+
+### Passo 3: Escolha os Eventos
+
+Selecione quais eventos você deseja receber:
+
+- **Carrinho Atualizado**: Quando um carrinho de compra é atualizado
+- **Mensagem Enviada**: Quando uma mensagem é enviada com sucesso
+- **Mensagem Falhou**: Quando uma mensagem falha ao ser enviada
+- **Template Aprovado**: Quando um template é aprovado
+
+## Webhooks para Carrinho de Compra
+
+Para integrações com carrinhos de compra, você pode configurar webhooks que serão chamados quando eventos relacionados ao carrinho acontecem.
+
+### Exemplo de Payload do Webhook
+
+Quando um evento de carrinho acontece, a Arara enviará uma requisição POST para sua URL configurada:
+
+```json
+{
+  "event": "cart.updated",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "data": {
+    "cartId": "cart_123456",
+    "userId": "user_789",
+    "items": [
+      {
+        "productId": "prod_001",
+        "name": "Produto Exemplo",
+        "quantity": 2,
+        "price": 50.00
+      }
+    ],
+    "total": 100.00,
+    "status": "pending"
+  }
+}
+```
+
+### Implementando o Endpoint do Webhook
+
+Seu endpoint deve:
+
+1. **Validar a requisição** (opcional, mas recomendado)
+2. **Processar o evento**
+3. **Responder com status 200** para confirmar o recebimento
+
+#### Exemplo em Node.js/Express
+
+```javascript
+const express = require('express');
+const app = express();
+
+app.use(express.json());
+
+app.post('/webhook/arara', (req, res) => {
+  const { event, data } = req.body;
+  
+  if (event === 'cart.updated') {
+    // Processar atualização do carrinho
+    console.log('Carrinho atualizado:', data.cartId);
+    
+    // Aqui você pode:
+    // - Enviar uma mensagem de WhatsApp
+    // - Atualizar seu banco de dados
+    // - Disparar outras ações
+  }
+  
+  // Sempre responda com 200 para confirmar recebimento
+  res.status(200).json({ received: true });
+});
+
+app.listen(3000, () => {
+  console.log('Webhook server listening on port 3000');
+});
+```
+
+#### Exemplo em Python/Flask
+
+```python
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route('/webhook/arara', methods=['POST'])
+def webhook():
+    data = request.json
+    event = data.get('event')
+    
+    if event == 'cart.updated':
+        cart_data = data.get('data')
+        print(f'Carrinho atualizado: {cart_data.get("cartId")}')
+        
+        # Processar atualização do carrinho
+        # - Enviar mensagem de WhatsApp
+        # - Atualizar banco de dados
+        # - Disparar outras ações
+    
+    return jsonify({'received': True}), 200
+
+if __name__ == '__main__':
+    app.run(port=3000)
+```
+
+#### Exemplo em PHP
+
+```php
+<?php
+
+header('Content-Type: application/json');
+
+$payload = json_decode(file_get_contents('php://input'), true);
+$event = $payload['event'] ?? null;
+
+if ($event === 'cart.updated') {
+    $cartData = $payload['data'];
+    error_log("Carrinho atualizado: " . $cartData['cartId']);
+    
+    // Processar atualização do carrinho
+    // - Enviar mensagem de WhatsApp
+    // - Atualizar banco de dados
+    // - Disparar outras ações
+}
+
+http_response_code(200);
+echo json_encode(['received' => true]);
+?>
+```
+
+## Segurança
+
+### Validação de Requisições (Recomendado)
+
+Para garantir que as requisições realmente vêm da Arara, você pode:
+
+1. **Verificar o cabeçalho de assinatura** (se disponível)
+2. **Validar o formato do payload**
+3. **Usar HTTPS** para criptografar a comunicação
+
+### Exemplo de Validação
+
+```javascript
+const crypto = require('crypto');
+
+function validateWebhook(req, secret) {
+  const signature = req.headers['x-arara-signature'];
+  const payload = JSON.stringify(req.body);
+  
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+  
+  return signature === expectedSignature;
+}
+
+app.post('/webhook/arara', (req, res) => {
+  if (!validateWebhook(req, process.env.WEBHOOK_SECRET)) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+  
+  // Processar webhook...
+  res.status(200).json({ received: true });
+});
+```
+
+## Eventos Disponíveis
+
+### `cart.updated`
+
+Disparado quando um carrinho de compra é atualizado.
+
+**Payload:**
+```json
+{
+  "event": "cart.updated",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "data": {
+    "cartId": "string",
+    "userId": "string",
+    "items": [...],
+    "total": 0.00,
+    "status": "string"
+  }
+}
+```
+
+### `message.sent`
+
+Disparado quando uma mensagem é enviada com sucesso.
+
+**Payload:**
+```json
+{
+  "event": "message.sent",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "data": {
+    "messageId": "uuid",
+    "receiver": "whatsapp:+5583991768778",
+    "status": "SENT_TO_PROVIDER"
+  }
+}
+```
+
+### `message.failed`
+
+Disparado quando uma mensagem falha ao ser enviada.
+
+**Payload:**
+```json
+{
+  "event": "message.failed",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "data": {
+    "messageId": "uuid",
+    "receiver": "whatsapp:+5583991768778",
+    "error": "Error message"
+  }
+}
+```
+
+## Testando Webhooks
+
+### Usando ngrok (Desenvolvimento Local)
+
+Para testar webhooks localmente, você pode usar o [ngrok](https://ngrok.com):
+
+```bash
+# Instale o ngrok
+brew install ngrok  # macOS
+# ou baixe de https://ngrok.com/download
+
+# Execute seu servidor local
+node server.js  # na porta 3000
+
+# Em outro terminal, crie um túnel
+ngrok http 3000
+
+# Use a URL fornecida pelo ngrok no dashboard
+# Exemplo: https://abc123.ngrok.io/webhook/arara
+```
+
+### Testando com cURL
+
+Você pode simular um webhook usando cURL:
+
+```bash curl
+curl -X POST https://api.meusite.com/webhook/arara \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "cart.updated",
+    "timestamp": "2024-01-15T10:30:00Z",
+    "data": {
+      "cartId": "cart_123456",
+      "userId": "user_789",
+      "items": [],
+      "total": 0.00,
+      "status": "pending"
+    }
+  }'
+```
+
+## Resolução de Problemas
+
+### Webhook Não Está Sendo Chamado
+
+1. Verifique se a URL está correta e acessível
+2. Confirme que a URL usa HTTPS
+3. Verifique os logs do dashboard para ver tentativas de entrega
+4. Teste a URL manualmente com cURL
+
+### Webhook Retorna Erro
+
+1. Certifique-se de que seu endpoint retorna status `200`
+2. Verifique os logs do seu servidor
+3. Valide o formato do payload recebido
+4. Teste com um payload de exemplo
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/send">
+    Aprenda a enviar mensagens via API
+  </Card>
+  <Card title="Autenticação" icon="key" href="/api-reference/authentication">
+    Revise a autenticação da API
+  </Card>
+</CardGroup>

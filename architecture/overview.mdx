@@ -5,10 +5,14 @@ description: 'Uma visão de alto nível de como os componentes da Arara se conec
 
 # Visão Geral da Arquitetura
 
-<Info>
-  Esta seção fornecerá uma visão abrangente da arquitetura de sistemas da Arara API, descrevendo os principais componentes, serviços e suas interações.
-  O conteúdo será adicionado em breve para detalhar a infraestrutura, o design modular e as tecnologias utilizadas.
-</Info>
+## Visão Geral
+
+A Arara foi projetada com uma arquitetura moderna e escalável, focada em simplicidade para o desenvolvedor e confiabilidade para o negócio. A plataforma é construída em torno de princípios de design que priorizam:
+
+- **Simplicidade**: API simples e intuitiva
+- **Confiabilidade**: Sistema robusto que garante entrega de mensagens
+- **Escalabilidade**: Arquitetura que cresce com sua demanda
+- **Segurança**: Proteção de dados e autenticação robusta
 
 ## Funcionalidades Essenciais
 
@@ -18,7 +22,7 @@ A plataforma Arara é construída em torno de um conjunto de funcionalidades ess
   <Card
     title="API para Envio Outbound"
     icon="paper-plane"
-    href="/api-reference/messages/send"
+    href="/api-reference/endpoint/send"
   >
     Um único endpoint poderoso e fácil de usar para disparar mensagens de template via WhatsApp, com foco na simplicidade da integração.
   </Card>
@@ -26,7 +30,7 @@ A plataforma Arara é construída em torno de um conjunto de funcionalidades ess
   <Card
     title="Agendamento de Mensagens"
     icon="clock-rotate-left"
-    href="/api-reference/messages/schedule"
+    href="/api-reference/endpoint/schedule"
   >
     Suporte nativo ao parâmetro `scheduled_at` em nossa API, permitindo programar o envio de mensagens para a data e hora desejadas.
   </Card>
@@ -40,18 +44,10 @@ A plataforma Arara é construída em torno de um conjunto de funcionalidades ess
   </Card>
 
   <Card
-    title="Modo de Teste (Dev Mode)"
-    icon="vial-virus"
-    href="/getting-started/quickstart#passo-4-verifique-a-resposta-e-os-logs"
+    title="Recuperação de Carrinho"
+    icon="cart-shopping"
+    href="/api-reference/endpoint/cart-recovery"
   >
-    Um ambiente sandbox de baixo atrito para desenvolvedores testarem a integração em minutos, sem custos e com feedback instantâneo.
+    Sistema inteligente de recuperação de carrinho abandonado via WhatsApp, ajudando a converter visitantes em clientes.
   </Card>
 </CardGroup>
-
-<Card icon="hammer-wrench" title="Detalhes da Arquitetura em Breve">
-  O detalhamento técnico da nossa arquitetura está sendo preparado. Em breve, você encontrará informações sobre:
-  -   Visão geral dos componentes e microsserviços
-  -   Fluxo de dados entre sistemas
-  -   Tecnologias de infraestrutura (Cloud, containers, etc.)
-  -   Padrões de design e princípios arquiteturais
-</Card>

@@ -1,44 +1,56 @@
 ---
-title: 'Guia Rápido: Envie sua Primeira Mensagem'
-description: 'Aprenda a enviar sua primeira mensagem de WhatsApp usando a Arara API.'
+title: 'Quickstart'
+description: 'Aprenda a enviar sua primeira mensagem de WhatsApp usando a Arara.'
 ---
 
 ## Boas-vindas ao Mundo da Comunicação Simplificada!
 
-Este guia rápido vai te mostrar como é fácil integrar a Arara API e enviar sua primeira mensagem de template via WhatsApp. Nossa missão é descomplicar, e você verá isso desde o primeiro `curl`.
+Este guia rápido vai te mostrar como é fácil integrar a Arara e enviar sua primeira mensagem de template via WhatsApp. Nossa missão é descomplicar, e você verá isso desde o primeiro `curl`.
 
-<Card icon="bolt" title="5 Minutos para o Sucesso">
-  Siga os passos abaixo e tenha sua primeira mensagem enviada!!!
-</Card>
+## Objetivo
+
+Siga os passos abaixo para enviar sua primeira mensagem em poucos minutos.
 
 ## Pré-requisitos
 
 Antes de começar, certifique-se de ter:
 
--   Uma **conta na Arara API** e acesso ao seu [Dashboard](https://dashboard.ararahq.com).
--   Uma **API Key de Teste (`sk_test_***`)**, que você pode gerar no seu [Dashboard em "Chaves de API"](https://dashboard.ararahq.com/api-keys).
--   Um número de celular **verificado** na sua conta Arara para receber as mensagens de teste.
+-   Uma **conta na Arara** - faça login no [Dashboard](https://dashboard.ararahq.com) para criar sua conta automaticamente.
+-   Uma **Chave de API (`ara_sk_***`)**, que você receberá automaticamente ao fazer login pela primeira vez.
+-   Um **template criado** no dashboard (você pode criar um template de teste).
+-   Um número de celular **verificado** para receber as mensagens de teste.
 -   Um cliente HTTP (como `curl` no terminal, Postman, Insomnia ou VS Code com extensão REST Client).
+
+<Warning>
+  **Importante**: O número de celular precisa ser cadastrado previamente pela equipe de suporte da Arara, junto com a documentação da empresa. Entre em contato com suporte@ararahq.com para solicitar o cadastro do número.
+</Warning>
 
 ## Passo a Passo: Sua Primeira Mensagem
 
 <Steps>
-  ### Passo 1: Obtenha sua API Key
-  <Step title="Gere sua API Key de Teste">
-    Acesse o [Dashboard da Arara API](https://dashboard.ararahq.com) e navegue até a seção "Chaves de API". Gere uma nova chave de teste (`sk_test_***`) e **guarde-a em um local seguro**.
+  ### Passo 1: Faça Login e Obtenha sua Chave de API
+  <Step title="Receba sua Chave Única">
+    Acesse o [Dashboard da Arara](https://dashboard.ararahq.com) e faça login. Quando você fizer login pela primeira vez, uma chave de API será gerada automaticamente e **exibida apenas uma vez**.
+
+    <Warning>
+      **IMPORTANTE**: Guarde sua chave imediatamente! Você não poderá vê-la novamente depois que fechar a tela. A chave terá o formato: `ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+    </Warning>
 
     <Info>
       Sua API Key deve ser tratada como uma senha. **Nunca a exponha em código cliente ou repositórios públicos.**
     </Info>
   </Step>
 
-  ### Passo 2: Prepare o Template
-  <Step title="Use um Template Padrão">
-    Para este exemplo rápido, vamos usar um template de teste genérico que já está pré-aprovado na sua conta de **Dev Mode**.
+  ### Passo 2: Crie um Template
+  <Step title="Crie um Template no Dashboard">
+    No dashboard, navegue até a seção **"Templates"** e crie um novo template. Por exemplo:
 
-    **Nome do Template:** `hello_world`
+    - **Nome**: `template_teste_inicio_conversa`
+    - **Conteúdo**: `Olá! Esta é uma mensagem de teste da Arara.`
 
-    Este template geralmente tem um único parâmetro, por exemplo: `Olá {{1}}! Bem-vindo à Arara API.`.
+    <Warning>
+      **Importante**: Você só pode enviar mensagens usando templates que foram criados previamente no dashboard.
+    </Warning>
   </Step>
 
   ### Passo 3: Faça a Chamada da API
@@ -46,57 +58,179 @@ Antes de começar, certifique-se de ter:
     Abra seu terminal ou cliente HTTP e faça uma requisição `POST` para o endpoint de envio de mensagens.
 
     Substitua:
-    -   `<SUA_API_KEY>` pela sua chave de teste (`sk_test_***`).
-    -   `<NUMERO_VERIFICADO>` pelo número de celular que você verificou na sua conta Arara.
+    -   `<SUA_API_KEY>` pela sua chave de API (`ara_sk_***`).
+    -   `<NUMERO_DESTINATARIO>` pelo número no formato `whatsapp:+5583991768778`.
+    -   `<NOME_TEMPLATE>` pelo nome do template que você criou.
 
-    ```bash curl
-    curl -X POST [https://api.ararahq.com/v1/messages/send](https://api.ararahq.com/v1/messages/send) \
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://api.ararahq.com/v1/messages \
          -H "Authorization: Bearer <SUA_API_KEY>" \
          -H "Content-Type: application/json" \
          -d '{
-               "to": "<NUMERO_VERIFICADO>",
-               "template_name": "hello_world",
-               "template_params": ["Usuário Arara"]
+               "receiver": "whatsapp:+5583991768778",
+               "templateName": "template_teste_inicio_conversa",
+               "variables": []
              }'
     ```
-    
-    <Card icon="python" title="Exemplo em Python (Opcional)">
-      ```python
-      import requests
 
-      api_key = "<SUA_API_KEY>"
-      to_number = "<NUMERO_VERIFICADO>"
-      
-      headers = {
-          "Authorization": f"Bearer {api_key}",
-          "Content-Type": "application/json"
-      }
-      
-      payload = {
-          "to": to_number,
-          "template_name": "hello_world",
-          "template_params": ["Usuário Arara"]
-      }
-      
-      response = requests.post("[https://api.ararahq.com/v1/messages/send](https://api.ararahq.com/v1/messages/send)", headers=headers, json=payload)
-      
-      print(response.json())
-      ```
-    </Card>
+    ```python Python
+    import requests
+
+    api_key = "<SUA_API_KEY>"
+    receiver = "whatsapp:+5583991768778"
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "receiver": receiver,
+        "templateName": "template_teste_inicio_conversa",
+        "variables": []
+    }
+    
+    response = requests.post("https://api.ararahq.com/v1/messages", headers=headers, json=payload)
+    
+    print(response.json())
+    ```
+
+    ```javascript JavaScript
+    const fetch = require('node-fetch');
+
+    const apiKey = '<SUA_API_KEY>';
+    const url = 'https://api.ararahq.com/v1/messages';
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    };
+    const body = {
+      receiver: 'whatsapp:+5583991768778',
+      templateName: 'template_teste_inicio_conversa',
+      variables: []
+    };
+
+    fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(body)
+    })
+      .then(res => res.json())
+      .then(data => console.log(data));
+    ```
+
+    ```typescript TypeScript
+    const apiKey = '<SUA_API_KEY>';
+    const url = 'https://api.ararahq.com/v1/messages';
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    };
+    const body = {
+      receiver: 'whatsapp:+5583991768778',
+      templateName: 'template_teste_inicio_conversa',
+      variables: []
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(body)
+    });
+
+    const data = await response.json();
+    console.log(data);
+    ```
+
+    ```java Java
+    import java.net.http.HttpClient;
+    import java.net.http.HttpRequest;
+    import java.net.http.HttpResponse;
+    import java.net.URI;
+    import java.time.Duration;
+    import com.fasterxml.jackson.databind.ObjectMapper;
+
+    HttpClient client = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(10))
+        .build();
+
+    ObjectMapper mapper = new ObjectMapper();
+    String jsonBody = mapper.writeValueAsString(Map.of(
+        "receiver", "whatsapp:+5583991768778",
+        "templateName", "template_teste_inicio_conversa",
+        "variables", List.of()
+    ));
+
+    HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("https://api.ararahq.com/v1/messages"))
+        .header("Authorization", "Bearer <SUA_API_KEY>")
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+        .build();
+
+    HttpResponse<String> response = client.send(request, 
+        HttpResponse.BodyHandlers.ofString());
+    System.out.println(response.body());
+    ```
+
+    ```kotlin Kotlin
+    import kotlinx.serialization.Serializable
+    import kotlinx.serialization.encodeToString
+    import kotlinx.serialization.json.Json
+    import java.net.http.HttpClient
+    import java.net.http.HttpRequest
+    import java.net.http.HttpResponse
+    import java.net.URI
+    import java.time.Duration
+
+    @Serializable
+    data class MessageRequest(
+        val receiver: String,
+        val templateName: String,
+        val variables: List<String> = emptyList()
+    )
+
+    val client = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(10))
+        .build()
+
+    val requestBody = MessageRequest(
+        receiver = "whatsapp:+5583991768778",
+        templateName = "template_teste_inicio_conversa",
+        variables = emptyList()
+    )
+
+    val jsonBody = Json.encodeToString(requestBody)
+
+    val request = HttpRequest.newBuilder()
+        .uri(URI.create("https://api.ararahq.com/v1/messages"))
+        .header("Authorization", "Bearer <SUA_API_KEY>")
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+        .build()
+
+    val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+    println(response.body())
+    ```
+    </CodeGroup>
   </Step>
 
-  ### Passo 4: Verifique a Resposta e os Logs
+  ### Passo 4: Verifique a Resposta
   <Step title="Confirme o Envio">
-    Se a requisição for bem-sucedida, você receberá uma resposta JSON similar a esta:
+    Se a requisição for bem-sucedida, você receberá uma resposta `202 Accepted` com JSON similar a esta:
     ```json
     {
-      "message_id": "msg_xyz123abc456",
-      "status": "queued",
-      "to": "<NUMERO_VERIFICADO>"
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "receiver": "whatsapp:+5583991768778",
+      "templateName": "template_teste_inicio_conversa",
+      "status": "PENDING",
+      "messageType": "TEMPLATE",
+      "createdAt": "2024-01-15T10:30:00Z"
     }
     ```
     
-    Além disso, você pode verificar o status e o histórico completo da mensagem no seu [Dashboard em "Logs"](https://dashboard.ararahq.com/logs).
+    A mensagem será processada e enviada em breve. Você pode verificar o status e o histórico completo da mensagem no seu [Dashboard](https://dashboard.ararahq.com).
   </Step>
 </Steps>
 
@@ -113,14 +247,28 @@ Agora que você enviou sua primeira mensagem, explore mais:
     Aprenda a criar e gerenciar seus próprios templates de mensagem.
   </Card>
   <Card
-    title="Agendamento de Mensagens"
-    icon="clock-rotate-left"
-    href="/api-reference/messages/schedule"
+    title="Configure Webhooks"
+    icon="webhook"
+    href="/api-reference/endpoint/webhook"
   >
-    Descubra como agendar mensagens para o futuro.
+    Configure webhooks para receber notificações de eventos, como atualizações de carrinho.
+  </Card>
+  <Card
+    title="Documentação Completa da API"
+    icon="book"
+    href="/api-reference/endpoint/send"
+  >
+    Explore todos os detalhes do endpoint de envio de mensagens.
+  </Card>
+  <Card
+    title="Autenticação"
+    icon="key"
+    href="/api-reference/authentication"
+  >
+    Entenda como funciona a autenticação e gerenciamento de chaves.
   </Card>
 </CardGroup>
 
-<Card icon="party-horn" title="Parabéns!">
-  Você está pronto para construir experiências incríveis com a Arara API.
-</Card>
+## Pronto para Começar
+
+Agora você tem todas as informações necessárias para começar a integrar a Arara em seus projetos. Explore a documentação completa para descobrir todas as funcionalidades disponíveis.

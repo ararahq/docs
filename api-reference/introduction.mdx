@@ -1,33 +1,88 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: 'Referência da API'
+description: 'Documentação completa da API Arara para integração via WhatsApp'
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+# Referência da API
 
-## Welcome
+Bem-vindo à documentação completa da API Arara! Aqui você encontrará todos os detalhes necessários para integrar o envio de mensagens via WhatsApp em sua aplicação.
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+## Visão Geral
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+A Arara é uma API REST simples e poderosa que permite:
 
-## Authentication
+- Enviar mensagens de template via WhatsApp
+- Gerenciar templates através do dashboard
+- Receber notificações via webhooks
+- Integrar com carrinhos de compra e outros sistemas
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+## Base URL
+
+Todas as requisições devem ser feitas para:
+
+```
+https://api.ararahq.com
+```
+
+## Autenticação
+
+Todas as requisições à API requerem autenticação usando uma chave de API (API Key). A chave deve ser incluída no cabeçalho `Authorization`:
+
+```bash
+Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+<CardGroup cols={2}>
+  <Card title="Autenticação" icon="key" href="/api-reference/authentication">
+    Aprenda como obter e usar sua chave de API
+  </Card>
+  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/send">
+    Documentação do endpoint de envio
+  </Card>
+</CardGroup>
+
+## Formato de Resposta
+
+A API retorna respostas em formato JSON. Todas as datas e horas são retornadas no formato ISO 8601 (UTC).
+
+### Resposta de Sucesso
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "PENDING",
+  ...
+}
 ```
+
+### Resposta de Erro
+
+```json
+{
+  "error": "Bad Request",
+  "message": "receiver is required"
+}
+```
+
+## Códigos de Status HTTP
+
+| Código | Descrição |
+|--------|-----------|
+| `200` | Sucesso - Requisição processada com sucesso |
+| `202` | Aceito - Requisição aceita para processamento |
+| `400` | Requisição Inválida - Dados malformados ou faltando |
+| `401` | Não Autorizado - Chave de API inválida ou ausente |
+| `404` | Não Encontrado - Recurso não existe |
+| `422` | Entidade Não Processável - Dados válidos mas não processáveis |
+| `500` | Erro Interno do Servidor - Erro no servidor |
+
+## Rate Limits
+
+A API possui limites de taxa para garantir a estabilidade do serviço. Limites específicos serão comunicados no dashboard.
+
+## Suporte
+
+Precisa de ajuda? Entre em contato:
+
+- Email: suporte@ararahq.com
+- Dashboard: [dashboard.ararahq.com](https://dashboard.ararahq.com)

@@ -1,0 +1,228 @@
+---
+title: 'Autenticação'
+description: 'Aprenda como autenticar suas requisições na Arara usando sua chave de API'
+---
+
+# Autenticação
+
+Todas as requisições à Arara requerem autenticação usando uma **chave de API** (API Key). Esta chave identifica você e autoriza o acesso aos recursos da sua conta.
+
+## Como Obter Sua Chave de API
+
+### Passo 1: Faça Login no Dashboard
+
+Acesse o [Dashboard da Arara](https://dashboard.ararahq.com) e faça login usando sua conta. Se você ainda não tem uma conta, será criada automaticamente no primeiro login.
+
+### Passo 2: Receba Sua Chave Única
+
+<Warning>
+  **IMPORTANTE**: Quando você faz login pela primeira vez, uma chave de API é gerada automaticamente e **exibida apenas uma vez**. 
+  
+  **Guarde esta chave imediatamente em um local seguro!** Você não poderá vê-la novamente depois que fechar a tela.
+</Warning>
+
+Após o login, você verá uma tela mostrando sua chave de API no formato:
+
+```
+ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+## Segurança da Chave
+
+Sua chave de API é como uma senha. Nunca a compartilhe publicamente, não a commite em repositórios Git, e não a exponha em código cliente (frontend JavaScript, apps mobile, etc).
+
+### Passo 3: Usar a Chave nas Requisições
+
+Inclua sua chave de API no cabeçalho `Authorization` de todas as requisições:
+
+```bash
+Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+## Exemplo de Requisição Autenticada
+
+Aqui está um exemplo completo de como fazer uma requisição autenticada:
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5583991768778",
+    "templateName": "template_teste_inicio_conversa",
+    "variables": []
+  }'
+```
+
+```python Python
+import requests
+
+url = "https://api.ararahq.com/v1/messages"
+headers = {
+    "Authorization": "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "Content-Type": "application/json"
+}
+payload = {
+    "receiver": "whatsapp:+5583991768778",
+    "templateName": "template_teste_inicio_conversa",
+    "variables": []
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+const fetch = require('node-fetch');
+
+const url = 'https://api.ararahq.com/v1/messages';
+const headers = {
+  'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+  'Content-Type': 'application/json'
+};
+const body = {
+  receiver: 'whatsapp:+5583991768778',
+  templateName: 'template_teste_inicio_conversa',
+  variables: []
+};
+
+fetch(url, {
+  method: 'POST',
+  headers: headers,
+  body: JSON.stringify(body)
+})
+  .then(res => res.json())
+  .then(data => console.log(data));
+```
+
+```typescript TypeScript
+const url = 'https://api.ararahq.com/v1/messages';
+const headers = {
+  'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+  'Content-Type': 'application/json'
+};
+const body = {
+  receiver: 'whatsapp:+5583991768778',
+  templateName: 'template_teste_inicio_conversa',
+  variables: []
+};
+
+const response = await fetch(url, {
+  method: 'POST',
+  headers: headers,
+  body: JSON.stringify(body)
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```java Java
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.URI;
+import java.time.Duration;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+HttpClient client = HttpClient.newBuilder()
+    .connectTimeout(Duration.ofSeconds(10))
+    .build();
+
+ObjectMapper mapper = new ObjectMapper();
+String jsonBody = mapper.writeValueAsString(Map.of(
+    "receiver", "whatsapp:+5583991768778",
+    "templateName", "template_teste_inicio_conversa",
+    "variables", List.of()
+));
+
+HttpRequest request = HttpRequest.newBuilder()
+    .uri(URI.create("https://api.ararahq.com/v1/messages"))
+    .header("Authorization", "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    .header("Content-Type", "application/json")
+    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+    .build();
+
+HttpResponse<String> response = client.send(request, 
+    HttpResponse.BodyHandlers.ofString());
+System.out.println(response.body());
+```
+
+```kotlin Kotlin
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.net.URI
+import java.time.Duration
+
+@Serializable
+data class MessageRequest(
+    val receiver: String,
+    val templateName: String,
+    val variables: List<String> = emptyList()
+)
+
+val client = HttpClient.newBuilder()
+    .connectTimeout(Duration.ofSeconds(10))
+    .build()
+
+val requestBody = MessageRequest(
+    receiver = "whatsapp:+5583991768778",
+    templateName = "template_teste_inicio_conversa",
+    variables = emptyList()
+)
+
+val jsonBody = Json.encodeToString(requestBody)
+
+val request = HttpRequest.newBuilder()
+    .uri(URI.create("https://api.ararahq.com/v1/messages"))
+    .header("Authorization", "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    .header("Content-Type", "application/json")
+    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+    .build()
+
+val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+println(response.body())
+```
+</CodeGroup>
+
+## Gerar Novas Chaves
+
+Se você perdeu sua chave ou precisa de uma nova, você pode gerar uma nova chave de API diretamente no dashboard, na seção "Chaves de API". 
+
+<Info>
+  Você pode ter múltiplas chaves de API ativas ao mesmo tempo. Isso é útil para diferentes ambientes (desenvolvimento, produção) ou diferentes aplicações.
+</Info>
+
+## Revogar Chaves
+
+Se uma chave foi comprometida ou não é mais necessária, você pode revogá-la no dashboard. Uma vez revogada, a chave não poderá mais ser usada para autenticar requisições.
+
+## Resposta de Erro de Autenticação
+
+Se você usar uma chave inválida ou expirada, receberá uma resposta `401 Unauthorized`:
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid or expired API key"
+}
+```
+
+## Próximos Passos
+
+Agora que você tem sua chave de API, você está pronto para:
+
+<CardGroup cols={2}>
+  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/send">
+    Aprenda a enviar mensagens de template
+  </Card>
+  <Card title="Criar Templates" icon="bezier-curve" href="/business-rules/template-management">
+    Saiba como criar templates no dashboard
+  </Card>
+</CardGroup>
+

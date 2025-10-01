@@ -1,4 +1,4 @@
-{
+  {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Arara Documentation",
@@ -7,7 +7,7 @@
     "light": "#1F1BE3",
     "dark": "#0B0A42"
   },
-  "favicon": "/iconarara.png",
+  "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
@@ -16,7 +16,7 @@
           {
             "group": "Primeiros Passos",
             "pages": [
-              "introduction",
+              "index",
               "quickstart",
               "development"
             ]
@@ -24,17 +24,12 @@
           {
             "group": "Arquitetura",
             "pages": [
-              "architecture/overview",
-              "architecture/backend",
-              "architecture/frontend",
-              "architecture/infrastructure",
-              "architecture/database"
+              "architecture/overview"
             ]
           },
           {
             "group": "Regras de Negócio",
             "pages": [
-              "business-rules/pricing-model",
               "business-rules/template-management"
             ]
           },
@@ -51,7 +46,7 @@
         "tab": "Referência da API",
         "groups": [
           {
-            "group": "Autenticação",
+            "group": "Introdução",
             "pages": [
               "api-reference/introduction",
               "api-reference/authentication"
@@ -62,15 +57,8 @@
             "pages": [
               "api-reference/endpoint/send",
               "api-reference/endpoint/schedule",
-              "api-reference/endpoint/list",
-              "api-reference/endpoint/delete"
-            ]
-          },
-          {
-            "group": "Templates",
-            "pages": [
-              "api-reference/templates/create",
-              "api-reference/templates/list"
+              "api-reference/endpoint/cart-recovery",
+              "api-reference/endpoint/webhook"
             ]
           }
         ]
@@ -80,20 +68,20 @@
       "anchors": [
         {
           "anchor": "GitHub",
-          "href": "https://github.com/ararahq/docs",
+          "href": "https://github.com/ararahq/",
           "icon": "github"
         },
         {
           "anchor": "Landing Page",
-          "href": "https://ararahq.com",
+          "href": "https://www.ararahq.com",
           "icon": "browser"
         }
       ]
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/logo-black-transparente.png",
+    "dark": "/logo/logo-white-transparente.png"
   },
   "navbar": {
     "links": [
@@ -105,7 +93,7 @@
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "href": "https://dashboard.ararahq.com"
     }
   },
   "footer": {

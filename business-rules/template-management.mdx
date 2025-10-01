@@ -1,5 +1,128 @@
 ---
-title: 'New file'
-description: 'Description of your new file.'
+title: "Gerenciamento de Templates"
+description: "Aprenda como criar e gerenciar templates de mensagem no dashboard da Arara"
 ---
 
+# Gerenciamento de Templates
+
+Templates são modelos de mensagens pré-aprovadas que você pode usar para enviar mensagens via WhatsApp. Na Arara, **todos os templates devem ser criados através do dashboard** antes de serem usados na API.
+
+<Warning>
+  **Importante**: Você não pode enviar mensagens usando templates que não foram criados previamente no dashboard. Todos os templates precisam ser criados e aprovados antes do uso.
+</Warning>
+
+## Por Que Templates?
+
+O WhatsApp Business exige que mensagens de negócio sejam enviadas usando templates aprovados. Isso garante:
+
+- Conformidade com as políticas do WhatsApp
+- Melhor experiência para o usuário
+- Prevenção de spam
+- Mensagens profissionais e consistentes
+
+## Criando um Template
+
+### Passo 1: Acesse o Dashboard
+
+1. Faça login no [Dashboard da Arara](https://dashboard.ararahq.com)
+2. Navegue até a seção **"Templates"** no menu lateral
+
+### Passo 2: Crie um Novo Template
+
+Clique no botão **"Criar Template"** e preencha os seguintes campos:
+
+- **Nome do Template**: Um identificador único (ex: `template_teste_inicio_conversa`)
+- **Categoria**: Categoria do template (MARKETING, UTILITY, AUTHENTICATION)
+- **Idioma**: Idioma do template (pt_BR para português brasileiro)
+- **Conteúdo**: O texto da mensagem
+
+### Passo 3: Adicione Variáveis (Opcional)
+
+Você pode adicionar variáveis dinâmicas ao seu template usando a sintaxe `{{1}}`, `{{2}}`, etc.
+
+**Exemplo de template com variáveis:**
+
+```
+Olá {{1}}! Seu pedido {{2}} foi confirmado no valor de {{3}}.
+```
+
+Quando você enviar a mensagem via API, você passará os valores no array `variables`:
+
+```json
+{
+  "receiver": "whatsapp:+5583991768778",
+  "templateName": "template_teste_inicio_conversa",
+  "variables": ["João", "#12345", "R$ 100,00"]
+}
+```
+
+### Passo 4: Aguarde Aprovação
+
+Após criar o template, ele será enviado para aprovação. O processo de aprovação pode levar algumas horas ou até 24 horas, dependendo da categoria do template.
+
+<Info>
+  Templates de categoria UTILITY geralmente são aprovados mais rapidamente do que templates de MARKETING.
+</Info>
+
+## Usando Templates na API
+
+Depois que seu template foi criado e aprovado, você pode usá-lo na API simplesmente referenciando o nome do template:
+
+```bash curl
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5583991768778",
+    "templateName": "template_teste_inicio_conversa",
+    "variables": []
+  }'
+```
+
+## Boas Práticas
+
+### Nomenclatura
+
+Use nomes descritivos e consistentes para seus templates:
+
+**Bons exemplos:**
+- `confirmacao_pedido`
+- `lembrete_pagamento`
+- `boas_vindas_cliente`
+
+**Evite:**
+- `template1`
+- `teste`
+
+### Variáveis
+
+- Use variáveis para informações dinâmicas (nomes, valores, datas)
+- Mantenha o texto estático sempre que possível
+- Limite o número de variáveis para facilitar a manutenção
+
+### Conteúdo
+
+- Seja claro e objetivo
+- Use linguagem profissional
+- Evite spam ou conteúdo promocional excessivo
+- Respeite as políticas do WhatsApp Business
+
+## Listando Templates
+
+Você pode ver todos os seus templates criados diretamente no dashboard. Cada template mostra:
+
+- Nome do template
+- Status (Pendente, Aprovado, Rejeitado)
+- Data de criação
+- Última atualização
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/send">
+    Aprenda a usar templates para enviar mensagens
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/webhook">
+    Configure webhooks para eventos de carrinho
+  </Card>
+</CardGroup>
