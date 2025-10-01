@@ -1,68 +1,76 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Arara Documentation",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#1F1BE3",
+    "light": "#1F1BE3",
+    "dark": "#0B0A42"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/iconarara.png",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Guias",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Primeiros Passos",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
               "development"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Arquitetura",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "architecture/overview",
+              "architecture/backend",
+              "architecture/frontend",
+              "architecture/infrastructure",
+              "architecture/database"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Regras de Negócio",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "business-rules/pricing-model",
+              "business-rules/template-management"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Planejamento e Roadmap",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "planning/mvp-roadmap",
+              "planning/post-mvp"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Referência da API",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Autenticação",
             "pages": [
-              "api-reference/introduction"
+              "api-reference/introduction",
+              "api-reference/authentication"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Endpoints",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/endpoint/send",
+              "api-reference/endpoint/schedule",
+              "api-reference/endpoint/list",
+              "api-reference/endpoint/delete"
+            ]
+          },
+          {
+            "group": "Templates",
+            "pages": [
+              "api-reference/templates/create",
+              "api-reference/templates/list"
             ]
           }
         ]
@@ -71,14 +79,14 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub",
+          "href": "https://github.com/ararahq/docs",
+          "icon": "github"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "Landing Page",
+          "href": "https://ararahq.com",
+          "icon": "browser"
         }
       ]
     }
@@ -91,7 +99,7 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:suporte@ararahq.com"
       }
     ],
     "primary": {
@@ -100,22 +108,9 @@
       "href": "https://dashboard.mintlify.com"
     }
   },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
+      "github": "https://github.com/ararahq",
       "linkedin": "https://linkedin.com/company/mintlify"
     }
   }

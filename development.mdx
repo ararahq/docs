@@ -1,94 +1,122 @@
 ---
-title: 'Development'
-description: 'Preview changes locally to update your docs'
+title: "Ambiente de Desenvolvimento da Documentação"
+description: "Guia para configurar seu ambiente local e contribuir com a documentação da Arara API."
 ---
 
+## Boas-vindas aos Contribuidores!
+
+Este guia detalha os passos para configurar seu ambiente de desenvolvimento e começar a contribuir com a documentação da Arara API.
+
+<Card title="Comece em Minutos" icon="hourglass-start">
+  Siga os passos abaixo para ter o ambiente de preview da documentação rodando localmente.
+</Card>
+
+## Pré-requisitos
+
 <Info>
-  **Prerequisites**:
-  - Node.js version 19 or higher
-  - A docs repository with a `docs.json` file
+  **Pré-requisitos**:
+
+  - Node.js (versão 19 ou superior)
+  - Um clone local do repositório da documentação da Arara (via GitHub).
 </Info>
 
-Follow these steps to install and run Mintlify on your operating system.
+## Passo a Passo: Configuração do Ambiente
 
 <Steps>
-<Step title="Install the Mintlify CLI">
+  <Step title="Instalação Global da CLI">
+    A CLI do Mintlify permite que você execute a documentação localmente e utilize ferramentas de validação.
 
-```bash
-npm i -g mint
-```
-</Step>
+    <CodeGroup>
 
-<Step title="Preview locally">
+    ```bash npm
+    npm install -g mint
+    ```
 
-Navigate to your docs directory where your `docs.json` file is located, and run the following command:
+    
+    ```bash yarn
+    yarn global add mint
+    ```
 
-```bash
-mint dev
-```
+    </CodeGroup>
+  </Step>
+  <Step title="Inicie o Servidor de Preview">
+    Navegue até o diretório raiz da sua documentação (onde o arquivo `docs.json` está localizado) e execute o seguinte comando:
 
-A local preview of your documentation will be available at `http://localhost:3000`.
+    ```bash
+    mint dev
+    ```
 
-</Step>
+    Um preview local da sua documentação estará disponível em `http://localhost:3000`.
+
+    <Tip>
+      O preview é atualizado automaticamente sempre que você salva um arquivo, sem precisar reiniciar o servidor.
+    </Tip>
+  </Step>
 </Steps>
 
-## Custom ports
+## Configurações Avançadas
 
-By default, Mintlify uses port 3000. You can customize the port Mintlify runs on by using the `--port` flag. For example, to run Mintlify on port 3333, use this command:
+### Portas Personalizadas
+
+Por padrão, o Mintlify utiliza a porta `3000`. Você pode customizá-la usando a flag `--port`. Por exemplo, para rodar na porta `3333`:
 
 ```bash
 mint dev --port 3333
 ```
 
-If you attempt to run Mintlify on a port that's already in use, it will use the next available port:
+Se a porta escolhida já estiver em uso, o Mintlify tentará a próxima porta disponível:
 
 ```md
 Port 3000 is already in use. Trying 3001 instead.
 ```
 
-## Mintlify versions
+### Versões do Mintlify CLI
 
-Please note that each CLI release is associated with a specific version of Mintlify. If your local preview does not align with the production version, please update the CLI:
+Cada release da CLI está associada a uma versão específica do Mintlify. Se o seu preview local não estiver alinhado com a versão de produção, atualize a CLI:
 
-```bash
-npm mint update
+<CodeGroup>
+
+```bash npm
+npm install -g mint@latest
 ```
 
-## Validating links
 
-The CLI can assist with validating links in your documentation. To identify any broken links, use the following command:
+```bash yarn
+yarn global upgrade mint
+```
+
+</CodeGroup>
+
+### Validação de Links
+
+A CLI pode ajudar a identificar links quebrados em sua documentação. Para verificar, use o comando:
 
 ```bash
 mint broken-links
 ```
 
-## Deployment
+## Ferramentas e Troubleshooting
 
-If the deployment is successful, you should see the following:
+### Formatação de Código
 
-<Frame>
-  <img src="/images/checks-passed.png" alt="Screenshot of a deployment confirmation message that says All checks have passed." style={{ borderRadius: '0.5rem' }} />
-</Frame>
+Recomendamos o uso de extensões em seu IDE para reconhecer e formatar arquivos MDX. Para usuários do VS Code, considere:
 
-## Code formatting
+- [**MDX VSCode extension**](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx) para _syntax highlighting_.
+- [**Prettier**](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) para formatação de código consistente.
 
-We suggest using extensions on your IDE to recognize and format MDX. If you're a VSCode user, consider the [MDX VSCode extension](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx) for syntax highlighting, and [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) for code formatting.
-
-## Troubleshooting
+### Solução de Problemas (Troubleshooting)
 
 <AccordionGroup>
-  <Accordion title='Error: Could not load the "sharp" module using the darwin-arm64 runtime'>
+  <Accordion title='Erro: Não foi possível carregar o módulo "sharp" com o runtime darwin-arm64'>
+    Este erro pode ser devido a uma versão desatualizada do Node.js. Tente o seguinte:
 
-    This may be due to an outdated version of node. Try the following:
-    1. Remove the currently-installed version of the CLI: `npm remove -g mint`
-    2. Upgrade to Node v19 or higher.
-    3. Reinstall the CLI: `npm i -g mint`
+    1. Remova a versão atualmente instalada da CLI: `npm remove -g mint`
+    2. Atualize para o Node.js v19 ou superior.
+    3. Reinstale a CLI: `npm install -g mint`
   </Accordion>
-
-  <Accordion title="Issue: Encountering an unknown error">
-  
-    Solution: Go to the root of your device and delete the `~/.mintlify` folder. Then run `mint dev` again.
+  <Accordion title="Problema: Erro desconhecido">
+    **Solução:** Vá para a raiz do seu sistema e delete a pasta `~/.mintlify`. Em seguida, execute `mint dev` novamente.
   </Accordion>
 </AccordionGroup>
 
-Curious about what changed in the latest CLI version? Check out the [CLI changelog](https://www.npmjs.com/package/mintlify?activeTab=versions).
+Curioso sobre o que mudou na última versão da CLI? [Confira o changelog da CLI.](https://www.npmjs.com/package/mint?activeTab=versions)
