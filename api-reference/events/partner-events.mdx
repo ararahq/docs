@@ -65,8 +65,6 @@ Dispara quando um cliente abandona o carrinho de compras.
 
 **Evento:** `cart.abandoned`
 
-**Template usado:** `carrinho_abandonado_demo`
-
 **Variáveis do template:**
 - `{{1}}`: Nome do cliente
 - `{{2}}`: Nome da loja
@@ -188,8 +186,6 @@ Dispara quando um pagamento não foi autorizado ou falhou.
 
 **Evento:** `payment.failed`
 
-**Template usado:** `pagamento_nao_autorizado_v1`
-
 **Variáveis do template:**
 - `{{1}}`: Nome do cliente
 - `{{2}}`: Nome da loja
@@ -274,8 +270,6 @@ console.log(data);
 Dispara quando um pagamento PIX é criado e precisa ser confirmado.
 
 **Evento:** `pix.created`
-
-**Template usado:** `pix_pagamento_criado_v2`
 
 **Variáveis do template:**
 - `{{1}}`: Nome do cliente
@@ -370,8 +364,6 @@ console.log(data);
 Dispara quando um boleto está vencendo hoje e precisa ser pago.
 
 **Evento:** `boleto.due`
-
-**Template usado:** `boleto_vencimento_hoje_v1`
 
 **Variáveis do template:**
 - `{{1}}`: Nome do cliente
@@ -603,12 +595,12 @@ enviarPixCriado(
 
 ## Resumo dos Eventos
 
-| Evento | Template | Variáveis | Campos Especiais |
-|--------|----------|-----------|------------------|
-| `cart.abandoned` | `carrinho_abandonado_demo` | Nome, Loja, Valor, Link | - |
-| `payment.failed` | `pagamento_nao_autorizado_v1` | Nome, Loja, Valor, Link | - |
-| `pix.created` | `pix_pagamento_criado_v2` | Nome, Loja, Valor, Código PIX, Link | `code` (opcional) |
-| `boleto.due` | `boleto_vencimento_hoje_v1` | Nome, Loja, Valor, Link | - |
+| Evento | Variáveis | Campos Especiais |
+|--------|-----------|------------------|
+| `cart.abandoned` | Nome, Loja, Valor, Link | - |
+| `payment.failed` | Nome, Loja, Valor, Link | - |
+| `pix.created` | Nome, Loja, Valor, Código PIX, Link | `code` (opcional) |
+| `boleto.due` | Nome, Loja, Valor, Link | - |
 
 ## Próximos Passos
 
