@@ -60,6 +60,12 @@
               "api-reference/endpoint/cart-recovery",
               "api-reference/endpoint/webhook"
             ]
+          },
+          {
+            "group": "Eventos",
+            "pages": [
+              "api-reference/events/partner-events"
+            ]
           }
         ]
       }

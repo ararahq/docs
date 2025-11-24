@@ -1,0 +1,623 @@
+---
+title: 'Eventos de Parceiros'
+description: 'Documentação completa dos eventos que a API Arara recebe de parceiros'
+---
+
+# Eventos de Parceiros
+
+A API Arara permite que parceiros integrados enviem eventos para disparar mensagens automatizadas via WhatsApp. Esta documentação descreve todos os eventos disponíveis e como utilizá-los.
+
+## Visão Geral
+
+A API de eventos permite que sistemas parceiros notifiquem a Arara sobre eventos importantes do negócio, como carrinho abandonado, pagamento falhou, PIX criado e boleto vencendo. A Arara processa esses eventos e envia mensagens personalizadas automaticamente.
+
+## Autenticação
+
+Todos os eventos requerem autenticação via API Key do parceiro no header `Authorization`:
+
+```bash
+Authorization: Bearer sua_api_key_do_parceiro
+```
+
+<Warning>
+  A API Key do parceiro é diferente da API Key de usuários comuns. Entre em contato com a equipe Arara para obter sua chave de parceiro.
+</Warning>
+
+## Endpoint Base
+
+```
+POST https://api.ararahq.com/api/v1/partners/abacate/events
+```
+
+## Estrutura da Requisição
+
+Todos os eventos seguem a mesma estrutura JSON simples:
+
+```json
+{
+  "event": "cart.abandoned",
+  "phone": "5511999999999",
+  "customer": "João Silva",
+  "store": "Minha Loja",
+  "value": 199.90,
+  "url": "https://exemplo.com/checkout/123",
+  "code": "00020126580014br.gov.bcb.pix..."
+}
+```
+
+### Campos da Requisição
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `event` | string | Sim | Tipo do evento (ver eventos disponíveis abaixo) |
+| `phone` | string | Sim | Número do WhatsApp do cliente (formato: `5511999999999`) |
+| `customer` | string | Sim | Nome do cliente |
+| `store` | string | Sim | Nome da loja/empresa |
+| `value` | number | Sim | Valor da transação em Reais (ex: `199.90`) |
+| `url` | string | Não | Link para checkout, retry ou recuperação |
+| `code` | string | Não | Código PIX (copiar e colar) - usado apenas para eventos PIX |
+
+## Eventos Disponíveis
+
+### 1. Carrinho Abandonado
+
+Dispara quando um cliente abandona o carrinho de compras.
+
+**Evento:** `cart.abandoned`
+
+**Template usado:** `carrinho_abandonado_demo`
+
+**Variáveis do template:**
+- `{{1}}`: Nome do cliente
+- `{{2}}`: Nome da loja
+- `{{3}}`: Valor formatado (ex: "R$ 199,90")
+- `{{4}}`: Link de recuperação
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.ararahq.com/api/v1/partners/abacate/events \
+  -H "Authorization: Bearer sua_api_key_parceiro" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "cart.abandoned",
+    "phone": "5511999999999",
+    "customer": "João Silva",
+    "store": "Nike Store",
+    "value": 299.90,
+    "url": "https://checkout.abacate/123"
+  }'
+```
+
+```json JSON
+{
+  "event": "cart.abandoned",
+  "phone": "5511999999999",
+  "customer": "João Silva",
+  "store": "Nike Store",
+  "value": 299.90,
+  "url": "https://checkout.abacate/123"
+}
+```
+
+```python Python
+import requests
+
+url = "https://api.ararahq.com/api/v1/partners/abacate/events"
+headers = {
+    "Authorization": "Bearer sua_api_key_parceiro",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "event": "cart.abandoned",
+    "phone": "5511999999999",
+    "customer": "João Silva",
+    "store": "Nike Store",
+    "value": 299.90,
+    "url": "https://checkout.abacate/123"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'https://api.ararahq.com/api/v1/partners/abacate/events',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer sua_api_key_parceiro',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      event: 'cart.abandoned',
+      phone: '5511999999999',
+      customer: 'João Silva',
+      store: 'Nike Store',
+      value: 299.90,
+      url: 'https://checkout.abacate/123'
+    })
+  }
+);
+
+const data = await response.json();
+console.log(data);
+```
+
+```typescript TypeScript
+interface PartnerEvent {
+  event: string;
+  phone: string;
+  customer: string;
+  store: string;
+  value: number;
+  url?: string;
+  code?: string;
+}
+
+const event: PartnerEvent = {
+  event: 'cart.abandoned',
+  phone: '5511999999999',
+  customer: 'João Silva',
+  store: 'Nike Store',
+  value: 299.90,
+  url: 'https://checkout.abacate/123'
+};
+
+const response = await fetch(
+  'https://api.ararahq.com/api/v1/partners/abacate/events',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer sua_api_key_parceiro',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(event)
+  }
+);
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+### 2. Pagamento Falhou
+
+Dispara quando um pagamento não foi autorizado ou falhou.
+
+**Evento:** `payment.failed`
+
+**Template usado:** `pagamento_nao_autorizado_v1`
+
+**Variáveis do template:**
+- `{{1}}`: Nome do cliente
+- `{{2}}`: Nome da loja
+- `{{3}}`: Valor formatado (ex: "R$ 199,90")
+- `{{4}}`: Link para retry de pagamento
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.ararahq.com/api/v1/partners/abacate/events \
+  -H "Authorization: Bearer sua_api_key_parceiro" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "payment.failed",
+    "phone": "5511999999999",
+    "customer": "Maria Santos",
+    "store": "Netflix",
+    "value": 59.90,
+    "url": "https://checkout.abacate/retry/123"
+  }'
+```
+
+```json JSON
+{
+  "event": "payment.failed",
+  "phone": "5511999999999",
+  "customer": "Maria Santos",
+  "store": "Netflix",
+  "value": 59.90,
+  "url": "https://checkout.abacate/retry/123"
+}
+```
+
+```python Python
+import requests
+
+url = "https://api.ararahq.com/api/v1/partners/abacate/events"
+headers = {
+    "Authorization": "Bearer sua_api_key_parceiro",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "event": "payment.failed",
+    "phone": "5511999999999",
+    "customer": "Maria Santos",
+    "store": "Netflix",
+    "value": 59.90,
+    "url": "https://checkout.abacate/retry/123"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'https://api.ararahq.com/api/v1/partners/abacate/events',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer sua_api_key_parceiro',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      event: 'payment.failed',
+      phone: '5511999999999',
+      customer: 'Maria Santos',
+      store: 'Netflix',
+      value: 59.90,
+      url: 'https://checkout.abacate/retry/123'
+    })
+  }
+);
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+### 3. PIX Criado
+
+Dispara quando um pagamento PIX é criado e precisa ser confirmado.
+
+**Evento:** `pix.created`
+
+**Template usado:** `pix_pagamento_criado_v2`
+
+**Variáveis do template:**
+- `{{1}}`: Nome do cliente
+- `{{2}}`: Nome da loja
+- `{{3}}`: Valor formatado (ex: "R$ 199,90")
+- `{{4}}`: Código PIX (copiar e colar)
+- `{{5}}`: Link de redirecionamento
+
+<Info>
+  Para eventos PIX, você pode enviar tanto o campo `url` quanto o campo `code`. O `code` será usado como variável `{{4}}` e o `url` como variável `{{5}}`.
+</Info>
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.ararahq.com/api/v1/partners/abacate/events \
+  -H "Authorization: Bearer sua_api_key_parceiro" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "pix.created",
+    "phone": "5511999999999",
+    "customer": "Pedro Costa",
+    "store": "Nike Store",
+    "value": 199.90,
+    "url": "https://checkout.abacate/pix/123",
+    "code": "00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-4266554400005204000053039865802BR5925DEMO ARARA HQ LTDA6009SAO PAULO62070503***63041234"
+  }'
+```
+
+```json JSON
+{
+  "event": "pix.created",
+  "phone": "5511999999999",
+  "customer": "Pedro Costa",
+  "store": "Nike Store",
+  "value": 199.90,
+  "url": "https://checkout.abacate/pix/123",
+  "code": "00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-4266554400005204000053039865802BR5925DEMO ARARA HQ LTDA6009SAO PAULO62070503***63041234"
+}
+```
+
+```python Python
+import requests
+
+url = "https://api.ararahq.com/api/v1/partners/abacate/events"
+headers = {
+    "Authorization": "Bearer sua_api_key_parceiro",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "event": "pix.created",
+    "phone": "5511999999999",
+    "customer": "Pedro Costa",
+    "store": "Nike Store",
+    "value": 199.90,
+    "url": "https://checkout.abacate/pix/123",
+    "code": "00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-4266554400005204000053039865802BR5925DEMO ARARA HQ LTDA6009SAO PAULO62070503***63041234"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'https://api.ararahq.com/api/v1/partners/abacate/events',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer sua_api_key_parceiro',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      event: 'pix.created',
+      phone: '5511999999999',
+      customer: 'Pedro Costa',
+      store: 'Nike Store',
+      value: 199.90,
+      url: 'https://checkout.abacate/pix/123',
+      code: '00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-4266554400005204000053039865802BR5925DEMO ARARA HQ LTDA6009SAO PAULO62070503***63041234'
+    })
+  }
+);
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+### 4. Boleto Vence Hoje
+
+Dispara quando um boleto está vencendo hoje e precisa ser pago.
+
+**Evento:** `boleto.due`
+
+**Template usado:** `boleto_vencimento_hoje_v1`
+
+**Variáveis do template:**
+- `{{1}}`: Nome do cliente
+- `{{2}}`: Nome da loja
+- `{{3}}`: Valor formatado (ex: "R$ 199,90")
+- `{{4}}`: Link para download do boleto
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.ararahq.com/api/v1/partners/abacate/events \
+  -H "Authorization: Bearer sua_api_key_parceiro" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "boleto.due",
+    "phone": "5511999999999",
+    "customer": "Ana Oliveira",
+    "store": "Minha Loja",
+    "value": 150.00,
+    "url": "https://checkout.abacate/boleto/123"
+  }'
+```
+
+```json JSON
+{
+  "event": "boleto.due",
+  "phone": "5511999999999",
+  "customer": "Ana Oliveira",
+  "store": "Minha Loja",
+  "value": 150.00,
+  "url": "https://checkout.abacate/boleto/123"
+}
+```
+
+```python Python
+import requests
+
+url = "https://api.ararahq.com/api/v1/partners/abacate/events"
+headers = {
+    "Authorization": "Bearer sua_api_key_parceiro",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "event": "boleto.due",
+    "phone": "5511999999999",
+    "customer": "Ana Oliveira",
+    "store": "Minha Loja",
+    "value": 150.00,
+    "url": "https://checkout.abacate/boleto/123"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'https://api.ararahq.com/api/v1/partners/abacate/events',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer sua_api_key_parceiro',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      event: 'boleto.due',
+      phone: '5511999999999',
+      customer: 'Ana Oliveira',
+      store: 'Minha Loja',
+      value: 150.00,
+      url: 'https://checkout.abacate/boleto/123'
+    })
+  }
+);
+
+const data = await response.json();
+console.log(data);
+```
+</CodeGroup>
+
+## Resposta da API
+
+### Sucesso
+
+Quando o evento é processado com sucesso, a API retorna:
+
+```json
+{
+  "status": "queued",
+  "id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `status` | string | Status da mensagem (sempre `"queued"` quando aceita) |
+| `id` | string | ID único da mensagem criada |
+
+### Erros
+
+#### Evento Desconhecido
+
+```json
+{
+  "error": "Evento desconhecido"
+}
+```
+
+**Status HTTP:** `400 Bad Request`
+
+#### Não Autorizado
+
+**Status HTTP:** `401 Unauthorized`
+
+Ocorre quando a API Key do parceiro está incorreta ou ausente.
+
+#### Validação
+
+```json
+{
+  "error": "Validation failed",
+  "details": {
+    "event": "Evento é obrigatório",
+    "phone": "Telefone é obrigatório"
+  }
+}
+```
+
+**Status HTTP:** `400 Bad Request`
+
+## Formato do Telefone
+
+O telefone deve ser enviado no formato brasileiro sem formatação:
+
+- ✅ Correto: `5511999999999`
+- ❌ Incorreto: `(11) 99999-9999`
+- ❌ Incorreto: `+55 11 99999-9999`
+
+A API formata automaticamente para o formato WhatsApp (`whatsapp:+5511999999999`).
+
+## Exemplos Completos
+
+### Exemplo: Fluxo Completo de Carrinho Abandonado
+
+```python
+import requests
+
+def enviar_carrinho_abandonado(phone, customer, store, value, checkout_url):
+    url = "https://api.ararahq.com/api/v1/partners/abacate/events"
+    headers = {
+        "Authorization": "Bearer sua_api_key_parceiro",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "event": "cart.abandoned",
+        "phone": phone,
+        "customer": customer,
+        "store": store,
+        "value": value,
+        "url": checkout_url
+    }
+    
+    response = requests.post(url, json=payload, headers=headers)
+    
+    if response.status_code == 200:
+        data = response.json()
+        print(f"Mensagem enfileirada: {data['id']}")
+        return data
+    else:
+        print(f"Erro: {response.status_code} - {response.text}")
+        return None
+
+# Uso
+enviar_carrinho_abandonado(
+    phone="5511999999999",
+    customer="João Silva",
+    store="Nike Store",
+    value=299.90,
+    checkout_url="https://checkout.abacate/123"
+)
+```
+
+### Exemplo: Fluxo Completo de PIX
+
+```javascript
+async function enviarPixCriado(phone, customer, store, value, pixCode, redirectUrl) {
+  const response = await fetch(
+    'https://api.ararahq.com/api/v1/partners/abacate/events',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer sua_api_key_parceiro',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        event: 'pix.created',
+        phone: phone,
+        customer: customer,
+        store: store,
+        value: value,
+        code: pixCode,
+        url: redirectUrl
+      })
+    }
+  );
+
+  if (response.ok) {
+    const data = await response.json();
+    console.log(`Mensagem PIX enfileirada: ${data.id}`);
+    return data;
+  } else {
+    const error = await response.text();
+    console.error(`Erro: ${response.status} - ${error}`);
+    return null;
+  }
+}
+
+// Uso
+enviarPixCriado(
+  '5511999999999',
+  'Pedro Costa',
+  'Nike Store',
+  199.90,
+  '00020126580014br.gov.bcb.pix...',
+  'https://checkout.abacate/pix/123'
+);
+```
+
+## Resumo dos Eventos
+
+| Evento | Template | Variáveis | Campos Especiais |
+|--------|----------|-----------|------------------|
+| `cart.abandoned` | `carrinho_abandonado_demo` | Nome, Loja, Valor, Link | - |
+| `payment.failed` | `pagamento_nao_autorizado_v1` | Nome, Loja, Valor, Link | - |
+| `pix.created` | `pix_pagamento_criado_v2` | Nome, Loja, Valor, Código PIX, Link | `code` (opcional) |
+| `boleto.due` | `boleto_vencimento_hoje_v1` | Nome, Loja, Valor, Link | - |
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Autenticação" icon="key" href="/api-reference/authentication">
+    Aprenda sobre autenticação na API
+  </Card>
+  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/send">
+    Documentação completa de envio
+  </Card>
+</CardGroup>
+
