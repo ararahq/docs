@@ -3,9 +3,9 @@
   "theme": "mint",
   "name": "Arara Documentation",
   "colors": {
-    "primary": "#1F1BE3",
-    "light": "#1F1BE3",
-    "dark": "#0B0A42"
+    "primary": "#FF6B35",
+    "light": "#FF6B35",
+    "dark": "#CC5A1F"
   },
   "favicon": "/favicon.svg",
   "navigation": {
