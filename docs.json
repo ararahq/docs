@@ -7,7 +7,7 @@
     "light": "#FF6B35",
     "dark": "#CC5A1F"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/images/favicon.png",
   "navigation": {
     "tabs": [
       {
@@ -31,13 +31,6 @@
             "group": "Regras de Negócio",
             "pages": [
               "business-rules/template-management"
-            ]
-          },
-          {
-            "group": "Planejamento e Roadmap",
-            "pages": [
-              "planning/mvp-roadmap",
-              "planning/post-mvp"
             ]
           }
         ]
