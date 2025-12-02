@@ -5,16 +5,16 @@ description: 'Documentação completa da API Arara para integração via WhatsAp
 
 # Referência da API
 
-Bem-vindo à documentação completa da API Arara! Aqui você encontrará todos os detalhes necessários para integrar o envio de mensagens via WhatsApp em sua aplicação.
+Bem-vindo à documentação completa da API Arara! Esta é a referência completa de todas as chamadas HTTP disponíveis na API para integração via WhatsApp.
 
 ## Visão Geral
 
-A Arara é uma API REST simples e poderosa que permite:
+A Arara é uma API REST que fornece endpoints HTTP para:
 
-- Enviar mensagens de template via WhatsApp
-- Gerenciar templates através do dashboard
-- Receber notificações via webhooks
-- Integrar com carrinhos de compra e outros sistemas
+- **Enviar mensagens**: Envie mensagens de template ou texto livre via WhatsApp
+- **Gerenciar templates**: Crie, liste e gerencie templates de mensagens
+- **Receber mensagens**: Configure webhooks para receber mensagens inbound
+- **Responder mensagens**: Responda mensagens recebidas usando o mesmo endpoint de envio
 
 ## Base URL
 
@@ -32,12 +32,42 @@ Todas as requisições à API requerem autenticação usando uma chave de API (A
 Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
+## Endpoints Disponíveis
+
+### Mensagens
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `POST` | `/v1/messages` | Enviar mensagem (template ou texto livre) |
+
+### Templates
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `POST` | `/v1/templates` | Criar novo template |
+| `GET` | `/v1/templates` | Listar todos os templates |
+| `GET` | `/v1/templates/{id}` | Obter template específico |
+| `DELETE` | `/v1/templates/{id}` | Deletar template |
+
+### Webhooks
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `POST` | `/v1/webhooks` | Configurar webhook |
+| `GET` | `/v1/webhooks` | Listar webhooks configurados |
+
 <CardGroup cols={2}>
   <Card title="Autenticação" icon="key" href="/api-reference/authentication">
     Aprenda como obter e usar sua chave de API
   </Card>
   <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/send">
     Documentação do endpoint de envio
+  </Card>
+  <Card title="Fluxo Inbound" icon="inbox" href="/api-reference/endpoint/inbound">
+    Como receber e responder mensagens
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/webhook">
+    Configure webhooks para receber notificações
   </Card>
 </CardGroup>
 
@@ -79,6 +109,24 @@ A API retorna respostas em formato JSON. Todas as datas e horas são retornadas 
 ## Rate Limits
 
 A API possui limites de taxa para garantir a estabilidade do serviço. Limites específicos serão comunicados no dashboard.
+
+<Info>
+  **Importante**: Não existe limite de volume, existe critério de qualidade. Se você tem opt-in válido e usa a plataforma corretamente, a Arara foi feita para escalar com você. Saiba mais sobre [políticas de uso e boas práticas](/business-rules/usage-policies).
+</Info>
+
+## Políticas de Uso
+
+A Arara prioriza qualidade sobre quantidade. Para usar a plataforma de forma responsável:
+
+- ✅ Sempre tenha opt-in (autorização) válido do cliente
+- ✅ Envie apenas conteúdo legítimo e relevante
+- ✅ Respeite solicitações de opt-out
+- ❌ Não envie spam ou mensagens não solicitadas
+- ❌ Não use contatos frios sem relação prévia
+
+<Card title="Políticas de Uso" icon="shield-check" href="/business-rules/usage-policies">
+  Entenda critérios de opt-in, banimento e boas práticas
+</Card>
 
 ## Suporte
 

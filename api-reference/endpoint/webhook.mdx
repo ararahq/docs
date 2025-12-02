@@ -11,19 +11,26 @@ Webhooks permitem que você receba notificações em tempo real sobre eventos qu
 
 Webhooks são chamadas HTTP que a Arara faz para uma URL que você configurou, sempre que um evento específico acontece. É como receber uma "notificação push" do nosso servidor para o seu.
 
+<Info>
+  **Importante**: 
+  - Webhooks de status de mensagem só são enviados quando a mensagem foi **entregue** ao destinatário (status `DELIVERED`)
+  - Webhooks de mensagens recebidas (inbound) só funcionam com **números dedicados**, não com números compartilhados
+</Info>
+
 ## Configurando Webhooks
 
 ### Passo 1: Acesse o Dashboard
 
 1. Faça login no [Dashboard da Arara](https://dashboard.ararahq.com)
-2. Navegue até a seção **"Webhooks"** ou **"Configurações"**
+2. Navegue até **"API Keys"** no menu
+3. Selecione a aba **"Webhooks"**
 
 ### Passo 2: Configure a URL do Webhook
 
 Você precisará fornecer uma URL pública onde deseja receber as notificações:
 
 ```
-https://api.meusite.com/webhook/arara
+https://api.meusite.com/webhook/arara/inbound
 ```
 
 <Warning>
@@ -33,45 +40,13 @@ https://api.meusite.com/webhook/arara
   - **Válida**: Responder corretamente às requisições
 </Warning>
 
-### Passo 3: Escolha os Eventos
+### Passo 3: Configure o Webhook de Mensagens Recebidas
 
-Selecione quais eventos você deseja receber:
+Para receber notificações quando clientes enviarem mensagens para você, configure o webhook de mensagens recebidas (inbound):
 
-- **Carrinho Atualizado**: Quando um carrinho de compra é atualizado
-- **Mensagem Enviada**: Quando uma mensagem é enviada com sucesso
-- **Mensagem Falhou**: Quando uma mensagem falha ao ser enviada
-- **Template Aprovado**: Quando um template é aprovado
+- **Mensagem Recebida (Inbound)**: Quando você recebe uma mensagem de um cliente (apenas números dedicados)
 
-## Webhooks para Carrinho de Compra
-
-Para integrações com carrinhos de compra, você pode configurar webhooks que serão chamados quando eventos relacionados ao carrinho acontecem.
-
-### Exemplo de Payload do Webhook
-
-Quando um evento de carrinho acontece, a Arara enviará uma requisição POST para sua URL configurada:
-
-```json
-{
-  "event": "cart.updated",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "data": {
-    "cartId": "cart_123456",
-    "userId": "user_789",
-    "items": [
-      {
-        "productId": "prod_001",
-        "name": "Produto Exemplo",
-        "quantity": 2,
-        "price": 50.00
-      }
-    ],
-    "total": 100.00,
-    "status": "pending"
-  }
-}
-```
-
-### Implementando o Endpoint do Webhook
+## Implementando o Endpoint do Webhook
 
 Seu endpoint deve:
 
@@ -79,7 +54,7 @@ Seu endpoint deve:
 2. **Processar o evento**
 3. **Responder com status 200** para confirmar o recebimento
 
-#### Exemplo em Node.js/Express
+### Exemplo em Node.js/Express
 
 ```javascript
 const express = require('express');
@@ -87,15 +62,17 @@ const app = express();
 
 app.use(express.json());
 
-app.post('/webhook/arara', (req, res) => {
+app.post('/webhook/arara/inbound', (req, res) => {
   const { event, data } = req.body;
   
-  if (event === 'cart.updated') {
-    // Processar atualização do carrinho
-    console.log('Carrinho atualizado:', data.cartId);
+  if (event === 'message.received') {
+    // Processar mensagem recebida
+    console.log('Mensagem recebida de:', data.from);
+    console.log('Conteúdo:', data.body);
     
     // Aqui você pode:
-    // - Enviar uma mensagem de WhatsApp
+    // - Processar a mensagem
+    // - Responder automaticamente
     // - Atualizar seu banco de dados
     // - Disparar outras ações
   }
@@ -109,24 +86,26 @@ app.listen(3000, () => {
 });
 ```
 
-#### Exemplo em Python/Flask
+### Exemplo em Python/Flask
 
 ```python
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-@app.route('/webhook/arara', methods=['POST'])
+@app.route('/webhook/arara/inbound', methods=['POST'])
 def webhook():
     data = request.json
     event = data.get('event')
     
-    if event == 'cart.updated':
-        cart_data = data.get('data')
-        print(f'Carrinho atualizado: {cart_data.get("cartId")}')
+    if event == 'message.received':
+        webhook_data = data.get('data')
+        print(f'Mensagem recebida de: {webhook_data.get("from")}')
+        print(f'Conteúdo: {webhook_data.get("body")}')
         
-        # Processar atualização do carrinho
-        # - Enviar mensagem de WhatsApp
+        # Processar mensagem recebida
+        # - Processar a mensagem
+        # - Responder automaticamente
         # - Atualizar banco de dados
         # - Disparar outras ações
     
@@ -134,31 +113,6 @@ def webhook():
 
 if __name__ == '__main__':
     app.run(port=3000)
-```
-
-#### Exemplo em PHP
-
-```php
-<?php
-
-header('Content-Type: application/json');
-
-$payload = json_decode(file_get_contents('php://input'), true);
-$event = $payload['event'] ?? null;
-
-if ($event === 'cart.updated') {
-    $cartData = $payload['data'];
-    error_log("Carrinho atualizado: " . $cartData['cartId']);
-    
-    // Processar atualização do carrinho
-    // - Enviar mensagem de WhatsApp
-    // - Atualizar banco de dados
-    // - Disparar outras ações
-}
-
-http_response_code(200);
-echo json_encode(['received' => true]);
-?>
 ```
 
 ## Segurança
@@ -198,60 +152,45 @@ app.post('/webhook/arara', (req, res) => {
 });
 ```
 
-## Eventos Disponíveis
+## Webhooks de Mensagens Recebidas (Inbound)
 
-### `cart.updated`
+Webhooks de mensagens recebidas (inbound) permitem que você seja notificado quando um cliente envia uma mensagem para seu número WhatsApp.
 
-Disparado quando um carrinho de compra é atualizado.
+<Warning>
+  **Importante**: Webhooks de mensagens recebidas (inbound) só estão disponíveis para **números dedicados**, não para números compartilhados. Se você estiver usando um número compartilhado, não receberá webhooks de mensagens recebidas.
+</Warning>
 
-**Payload:**
-```json
-{
-  "event": "cart.updated",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "data": {
-    "cartId": "string",
-    "userId": "string",
-    "items": [...],
-    "total": 0.00,
-    "status": "string"
-  }
-}
-```
+### `message.received`
 
-### `message.sent`
+Disparado quando você recebe uma mensagem de um cliente.
 
-Disparado quando uma mensagem é enviada com sucesso.
+**Requisitos:**
+- Você deve ter um número dedicado configurado
+- Você deve ter configurado a URL de webhook inbound no dashboard
+- A mensagem deve ser recebida no seu número dedicado
 
 **Payload:**
 ```json
 {
-  "event": "message.sent",
-  "timestamp": "2024-01-15T10:30:00Z",
+  "event": "message.received",
   "data": {
-    "messageId": "uuid",
-    "receiver": "whatsapp:+5583991768778",
-    "status": "SENT_TO_PROVIDER"
+    "id": "SM1234567890abcdef",
+    "from": "5583991768778",
+    "to": "5583999999999",
+    "body": "Olá, preciso de ajuda!",
+    "type": "text",
+    "media_url": "",
+    "sender_name": "João Silva",
+    "timestamp": "2024-01-15T10:30:00Z"
   }
 }
 ```
 
-### `message.failed`
+Para mais detalhes sobre como receber e responder mensagens, consulte a [documentação de fluxo inbound](/api-reference/endpoint/inbound).
 
-Disparado quando uma mensagem falha ao ser enviada.
+## Evento Configurável
 
-**Payload:**
-```json
-{
-  "event": "message.failed",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "data": {
-    "messageId": "uuid",
-    "receiver": "whatsapp:+5583991768778",
-    "error": "Error message"
-  }
-}
-```
+A única configuração de webhook disponível no dashboard é para mensagens recebidas (inbound). Este é o único evento que você pode configurar através da interface do dashboard.
 
 ## Testando Webhooks
 
@@ -271,7 +210,8 @@ node server.js  # na porta 3000
 ngrok http 3000
 
 # Use a URL fornecida pelo ngrok no dashboard
-# Exemplo: https://abc123.ngrok.io/webhook/arara
+# Acesse: API Keys > Webhooks
+# Exemplo: https://abc123.ngrok.io/webhook/arara/inbound
 ```
 
 ### Testando com cURL
@@ -279,17 +219,19 @@ ngrok http 3000
 Você pode simular um webhook usando cURL:
 
 ```bash curl
-curl -X POST https://api.meusite.com/webhook/arara \
+curl -X POST https://api.meusite.com/webhook/arara/inbound \
   -H "Content-Type: application/json" \
   -d '{
-    "event": "cart.updated",
-    "timestamp": "2024-01-15T10:30:00Z",
+    "event": "message.received",
     "data": {
-      "cartId": "cart_123456",
-      "userId": "user_789",
-      "items": [],
-      "total": 0.00,
-      "status": "pending"
+      "id": "SM1234567890abcdef",
+      "from": "5583991768778",
+      "to": "5583999999999",
+      "body": "Olá, preciso de ajuda!",
+      "type": "text",
+      "media_url": "",
+      "sender_name": "João Silva",
+      "timestamp": "2024-01-15T10:30:00Z"
     }
   }'
 ```

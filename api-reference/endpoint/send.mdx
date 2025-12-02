@@ -5,7 +5,10 @@ description: 'Envie mensagens de template via WhatsApp usando a Arara'
 
 # Enviar Mensagem
 
-O endpoint de envio de mensagens permite que você envie mensagens de template do WhatsApp para qualquer número válido.
+O endpoint de envio de mensagens permite que você envie mensagens via WhatsApp de duas formas:
+
+1. **Mensagens de Template**: Use templates pré-aprovados para iniciar conversas
+2. **Mensagens de Texto Livre (Sessão)**: Responda mensagens recebidas dentro da janela de 24h
 
 ## Endpoint
 
@@ -21,13 +24,16 @@ Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ## Corpo da Requisição
 
-O corpo da requisição deve ser um objeto JSON com os seguintes campos:
+O corpo da requisição deve ser um objeto JSON. Você deve enviar **ou** `templateName` **ou** `body`, mas não ambos:
 
 | Campo | Tipo | Obrigatório | Descrição |
 |-------|------|-------------|-----------|
 | `receiver` | string | Sim | Número do destinatário no formato `whatsapp:+5583991768778` |
-| `templateName` | string | Sim | Nome do template que foi criado no dashboard |
+| `templateName` | string | Condicional* | Nome do template que foi criado no dashboard (obrigatório para mensagens de template) |
 | `variables` | array | Não | Lista de variáveis para preencher o template (padrão: `[]`) |
+| `body` | string | Condicional* | Texto da mensagem (obrigatório para mensagens de sessão/inbound) |
+
+\* Você deve enviar **ou** `templateName` **ou** `body`, mas não ambos.
 
 ### Formato do Número
 
@@ -46,9 +52,34 @@ O número do destinatário deve estar no formato:
   **Importante**: O número de celular precisa ser cadastrado previamente pela equipe de suporte da Arara, junto com a documentação da empresa. Entre em contato com suporte@ararahq.com para solicitar o cadastro do número antes de começar a enviar mensagens.
 </Warning>
 
-## Exemplo de Requisição
+## Modos de Envio
 
-### Requisição Básica (sem variáveis)
+### 1. Mensagem de Template
+
+Use este modo para **iniciar uma conversa** com um cliente. Templates são mensagens pré-aprovadas pelo WhatsApp que permitem iniciar conversas fora da janela de 24h.
+
+**Campos obrigatórios:**
+- `receiver`: Número do destinatário
+- `templateName`: Nome do template criado no dashboard
+
+**Campos opcionais:**
+- `variables`: Array de variáveis para preencher o template
+
+### 2. Mensagem de Texto Livre (Sessão/Inbound)
+
+Use este modo para **responder mensagens recebidas** dentro da janela de 24h. Este é o mesmo endpoint usado para enviar templates, mas em vez de enviar `templateName`, você envia `body` com o texto da mensagem.
+
+**Campos obrigatórios:**
+- `receiver`: Número do destinatário
+- `body`: Texto da mensagem
+
+<Warning>
+  **Importante**: Mensagens de texto livre só funcionam dentro da janela de 24h após o cliente ter iniciado uma conversa. Para iniciar uma conversa, você deve primeiro enviar um template.
+</Warning>
+
+## Exemplos de Requisição
+
+### Enviar Template (sem variáveis)
 
 ```bash curl
 curl -X POST https://api.ararahq.com/v1/messages \
@@ -61,7 +92,7 @@ curl -X POST https://api.ararahq.com/v1/messages \
   }'
 ```
 
-### Requisição com Variáveis
+### Enviar Template (com variáveis)
 
 Se seu template possui variáveis (como `{{1}}`, `{{2}}`, etc), você pode preenchê-las passando os valores no array `variables`:
 
@@ -76,13 +107,29 @@ curl -X POST https://api.ararahq.com/v1/messages \
   }'
 ```
 
+### Enviar Mensagem de Texto Livre (Responder Inbound)
+
+Para responder uma mensagem recebida, use o mesmo endpoint mas envie `body` em vez de `templateName`:
+
+```bash curl
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5583991768778",
+    "body": "Olá! Como posso ajudar você hoje?"
+  }'
+```
+
 <Warning>
   **Importante**: O template deve ter sido criado previamente no dashboard da Arara. Você não pode enviar mensagens usando templates que não existem na sua conta.
 </Warning>
 
 ## Resposta de Sucesso
 
-Quando a mensagem é aceita para processamento, você receberá uma resposta `202 Accepted`:
+Quando a mensagem é aceita para processamento, você receberá uma resposta `202 Accepted` ou `200 OK`:
+
+### Resposta para Template
 
 ```json
 {
@@ -95,15 +142,29 @@ Quando a mensagem é aceita para processamento, você receberá uma resposta `20
 }
 ```
 
+### Resposta para Mensagem de Texto Livre
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "receiver": "whatsapp:+5583991768778",
+  "body": "Olá! Como posso ajudar você hoje?",
+  "status": "SENT_TO_PROVIDER",
+  "messageType": "SESSION",
+  "createdAt": "2024-01-15T10:30:00Z"
+}
+```
+
 ### Campos da Resposta
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `id` | string (UUID) | Identificador único da mensagem |
 | `receiver` | string | Número do destinatário |
-| `templateName` | string | Nome do template usado |
-| `status` | string | Status atual da mensagem (`PENDING`, `SENT_TO_PROVIDER`, `DELIVERED`, `FAILED`) |
-| `messageType` | string | Tipo da mensagem (sempre `TEMPLATE` para este endpoint) |
+| `templateName` | string | Nome do template usado (apenas para mensagens de template) |
+| `body` | string | Texto da mensagem (apenas para mensagens de sessão) |
+| `status` | string | Status atual da mensagem (`PENDING`, `SENT_TO_PROVIDER`, `PROCESSING`, `DELIVERED`, `FAILED`) |
+| `messageType` | string | Tipo da mensagem (`TEMPLATE` ou `SESSION`) |
 | `createdAt` | string (ISO 8601) | Data e hora de criação da mensagem |
 
 ## Códigos de Erro
@@ -143,12 +204,30 @@ O template especificado não existe ou não pertence à sua conta:
 
 ### 422 Unprocessable Entity
 
-O número do destinatário está em formato inválido ou o template não está aprovado:
+O número do destinatário está em formato inválido, o template não está aprovado, ou a janela de 24h está fechada:
 
 ```json
 {
   "error": "Unprocessable Entity",
   "message": "Invalid receiver format. Expected format: whatsapp:+5583991768778"
+}
+```
+
+Para mensagens de sessão, você pode receber:
+
+```json
+{
+  "error": "Unprocessable Entity",
+  "message": "Nenhuma conversa iniciada com este número. Para iniciar, envie um Template primeiro."
+}
+```
+
+ou
+
+```json
+{
+  "error": "Unprocessable Entity",
+  "message": "Janela de 24h fechada (Última interação: 25h atrás). Envie um Template para reabrir a conversa."
 }
 ```
 

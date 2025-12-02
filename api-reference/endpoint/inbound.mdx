@@ -1,0 +1,274 @@
+---
+title: 'Fluxo de Mensagens Inbound'
+description: 'Como receber e responder mensagens recebidas via WhatsApp'
+---
+
+# Fluxo de Mensagens Inbound
+
+O fluxo de inbound permite que você receba mensagens de clientes e responda a elas dentro da janela de 24h do WhatsApp.
+
+## Como Funciona
+
+1. **Cliente envia mensagem**: Quando um cliente envia uma mensagem para seu número WhatsApp, a Arara recebe essa mensagem
+2. **Webhook é disparado**: A Arara envia um webhook para sua URL configurada com os dados da mensagem recebida
+3. **Você processa a mensagem**: Seu sistema processa a mensagem recebida
+4. **Você responde**: Use o mesmo endpoint `/v1/messages` para responder, mas em vez de enviar `templateName`, envie `body` com o texto da resposta
+
+## Janela de 24 Horas
+
+O WhatsApp permite que você envie mensagens de texto livre (sem template) apenas dentro de uma janela de 24 horas após a última interação com o cliente. Esta janela é aberta quando:
+
+- Você envia um template para o cliente
+- O cliente envia uma mensagem para você
+
+<Warning>
+  **Importante**: Após 24 horas sem interação, você só pode enviar templates novamente. Para reabrir a janela, envie um template.
+</Warning>
+
+## Configurando Webhooks para Receber Mensagens
+
+Para receber mensagens inbound, você precisa:
+
+1. **Ter um número dedicado**: Webhooks de mensagens recebidas só estão disponíveis para números dedicados, não para números compartilhados
+2. **Configurar a URL de webhook**: 
+   - Acesse o [Dashboard da Arara](https://dashboard.ararahq.com)
+   - Navegue até **"API Keys"** no menu
+   - Selecione a aba **"Webhooks"**
+   - Configure a URL de webhook inbound
+
+Quando uma mensagem é recebida no seu número dedicado, a Arara enviará um POST para sua URL configurada com os dados da mensagem.
+
+<Warning>
+  **Importante**: Webhooks de mensagens recebidas (inbound) só funcionam com **números dedicados**. Se você estiver usando um número compartilhado, não receberá webhooks quando clientes enviarem mensagens.
+</Warning>
+
+### Exemplo de Payload do Webhook Inbound
+
+```json
+{
+  "event": "message.received",
+  "data": {
+    "id": "SM1234567890abcdef",
+    "from": "5583991768778",
+    "to": "5583999999999",
+    "body": "Olá, preciso de ajuda!",
+    "type": "text",
+    "media_url": "",
+    "sender_name": "João Silva",
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+### Campos do Payload
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `event` | string | Tipo do evento (`message.received`) |
+| `data.id` | string | ID único da mensagem no provedor (MessageSid) |
+| `data.from` | string | Número do remetente (cliente) sem prefixo `whatsapp:+` |
+| `data.to` | string | Número do destinatário (seu número) sem prefixo `whatsapp:+` |
+| `data.body` | string | Texto da mensagem recebida |
+| `data.type` | string | Tipo da mensagem (`text` ou `media`) |
+| `data.media_url` | string | URL da mídia (se a mensagem contém mídia) |
+| `data.sender_name` | string | Nome do remetente (se disponível) |
+| `data.timestamp` | string (ISO 8601) | Data e hora de recebimento |
+
+## Respondendo Mensagens
+
+Para responder uma mensagem recebida, use o **mesmo endpoint** `/v1/messages`, mas em vez de enviar `templateName`, envie `body` com o texto da resposta.
+
+### Endpoint
+
+`POST /v1/messages`
+
+### Exemplo de Resposta
+
+```bash curl
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5583991768778",
+    "body": "Olá! Como posso ajudar você hoje?"
+  }'
+```
+
+<Info>
+  **Dica**: Use o campo `from` do webhook inbound como o `receiver` na sua resposta. Lembre-se de adicionar o prefixo `whatsapp:+` ao número.
+</Info>
+
+### Resposta de Sucesso
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "receiver": "whatsapp:+5583991768778",
+  "body": "Olá! Como posso ajudar você hoje?",
+  "status": "SENT_TO_PROVIDER",
+  "messageType": "SESSION",
+  "createdAt": "2024-01-15T10:30:45Z"
+}
+```
+
+## Exemplo Completo de Integração
+
+### 1. Configurar Webhook no Dashboard
+
+Configure sua URL de webhook no dashboard da Arara:
+1. Acesse o [Dashboard da Arara](https://dashboard.ararahq.com)
+2. Navegue até **"API Keys"** no menu
+3. Selecione a aba **"Webhooks"**
+4. Configure a URL: `https://api.meusite.com/webhook/arara/inbound`
+
+### 2. Implementar Endpoint de Webhook
+
+```javascript
+// Node.js/Express
+const express = require('express');
+const app = express();
+
+app.use(express.json());
+
+app.post('/webhook/arara/inbound', async (req, res) => {
+  const { event, data } = req.body;
+  
+  if (event === 'message.received') {
+    const { from, body } = data;
+    
+    // Processar a mensagem recebida
+    console.log(`Mensagem recebida de ${from}: ${body}`);
+    
+    // Exemplo: responder automaticamente
+    // Nota: adicione o prefixo whatsapp:+ ao número
+    const response = await fetch('https://api.ararahq.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        receiver: `whatsapp:+${from}`,
+        body: 'Obrigado pela sua mensagem! Vou analisar e retornar em breve.'
+      })
+    });
+    
+    const result = await response.json();
+    console.log('Resposta enviada:', result);
+  }
+  
+  // Sempre responda com 200 para confirmar recebimento
+  res.status(200).json({ received: true });
+});
+
+app.listen(3000);
+```
+
+```python
+# Python/Flask
+from flask import Flask, request, jsonify
+import requests
+
+app = Flask(__name__)
+
+@app.route('/webhook/arara/inbound', methods=['POST'])
+def webhook_inbound():
+    data = request.json
+    event = data.get('event')
+    
+    if event == 'message.received':
+        webhook_data = data.get('data')
+        from_number = webhook_data.get('from')
+        message_body = webhook_data.get('body')
+        
+        # Processar a mensagem recebida
+        print(f'Mensagem recebida de {from_number}: {message_body}')
+        
+        # Exemplo: responder automaticamente
+        # Nota: adicione o prefixo whatsapp:+ ao número
+        response = requests.post(
+            'https://api.ararahq.com/v1/messages',
+            headers={
+                'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'receiver': f'whatsapp:+{from_number}',
+                'body': 'Obrigado pela sua mensagem! Vou analisar e retornar em breve.'
+            }
+        )
+        
+        result = response.json()
+        print('Resposta enviada:', result)
+    
+    return jsonify({'received': True}), 200
+
+if __name__ == '__main__':
+    app.run(port=3000)
+```
+
+## Fluxo Completo
+
+```
+┌─────────┐                    ┌─────────┐                    ┌─────────┐
+│ Cliente │                    │  Arara  │                    │  Seu    │
+│         │                    │         │                    │ Sistema │
+└────┬────┘                    └────┬────┘                    └────┬────┘
+     │                              │                               │
+     │ 1. Envia mensagem            │                               │
+     ├─────────────────────────────>│                               │
+     │                              │                               │
+     │                              │ 2. Webhook POST               │
+     │                              ├──────────────────────────────>│
+     │                              │                               │
+     │                              │                               │ 3. Processa
+     │                              │                               │    mensagem
+     │                              │                               │
+     │                              │ 4. POST /v1/messages          │
+     │                              │    { body: "resposta" }       │
+     │                              │<──────────────────────────────┤
+     │                              │                               │
+     │ 5. Recebe resposta           │                               │
+     │<─────────────────────────────┤                               │
+     │                              │                               │
+```
+
+## Erros Comuns
+
+### Janela de 24h Fechada
+
+Se você tentar enviar uma mensagem de texto livre após 24h sem interação:
+
+```json
+{
+  "error": "Unprocessable Entity",
+  "message": "Janela de 24h fechada (Última interação: 25h atrás). Envie um Template para reabrir a conversa."
+}
+```
+
+**Solução**: Envie um template primeiro para reabrir a janela de 24h.
+
+### Nenhuma Conversa Iniciada
+
+Se você tentar enviar uma mensagem de texto livre sem ter iniciado uma conversa:
+
+```json
+{
+  "error": "Unprocessable Entity",
+  "message": "Nenhuma conversa iniciada com este número. Para iniciar, envie um Template primeiro."
+}
+```
+
+**Solução**: Envie um template primeiro para iniciar a conversa.
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/send">
+    Documentação completa do endpoint de envio
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/webhook">
+    Configure webhooks para receber notificações
+  </Card>
+</CardGroup>
+

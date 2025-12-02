@@ -30,7 +30,8 @@
           {
             "group": "Regras de Negócio",
             "pages": [
-              "business-rules/template-management"
+              "business-rules/template-management",
+              "business-rules/usage-policies"
             ]
           }
         ]
@@ -49,6 +50,7 @@
             "group": "Endpoints",
             "pages": [
               "api-reference/endpoint/send",
+              "api-reference/endpoint/inbound",
               "api-reference/endpoint/schedule",
               "api-reference/endpoint/cart-recovery",
               "api-reference/endpoint/webhook"
