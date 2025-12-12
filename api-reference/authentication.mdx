@@ -45,7 +45,7 @@ Aqui está um exemplo completo de como fazer uma requisição autenticada:
 
 <CodeGroup>
 ```bash cURL
-curl -X POST https://api.ararahq.com/v1/messages \
+curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -58,7 +58,7 @@ curl -X POST https://api.ararahq.com/v1/messages \
 ```python Python
 import requests
 
-url = "https://api.ararahq.com/v1/messages"
+url = "https://api.ararahq.com/api/v1/messages"
 headers = {
     "Authorization": "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "Content-Type": "application/json"
@@ -76,7 +76,7 @@ print(response.json())
 ```javascript JavaScript
 const fetch = require('node-fetch');
 
-const url = 'https://api.ararahq.com/v1/messages';
+const url = 'https://api.ararahq.com/api/v1/messages';
 const headers = {
   'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   'Content-Type': 'application/json'
@@ -97,7 +97,7 @@ fetch(url, {
 ```
 
 ```typescript TypeScript
-const url = 'https://api.ararahq.com/v1/messages';
+const url = 'https://api.ararahq.com/api/v1/messages';
 const headers = {
   'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   'Content-Type': 'application/json'
@@ -138,7 +138,7 @@ String jsonBody = mapper.writeValueAsString(Map.of(
 ));
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.ararahq.com/v1/messages"))
+    .uri(URI.create("https://api.ararahq.com/api/v1/messages"))
     .header("Authorization", "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
@@ -179,7 +179,7 @@ val requestBody = MessageRequest(
 val jsonBody = Json.encodeToString(requestBody)
 
 val request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.ararahq.com/v1/messages"))
+    .uri(URI.create("https://api.ararahq.com/api/v1/messages"))
     .header("Authorization", "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))

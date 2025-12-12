@@ -80,12 +80,12 @@ Para responder uma mensagem recebida, use o **mesmo endpoint** `/v1/messages`, m
 
 ### Endpoint
 
-`POST /v1/messages`
+`POST /api/v1/messages`
 
 ### Exemplo de Resposta
 
 ```bash curl
-curl -X POST https://api.ararahq.com/v1/messages \
+curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -141,7 +141,7 @@ app.post('/webhook/arara/inbound', async (req, res) => {
     
     // Exemplo: responder automaticamente
     // Nota: adicione o prefixo whatsapp:+ ao número
-    const response = await fetch('https://api.ararahq.com/v1/messages', {
+    const response = await fetch('https://api.ararahq.com/api/v1/messages', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
@@ -187,7 +187,7 @@ def webhook_inbound():
         # Exemplo: responder automaticamente
         # Nota: adicione o prefixo whatsapp:+ ao número
         response = requests.post(
-            'https://api.ararahq.com/v1/messages',
+            'https://api.ararahq.com/api/v1/messages',
             headers={
                 'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
                 'Content-Type': 'application/json'

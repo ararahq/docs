@@ -36,7 +36,7 @@ O parâmetro `scheduledAt` deve estar no formato **ISO 8601** (UTC):
 
 <CodeGroup>
 ```bash cURL
-curl -X POST https://api.ararahq.com/v1/messages \
+curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -51,7 +51,7 @@ curl -X POST https://api.ararahq.com/v1/messages \
 import requests
 from datetime import datetime, timezone
 
-url = "https://api.ararahq.com/v1/messages"
+url = "https://api.ararahq.com/api/v1/messages"
 headers = {
     "Authorization": "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "Content-Type": "application/json"
@@ -76,7 +76,7 @@ print(response.json())
 ```javascript JavaScript
 const fetch = require('node-fetch');
 
-const url = 'https://api.ararahq.com/v1/messages';
+const url = 'https://api.ararahq.com/api/v1/messages';
 const headers = {
   'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   'Content-Type': 'application/json'
@@ -102,7 +102,7 @@ fetch(url, {
 ```
 
 ```typescript TypeScript
-const url = 'https://api.ararahq.com/v1/messages';
+const url = 'https://api.ararahq.com/api/v1/messages';
 const headers = {
   'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   'Content-Type': 'application/json'

@@ -12,7 +12,7 @@ O endpoint de envio de mensagens permite que você envie mensagens via WhatsApp 
 
 ## Endpoint
 
-`POST /v1/messages`
+`POST /api/v1/messages`
 
 ## Autenticação
 
@@ -82,7 +82,7 @@ Use este modo para **responder mensagens recebidas** dentro da janela de 24h. Es
 ### Enviar Template (sem variáveis)
 
 ```bash curl
-curl -X POST https://api.ararahq.com/v1/messages \
+curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -97,7 +97,7 @@ curl -X POST https://api.ararahq.com/v1/messages \
 Se seu template possui variáveis (como `{{1}}`, `{{2}}`, etc), você pode preenchê-las passando os valores no array `variables`:
 
 ```bash curl
-curl -X POST https://api.ararahq.com/v1/messages \
+curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -112,7 +112,7 @@ curl -X POST https://api.ararahq.com/v1/messages \
 Para responder uma mensagem recebida, use o mesmo endpoint mas envie `body` em vez de `templateName`:
 
 ```bash curl
-curl -X POST https://api.ararahq.com/v1/messages \
+curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -235,7 +235,7 @@ ou
 
 <CodeGroup>
 ```bash cURL
-curl -X POST https://api.ararahq.com/v1/messages \
+curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -248,7 +248,7 @@ curl -X POST https://api.ararahq.com/v1/messages \
 ```python Python
 import requests
 
-url = "https://api.ararahq.com/v1/messages"
+url = "https://api.ararahq.com/api/v1/messages"
 headers = {
     "Authorization": "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "Content-Type": "application/json"
@@ -266,7 +266,7 @@ print(response.json())
 ```javascript JavaScript
 const fetch = require('node-fetch');
 
-const url = 'https://api.ararahq.com/v1/messages';
+const url = 'https://api.ararahq.com/api/v1/messages';
 const headers = {
   'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   'Content-Type': 'application/json'
@@ -287,7 +287,7 @@ fetch(url, {
 ```
 
 ```typescript TypeScript
-const url = 'https://api.ararahq.com/v1/messages';
+const url = 'https://api.ararahq.com/api/v1/messages';
 const headers = {
   'Authorization': 'Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   'Content-Type': 'application/json'
@@ -328,7 +328,7 @@ String jsonBody = mapper.writeValueAsString(Map.of(
 ));
 
 HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.ararahq.com/v1/messages"))
+    .uri(URI.create("https://api.ararahq.com/api/v1/messages"))
     .header("Authorization", "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
@@ -369,7 +369,7 @@ val requestBody = MessageRequest(
 val jsonBody = Json.encodeToString(requestBody)
 
 val request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.ararahq.com/v1/messages"))
+    .uri(URI.create("https://api.ararahq.com/api/v1/messages"))
     .header("Authorization", "Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
