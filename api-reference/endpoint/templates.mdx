@@ -17,29 +17,115 @@ A API de Templates da Arara permite que você crie, liste e monitore o status de
 
 Este endpoint cria um template na infraestrutura da Arara e o submete automaticamente para aprovação da Meta.
 
-### Payload de Exemplo
+### Exemplos de Uso
 
-```json
-{
-  "name": "boas_vindas_v1",
-  "category": "MARKETING",
-  "language": "pt_BR",
-  "header": "Bem-vindo à Arara 🦜",
-  "body": "Olá {{nome}}, seu pedido {{pedido}} foi confirmado!",
-  "footer": "Dúvidas? Entre em contato.",
-  "buttons": [
+Para facilitar a integração, preparamos exemplos "copia e cola" para os cenários mais comuns.
+
+<AccordionGroup>
+  <Accordion title="Texto Simples (Básico)">
+    Ideal para notificações rápidas e diretas.
+    
+    ```json
     {
-      "type": "SMART_LINK",
-      "text": "Ver Pedido",
-      "url": "https://meusite.com/pedidos/123"
+      "name": "notificacao_simples",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "body": "Olá {{1}}, seu agendamento foi confirmado para {{2}}.",
+      "samples": {
+        "1": "Maria",
+        "2": "14/05 às 15h"
+      }
     }
-  ],
-  "samples": {
-    "nome": "Micael",
-    "pedido": "98765"
-  }
-}
-```
+    ```
+  </Accordion>
+
+  <Accordion title="Com Header e Footer">
+    Adicione um título em negrito (Header) e um rodapé discreto.
+    
+    ```json
+    {
+      "name": "resumo_pedido",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "header": "Confirmação de Pedido",
+      "body": "Olá {{1}}, recebemos seu pedido #{{2}} com sucesso!",
+      "footer": "Obrigado pela preferência.",
+      "samples": {
+        "1": "João",
+        "2": "9988"
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Botões Quick Reply (Resposta Rápida)">
+    Permita que o usuário responda com apenas um toque. Máximo de 3 botões.
+    
+    ```json
+    {
+      "name": "pesquisa_satisfacao",
+      "category": "MARKETING",
+      "language": "pt_BR",
+      "body": "Olá! O que achou do nosso atendimento?",
+      "buttons": [
+        { "type": "QUICK_REPLY", "text": "Amei! 😍" },
+        { "type": "QUICK_REPLY", "text": "Foi bom 🙂" },
+        { "type": "QUICK_REPLY", "text": "Pode melhorar 😐" }
+      ]
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Call to Action (Link + Telefone)">
+    Direcione o usuário para uma ação externa.
+    
+    ```json
+    {
+      "name": "recuperacao_carrinho",
+      "category": "MARKETING",
+      "language": "pt_BR",
+      "body": "Ei {{1}}, você esqueceu itens no carrinho! Volte agora e ganhe 5% OFF.",
+      "buttons": [
+        { 
+          "type": "URL", 
+          "text": "Finalizar Compra", 
+          "url": "https://loja.com/carrinho" 
+        },
+        { 
+          "type": "PHONE_NUMBER", 
+          "text": "Ligar para Vendedor", 
+          "phone": "+5511999999999" 
+        }
+      ],
+      "samples": { "1": "Ana" }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="🏆 Smart Link (Rastreia Cliques)">
+    A "Killer Feature" da Arara. Encurta e rastreia quem clicou no link.
+    
+    ```json
+    {
+      "name": "oferta_relampago",
+      "category": "MARKETING",
+      "language": "pt_BR",
+      "body": "Oferta imperdível para você, {{1}}!",
+      "buttons": [
+        { 
+          "type": "SMART_LINK", 
+          "text": "Ver Oferta Exclusiva", 
+          "url": "https://minhaloja.com/oferta/{{2}}" 
+        }
+      ],
+      "samples": { 
+        "1": "Carlos",
+        "2": "promocao-verao" 
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
 
 ### Regras de Ouro (Anti-Rejeição)
 
