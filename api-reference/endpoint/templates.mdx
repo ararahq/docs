@@ -1,0 +1,102 @@
+---
+title: 'Templates'
+description: 'Gerencie seus modelos de mensagem (Templates) do WhatsApp diretamente via API'
+---
+
+# Gerenciamento de Templates
+
+A API de Templates da Arara permite que você crie, liste e monitore o status de aprovação dos seus modelos de mensagem. Nossa implementação é focada em **Developer Experience**, abstraindo a complexidade da Meta e garantindo que seus templates sejam aprovados com validações inteligentes (Foolproof).
+
+<Warning>
+  A API de Templates é exclusiva para o **Modo Produção (LIVE)**. Requisições em modo de teste retornarão erro 403.
+</Warning>
+
+---
+
+## Criar um Template `POST /v1/templates`
+
+Este endpoint cria um template na infraestrutura da Arara e o submete automaticamente para aprovação da Meta.
+
+### Payload de Exemplo
+
+```json
+{
+  "name": "boas_vindas_v1",
+  "category": "MARKETING",
+  "language": "pt_BR",
+  "header": "Bem-vindo à Arara 🦜",
+  "body": "Olá {{nome}}, seu pedido {{pedido}} foi confirmado!",
+  "footer": "Dúvidas? Entre em contato.",
+  "buttons": [
+    {
+      "type": "SMART_LINK",
+      "text": "Ver Pedido",
+      "url": "https://meusite.com/pedidos/123"
+    }
+  ],
+  "samples": {
+    "nome": "Micael",
+    "pedido": "98765"
+  }
+}
+```
+
+### Regras de Ouro (Anti-Rejeição)
+
+Para garantir que seu template seja aprovado rapidamente, aplicamos as seguintes regras:
+
+1.  **Cabeçalho (Header)**: Deve conter apenas texto simples. Emojis e caracteres especiais complexos são proibidos no header.
+2.  **Botões**: Você pode usar até 3 botões de **Quick Reply** OU 1 botão de **Link (URL/Smart Link)** + 1 botão de **Telefone**. Não é permitido misturar tipos.
+3.  **Smart Links**: Utilize o tipo `SMART_LINK` em botões de URL para que a Arara encurte e rastreie os cliques automaticamente.
+
+---
+
+## Listar Templates `GET /v1/templates`
+
+Retorna todos os templates criados pela sua organização.
+
+| Parâmetro | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `name` | query | (Opcional) Filtra um template específico pelo nome exato. |
+
+### Resposta
+
+Retorna uma lista de objetos contendo o `providerStatus` (ex: `PENDING`, `APPROVED`, `REJECTED`) e o `variablesSchema` para ajudar no envio de mensagens.
+
+---
+
+## Consultar Status em Tempo Real `GET /v1/templates/{id}/status`
+
+Embora a Arara atualize o status automaticamente via Webhook, você pode consultar manualmente o estado atual na Meta.
+
+**Resposta em caso de rejeição:**
+```json
+{
+  "status": "REJECTED",
+  "rejectionReason": "INCORRECT_CATEGORY",
+  "category": "MARKETING"
+}
+```
+
+---
+
+## Deletar Template `DELETE /v1/templates/{id}`
+
+Remove o template da base da Arara. 
+
+<Info>
+  A remoção na Arara não remove automaticamente o template fisicamente da conta WABA na Meta por questões de histórico, mas impede novos envios através deste ID.
+</Info>
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Enviar Mensagem" icon="paper-plane" href="/api-reference/endpoint/send">
+    Aprenda a usar seus templates para enviar mensagens
+  </Card>
+  <Card title="Webhooks Universais" icon="satellite-dish" href="/api-reference/endpoint/webhook">
+    Receba notificações de aprovação de templates automaticamente
+  </Card>
+</CardGroup>

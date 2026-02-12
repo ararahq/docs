@@ -1,264 +1,161 @@
 ---
-title: 'Webhooks'
-description: 'Configure webhooks para receber notificações de eventos da Arara, como atualizações de carrinho'
+title: 'Webhooks Universais'
+description: 'Receba notificações em tempo real sobre mensagens, status e templates com segurança HMAC'
 ---
 
-# Webhooks
+# Webhooks Universais
 
-Webhooks permitem que você receba notificações em tempo real sobre eventos que acontecem na Arara. Isso é especialmente útil para integrações com carrinhos de compra e outros sistemas que precisam reagir a mudanças.
+A Arara utiliza um sistema de **Webhooks Universais** para notificar o seu backend em tempo real sempre que algo importante acontece. Nossa infraestrutura foi desenhada para ser robusta, segura (nível Stripe) e fácil de integrar.
 
 ## O Que São Webhooks?
 
-Webhooks são chamadas HTTP que a Arara faz para uma URL que você configurou, sempre que um evento específico acontece. É como receber uma "notificação push" do nosso servidor para o seu.
+Webhooks são chamadas HTTP `POST` que a Arara faz para uma URL configurada por você. Em vez de você consultar nossa API repetidamente para saber se uma mensagem foi lida ou se um template foi aprovado, **nós avisamos você**.
 
 <Info>
-  **Importante**: 
-  - Webhooks de status de mensagem só são enviados quando a mensagem foi **entregue** ao destinatário (status `DELIVERED`)
-  - Webhooks de mensagens recebidas (inbound) só funcionam com **números dedicados**, não com números compartilhados
+  **Segurança e Flexibilidade**: Nosso sistema suporta assinaturas **HMAC-SHA256**. Se você configurar um `Secret` no dashboard, todas as requisições serão assinadas. Se não configurar, o sistema continua funcionando em modo legado para não quebrar sua integração.
 </Info>
 
-## Configurando Webhooks
+---
 
-### Passo 1: Acesse o Dashboard
+## Estrutura Universal do Payload
 
-1. Faça login no [Dashboard da Arara](https://www.ararahq.com/dashboard)
-2. Navegue até **"API Keys"** no menu
-3. Selecione a aba **"Webhooks"**
+Todos os eventos enviados pela Arara seguem o mesmo padrão de estrutura:
 
-### Passo 2: Configure a URL do Webhook
-
-Você precisará fornecer uma URL pública onde deseja receber as notificações:
-
-```
-https://api.meusite.com/webhook/arara/inbound
-```
-
-<Warning>
-  A URL do webhook deve ser:
-  - **Pública**: Acessível da internet (não localhost)
-  - **HTTPS**: Usar protocolo seguro (HTTPS)
-  - **Válida**: Responder corretamente às requisições
-</Warning>
-
-### Passo 3: Configure o Webhook de Mensagens Recebidas
-
-Para receber notificações quando clientes enviarem mensagens para você, configure o webhook de mensagens recebidas (inbound):
-
-- **Mensagem Recebida (Inbound)**: Quando você recebe uma mensagem de um cliente (apenas números dedicados)
-
-## Implementando o Endpoint do Webhook
-
-Seu endpoint deve:
-
-1. **Validar a requisição** (opcional, mas recomendado)
-2. **Processar o evento**
-3. **Responder com status 200** para confirmar o recebimento
-
-### Exemplo em Node.js/Express
-
-```javascript
-const express = require('express');
-const app = express();
-
-app.use(express.json());
-
-app.post('/webhook/arara/inbound', (req, res) => {
-  const { event, data } = req.body;
-  
-  if (event === 'message.received') {
-    // Processar mensagem recebida
-    console.log('Mensagem recebida de:', data.from);
-    console.log('Conteúdo:', data.body);
-    
-    // Aqui você pode:
-    // - Processar a mensagem
-    // - Responder automaticamente
-    // - Atualizar seu banco de dados
-    // - Disparar outras ações
-  }
-  
-  // Sempre responda com 200 para confirmar recebimento
-  res.status(200).json({ received: true });
-});
-
-app.listen(3000, () => {
-  console.log('Webhook server listening on port 3000');
-});
-```
-
-### Exemplo em Python/Flask
-
-```python
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
-@app.route('/webhook/arara/inbound', methods=['POST'])
-def webhook():
-    data = request.json
-    event = data.get('event')
-    
-    if event == 'message.received':
-        webhook_data = data.get('data')
-        print(f'Mensagem recebida de: {webhook_data.get("from")}')
-        print(f'Conteúdo: {webhook_data.get("body")}')
-        
-        # Processar mensagem recebida
-        # - Processar a mensagem
-        # - Responder automaticamente
-        # - Atualizar banco de dados
-        # - Disparar outras ações
-    
-    return jsonify({'received': True}), 200
-
-if __name__ == '__main__':
-    app.run(port=3000)
-```
-
-## Segurança
-
-### Validação de Requisições (Recomendado)
-
-Para garantir que as requisições realmente vêm da Arara, você pode:
-
-1. **Verificar o cabeçalho de assinatura** (se disponível)
-2. **Validar o formato do payload**
-3. **Usar HTTPS** para criptografar a comunicação
-
-### Exemplo de Validação
-
-```javascript
-const crypto = require('crypto');
-
-function validateWebhook(req, secret) {
-  const signature = req.headers['x-arara-signature'];
-  const payload = JSON.stringify(req.body);
-  
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex');
-  
-  return signature === expectedSignature;
+```json
+{
+  "event": "nome.do.evento",
+  "data": {
+    // Dados específicos do evento
+  },
+  "timestamp": "2024-02-12T13:00:00Z",
+  "organizationId": "uuid-da-sua-organizacao"
 }
-
-app.post('/webhook/arara', (req, res) => {
-  if (!validateWebhook(req, process.env.WEBHOOK_SECRET)) {
-    return res.status(401).json({ error: 'Invalid signature' });
-  }
-  
-  // Processar webhook...
-  res.status(200).json({ received: true });
-});
 ```
 
-## Webhooks de Mensagens Recebidas (Inbound)
+---
 
-Webhooks de mensagens recebidas (inbound) permitem que você seja notificado quando um cliente envia uma mensagem para seu número WhatsApp.
+## Eventos de Mensagens
 
-<Warning>
-  **Importante**: Webhooks de mensagens recebidas (inbound) só estão disponíveis para **números dedicados**, não para números compartilhados. Se você estiver usando um número compartilhado, não receberá webhooks de mensagens recebidas.
-</Warning>
-
-### `message.received`
-
-Disparado quando você recebe uma mensagem de um cliente.
-
-**Requisitos:**
-- Você deve ter um número dedicado configurado
-- Você deve ter configurado a URL de webhook inbound no dashboard
-- A mensagem deve ser recebida no seu número dedicado
+### `message.received` (Inbound)
+Disparado quando um cliente envia uma mensagem para o seu número dedicado.
 
 **Payload:**
 ```json
 {
   "event": "message.received",
   "data": {
-    "id": "SM1234567890abcdef",
-    "from": "5583991768778",
-    "to": "5583999999999",
-    "body": "Olá, preciso de ajuda!",
+    "id": "SM123456...",
+    "from": "5511999999999",
+    "to": "551140040000",
+    "body": "Olá, gostaria de saber mais sobre o produto!",
     "type": "text",
-    "media_url": "",
-    "sender_name": "João Silva",
-    "timestamp": "2024-01-15T10:30:00Z"
+    "media_url": "https://ararahq.com/l/abc123" // URL encurtada pela Arara
   }
 }
 ```
 
-Para mais detalhes sobre como receber e responder mensagens, consulte a [documentação de fluxo inbound](/api-reference/endpoint/inbound).
+### `message.status_updated`
+Disparado sempre que o status de uma mensagem enviada muda (entregue, lida ou falha).
 
-## Evento Configurável
-
-A única configuração de webhook disponível no dashboard é para mensagens recebidas (inbound). Este é o único evento que você pode configurar através da interface do dashboard.
-
-## Testando Webhooks
-
-### Usando ngrok (Desenvolvimento Local)
-
-Para testar webhooks localmente, você pode usar o [ngrok](https://ngrok.com):
-
-```bash
-# Instale o ngrok
-brew install ngrok  # macOS
-# ou baixe de https://ngrok.com/download
-
-# Execute seu servidor local
-node server.js  # na porta 3000
-
-# Em outro terminal, crie um túnel
-ngrok http 3000
-
-# Use a URL fornecida pelo ngrok no dashboard
-# Acesse: API Keys > Webhooks
-# Exemplo: https://abc123.ngrok.io/webhook/arara/inbound
-```
-
-### Testando com cURL
-
-Você pode simular um webhook usando cURL:
-
-```bash curl
-curl -X POST https://api.meusite.com/webhook/arara/inbound \
-  -H "Content-Type: application/json" \
-  -d '{
-    "event": "message.received",
-    "data": {
-      "id": "SM1234567890abcdef",
-      "from": "5583991768778",
-      "to": "5583999999999",
-      "body": "Olá, preciso de ajuda!",
-      "type": "text",
-      "media_url": "",
-      "sender_name": "João Silva",
-      "timestamp": "2024-01-15T10:30:00Z"
+**Exemplo de Falha com Diagnóstico:**
+```json
+{
+  "event": "message.status_updated",
+  "data": {
+    "messageId": "uuid-da-mensagem",
+    "status": "failed",
+    "errorDetails": {
+      "code": "ararahq-63024",
+      "whatHappened": "O número de destino não é um WhatsApp válido.",
+      "howToAct": "Verifique se o número possui WhatsApp antes de enviar."
     }
-  }'
+  }
+}
 ```
+
+---
+
+## Eventos de Templates
+
+### `template.updated`
+Extremamente útil para automação de fluxos. Avisa você no segundo em que a Meta aprova ou rejeita o seu template.
+
+**Payload:**
+```json
+{
+  "event": "template.updated",
+  "data": {
+    "templateId": "uuid-do-template",
+    "name": "boas_vindas_v1",
+    "status": "APPROVED", // APPROVED, REJECTED ou PAUSED
+    "category": "MARKETING",
+    "rejectionReason": null // Preenchido em caso de REJECTED
+  }
+}
+```
+
+---
+
+## Segurança (HMAC-SHA256)
+
+Para garantir que a requisição veio realmente da Arara e não foi alterada, enviamos dois cabeçalhos de assinatura:
+
+- `X-Arara-Signature`: O hash HMAC-SHA256 do payload.
+- `X-Arara-Signature-V2`: O hash no formato `sha256={hash}`.
+
+### Como Validar a Assinatura
+
+Use o seu `Webhook Secret` (configurado em API Keys > Webhooks no dashboard) como chave secreta para calcular o HMAC do corpo bruto (raw body) da requisição.
+
+**Exemplo em Node.js:**
+
+```javascript
+const crypto = require('crypto');
+
+app.post('/webhook', (req, res) => {
+  const signature = req.headers['x-arara-signature'];
+  const secret = process.env.ARARA_WEBHOOK_SECRET;
+  
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(JSON.stringify(req.body))
+    .digest('hex');
+
+  if (signature !== expectedSignature) {
+    return res.status(401).send('Invalid Signature');
+  }
+
+  // Processar o evento com segurança...
+  res.status(200).send('OK');
+});
+```
+
+---
 
 ## Resolução de Problemas
 
-### Webhook Não Está Sendo Chamado
+<AccordionGroup>
+  <Accordion title="Não estou recebendo webhooks">
+    1. Verifique se a URL no dashboard está correta.
+    2. Certifique-se de que sua URL é acessível via HTTPS público.
+    3. Se o evento for `message.received`, confirme que você possui um **Número Dedicado** ativo.
+  </Accordion>
 
-1. Verifique se a URL está correta e acessível
-2. Confirme que a URL usa HTTPS
-3. Verifique os logs do dashboard para ver tentativas de entrega
-4. Teste a URL manualmente com cURL
+  <Accordion title="Erro de assinatura (Invalid Signature)">
+    1. Certifique-se de estar usando o `Webhook Secret` correto do dashboard.
+    2. Valide se você está calculando o HMAC sobre o **corpo bruto (raw body)** da requisição, sem modificações de espaços ou ordenação de JSON.
+  </Accordion>
+</AccordionGroup>
 
-### Webhook Retorna Erro
-
-1. Certifique-se de que seu endpoint retorna status `200`
-2. Verifique os logs do seu servidor
-3. Valide o formato do payload recebido
-4. Teste com um payload de exemplo
+---
 
 ## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/send">
-    Aprenda a enviar mensagens via API
+  <Card title="Diagnósticos de Erro" icon="stethoscope" href="/architecture/error-diagnostics">
+    Entenda a fundo os códigos de erro da Arara
   </Card>
-  <Card title="Autenticação" icon="key" href="/api-reference/authentication">
-    Revise a autenticação da API
+  <Card title="Gerenciar Templates" icon="rectangle-list" href="/business-rules/template-management">
+    Aprenda as regras de aprovação de templates
   </Card>
 </CardGroup>

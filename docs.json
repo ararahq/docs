@@ -50,9 +50,9 @@
               "group": "Endpoints",
               "pages": [
                 "api-reference/endpoint/send",
+                "api-reference/endpoint/templates",
                 "api-reference/endpoint/inbound",
                 "api-reference/endpoint/schedule",
-                "api-reference/endpoint/cart-recovery",
                 "api-reference/endpoint/webhook"
               ]
             },
