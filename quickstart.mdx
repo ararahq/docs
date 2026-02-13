@@ -222,6 +222,7 @@ Antes de começar, certifique-se de ter:
     ```json
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
+      "internalId": "ara_msg_k9Bf2XqP",
       "receiver": "whatsapp:+5583991768778",
       "templateName": "template_teste_inicio_conversa",
       "status": "PENDING",
@@ -230,7 +231,7 @@ Antes de começar, certifique-se de ter:
     }
     ```
     
-    A mensagem será processada e enviada em breve. Você pode verificar o status e o histórico completo da mensagem no seu [Dashboard](https://www.ararahq.com/dashboard).
+    A mensagem será processada e enviada em breve. Você pode usar o `internalId` para consultar o status futuramente. Verifique o histórico completo no seu [Dashboard](https://www.ararahq.com/dashboard).
   </Step>
 </Steps>
 
@@ -254,11 +255,11 @@ Agora que você enviou sua primeira mensagem, explore mais:
     Configure webhooks para receber notificações de eventos em tempo real.
   </Card>
   <Card
-    title="Documentação Completa da API"
+    title="Documentação de Mensagens"
     icon="book"
-    href="/api-reference/endpoint/send"
+    href="/api-reference/endpoint/messages"
   >
-    Explore todos os detalhes do endpoint de envio de mensagens.
+    Explore todos os detalhes dos endpoints de envio e consulta.
   </Card>
   <Card
     title="Autenticação"
