@@ -5,10 +5,12 @@ description: 'Envie mensagens e consulte o status via Arara'
 
 # Mensagens
 
-O endpoint de envio de mensagens permite que você envie mensagens via WhatsApp de duas formas:
+A API de Mensagens permite que você envie e gerencie comunicações via WhatsApp de duas formas:
 
 1. **Mensagens de Template**: Use templates pré-aprovados para iniciar conversas
 2. **Mensagens de Texto Livre (Sessão)**: Responda mensagens recebidas dentro da janela de 24h
+
+Além do envio, você pode consultar o status detalhado de qualquer mensagem usando o seu identificador público (`ara_msg_...`).
 
 ## Endpoint
 
@@ -133,8 +135,7 @@ Quando a mensagem é aceita para processamento, você receberá uma resposta `20
 
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "internalId": "ara_msg_k9Bf2XqP",
+  "id": "ara_msg_k9Bf2XqP",
   "receiver": "whatsapp:+5583991768778",
   "templateName": "template_teste_inicio_conversa",
   "status": "PENDING",
@@ -147,8 +148,7 @@ Quando a mensagem é aceita para processamento, você receberá uma resposta `20
 
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "internalId": "ara_msg_z7Lp4YwR",
+  "id": "ara_msg_z7Lp4YwR",
   "receiver": "whatsapp:+5583991768778",
   "body": "Olá! Como posso ajudar você hoje?",
   "status": "SENT_TO_PROVIDER",
@@ -161,8 +161,7 @@ Quando a mensagem é aceita para processamento, você receberá uma resposta `20
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
-| `id` | string (UUID) | Identificador único interno do banco de dados |
-| `internalId` | string | **ID Público Arara** (Ex: `ara_msg_...`). Use este ID para consultas e suporte. |
+| `id` | string | **ID Arara** (Ex: `ara_msg_...`). Use este identificador para consultas e suporte. |
 | `receiver` | string | Número do destinatário |
 | `templateName` | string | Nome do template usado (apenas para mensagens de template) |
 | `body` | string | Texto da mensagem (apenas para mensagens de sessão) |
@@ -189,12 +188,12 @@ curl -X GET https://api.ararahq.com/api/v1/messages/ara_msg_k9Bf2XqP \
 
 ```json
 {
+  "id": "ara_msg_k9Bf2XqP",
   "status": "DELIVERED",
   "mode": "LIVE",
   "sender": "whatsapp:+5511999999999",
   "receiver": "whatsapp:+5516988888888",
-  "body": "[OPORTUNIDADE] Evento: BAILE MEDICINA...",
-  "internalId": "ara_msg_k9Bf2XqP"
+  "body": "[OPORTUNIDADE] Evento: BAILE MEDICINA..."
 }
 ```
 

@@ -59,7 +59,7 @@ Antes de começar, certifique-se de seguir estas regras:
 Todo SDK deve implementar pelo menos:
 
 - **Autenticação**: Suporte a API Key via header `Authorization`
-- **Envio de Mensagens**: Método para `POST /v1/messages`
+- **Gestão de Mensagens**: Métodos para `POST /v1/messages` e `GET /v1/messages/{internalId}`
 - **Tratamento de Erros**: Classes/exceções específicas para cada tipo de erro HTTP
 - **Validação**: Validação básica de parâmetros antes de enviar
 - **Type Safety**: Tipos fortes quando a linguagem suporta (TypeScript, Java, etc.)

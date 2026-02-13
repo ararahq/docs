@@ -16,31 +16,54 @@ A Arara foi projetada com uma arquitetura moderna e escalável, focada em simpli
 
 ## Funcionalidades Essenciais
 
-A plataforma Arara é construída em torno de um conjunto de funcionalidades essenciais que garantem uma experiência completa, intuitiva e robusta para desenvolvedores e empresas.
+A plataforma Arara é construída em torno de um conjunto de funcionalidades que garantem uma experiência completa, intuitiva e robusta para desenvolvedores e empresas.
 
 <CardGroup cols={2}>
   <Card
-    title="API para Envio Outbound"
+    title="API de Mensagens"
     icon="paper-plane"
-    href="/api-reference/endpoint/send"
+    href="/api-reference/endpoint/messages"
   >
-    Um único endpoint poderoso e fácil de usar para disparar mensagens de template via WhatsApp, com foco na simplicidade da integração.
+    Envio de templates e consulta de status via um único identificador público (`ara_msg_...`), abstraindo a complexidade da Meta.
   </Card>
 
   <Card
-    title="Agendamento de Mensagens"
-    icon="clock-rotate-left"
-    href="/api-reference/endpoint/schedule"
+    title="Smart Links & Analytics"
+    icon="link"
+    href="/business-rules/template-management"
   >
-    Suporte nativo ao parâmetro `scheduled_at` em nossa API, permitindo programar o envio de mensagens para a data e hora desejadas.
+    Encurtamento automático de URLs com rastreamento de cliques por organização, integrado nativamente aos botões de template.
   </Card>
 
   <Card
-    title="Dashboard com Gerenciador de Templates Visual"
+    title="Escudo de Erros Arara"
+    icon="shield-check"
+    href="/erros"
+  >
+    Diagnósticos humanos para falhas da Meta. Traduzimos erros técnicos obscuros em ações claras de como resolver o problema.
+  </Card>
+
+  <Card
+    title="Gestão de Números (DIDs)"
+    icon="sim-card"
+    href="/api-reference/endpoint/inbound"
+  >
+    Suporte a números compartilhados e dedicados (Twilio/Fluke), com provisionamento instantâneo via Dashboard.
+  </Card>
+
+  <Card
+    title="Gerenciador Visual"
     icon="object-group"
     href="/business-rules/template-management"
   >
-    Nossa *killer feature*: uma interface intuitiva para criar, submeter à Meta e gerenciar todos os seus templates de mensagem de forma visual.
+    Criação e edição visual de templates com validação "Foolproof" antes da submissão para a Meta.
   </Card>
 
+  <Card
+    title="Agendamento Nativo"
+    icon="clock-rotate-left"
+    href="/api-reference/endpoint/schedule"
+  >
+    Suporte ao parâmetro `scheduled_at` para programar disparos futuros sem necessidade de infraestrutura de cron externa.
+  </Card>
 </CardGroup>
