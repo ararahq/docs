@@ -36,7 +36,41 @@ Sends a Template or a Session message.
 
 ---
 
-## 2. Webhooks (Universal Contract)
+## 2. Retrieval (GET /v1/messages/{id})
+Fetch the current status and metadata of a single message.
+
+### Response (200 OK)
+```json
+{
+  "id": "ara_msg_...",
+  "status": "READ",
+  "receiver": "whatsapp:+55...",
+  "sender": "whatsapp:+55...",
+  "body": "Processed content...",
+  "cost": 0.20,
+  "createdAt": "2024-01-15T10:30:00Z"
+}
+```
+
+---
+
+## 3. Templates (CRUD /v1/templates)
+Manage your message blueprints.
+
+### List Templates (GET /v1/templates)
+Returns all active and pending templates.
+
+### Create Template (POST /v1/templates)
+Submit a new template for Meta's approval.
+- **Payload**: `name`, `category` (UTILITY, MARKETING, AUTHENTICATION), `body`, `buttonsConfig`.
+- **Buttons**: Type `URL` supports variables for Smart Links.
+
+### Delete Template (DELETE /v1/templates/{name})
+Permanently removes a template from Arara and Meta.
+
+---
+
+## 4. Webhooks (Universal Contract)
 Arara communicates asynchronously via POST requests to your URL.
 
 ### Security & Validation
@@ -83,7 +117,7 @@ Sent on Meta approval/rejection.
 
 ---
 
-## 3. Error Handling (Escudo de Erros)
+## 5. Error Handling (Escudo de Erros)
 Arara provides structured diagnostics for 422 errors.
 
 | Code | Meaning | Action |

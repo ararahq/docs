@@ -1,58 +1,66 @@
 ---
-title: 'Marketing & Smart Links'
-description: 'Como usar o rastreamento de cliques da Arara para mensurar resultados.'
+title: "Marketing & Raio-X"
+description: "Como usar o encurtamento automático e rastreamento de cliques da Arara."
 ---
 
-# Cookbook: Marketing & Smart Links
+# Cookbook: Marketing & Recurso Raio-X
 
-No WhatsApp tradicional, você envia um link e nunca sabe quem clicou. Com os **Smart Links da Arara**, cada link em um botão de template é automaticamente encurtado e rastreado de forma única.
+No WhatsApp comum, você envia uma URL longa e "feia" que afasta o clique. Com o recurso **Raio-X da Arara**, você envia o seu link original e nós o transformamos em um **Smart Link** rastreável e encurtado automaticamente.
 
-## Como Funciona
+## 1. O Que é o Recurso Raio-X?
 
-Ao criar um template com um botão do tipo `SMART_LINK`, a Arara intercepta a URL e gera um redirecionamento inteligente.
-
-1.  **Template**: Você define um botão com a URL `https://sualoja.com/oferta/{{1}}`.
-2.  **Disparo**: Você envia a variável `"promocao-verao"`.
-3.  **Resultado**: O cliente recebe um link encurtado (ex: `ararahq.com/l/xP92`). Quando ele clica, a Arara registra o evento e redireciona para sua loja.
+Diferente de encurtadores manuais (como bit.ly), o Raio-X da Arara é integrado ao disparo. 
+- Você envia o link direto da sua loja ou produto.
+- A Arara detecta a URL no payload.
+- O cliente recebe um link curto e confiável: `ararahq.com/l/{codigo}`.
+- Cada clique gera um evento em tempo real para o seu analytics.
 
 ---
 
-## Exemplo de Implementação
+## 2. Como Usar (Exemplo Prático)
 
-Não há necessidade de código extra para rastrear. Basta usar o nome do template correto.
+Você não precisa configurar nada no seu código para encurtar. Basta passar a URL completa como uma variável do template.
+
+### Configuração do Template:
+Crie um botão no Dashboard com a URL dinâmica: `{{1}}`.
+
+### Disparo via API:
+Passe o seu link final diretamente no campo `variables`.
 
 ```javascript
-// A Arara cuida do encurtamento automaticamente se o template
-// foi configurado como SMART_LINK no dashboard.
+// A Arara detecta a URL em {{1}} e aplica o Raio-X
 await arara.messages.send({
   receiver: 'whatsapp:+5511999999999',
-  templateName: 'oferta_relampago_smart',
-  variables: ['promocao-verao']
+  templateName: 'oferta_verao',
+  variables: ['https://sualoja.com/produto/camisa-azul?ref=ads']
 });
 ```
 
+**Resultado no celular do cliente:**
+> "Confira nossa oferta: **ararahq.com/l/abc123**"
+
 ---
 
-## Benefícios do Smart Link
+## 3. Analytics e Conversão
 
-### 1. Analytics em Tempo Real
-No dashboard da Arara, você verá o gráfico de cliques (CTR) de cada campanha, permitindo saber quais abordagens funcionam melhor.
+### Rastreamento de Cliques
+Cada vez que um usuário clica no link gerado pelo Raio-X, a Arara registra:
+- **Quem clicou** (Número do destinatário).
+- **Quando clicou** (Timestamp exato).
+- **Taxa de Cliques (CTR)** global da sua campanha.
 
-### 2. Retargeting (Opcional)
-Se você configurar um Webhook para o evento `link.clicked`, seu sistema pode disparar uma ação automática sempre que o cliente clicar, como enviar um cupom extra 10 minutos depois.
-
-### 3. Links Limpos
-Mensagens com links encurtados pela Arara têm uma estética mais profissional e transmitem mais confiança ao usuário final, aumentando a conversão.
+### Webhook de Clique
+Configure um Webhook para o evento `link.clicked` e receba notificações instantâneas para disparar fluxos de retargeting ou CRM.
 
 ---
 
 ## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Webhooks" icon="satellite" href="/api-reference/endpoint/webhook">
-    Receba eventos de clique instantaneamente.
+  <Card title="Autenticação" icon="key" href="/cookbooks/auth-2fa">
+    Padrões de segurança OTP.
   </Card>
-  <Card title="Cookbook: 2FA" icon="key" href="/cookbooks/auth-2fa">
-    Padrões de segurança.
+  <Card title="Referência da API" icon="book" href="/api-reference/introduction">
+    Veja todos os endpoints disponíveis.
   </Card>
 </CardGroup>

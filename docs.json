@@ -39,8 +39,7 @@
               "group": "Cookbooks (Casos de Uso)",
               "pages": [
                 "cookbooks/auth-2fa",
-                "cookbooks/marketing-smartlinks",
-                "cookbooks/cart-recovery"
+                "cookbooks/marketing-smartlinks"
               ]
             },
             {
