@@ -5,9 +5,7 @@ description: 'Bibliotecas oficiais para integrar a Arara em sua linguagem favori
 
 # SDKs e Bibliotecas
 
-Para acelerar sua integração, fornecemos SDKs oficiais e bibliotecas mantidas pela comunidade. Nossos SDKs seguem padrões de **Clean Code** e oferecem suporte nativo a tipos (TypeScript/Kotlin/Python).
-
-## Bibliotecas Oficiais
+Para acelerar sua integração, fornecemos SDKs oficiais **100% Open Source**. Nossos SDKs seguem padrões de **Clean Code** e oferecem suporte nativo a tipos.
 
 <CardGroup cols={2}>
   <Card title="Node.js / TypeScript" icon="node">
@@ -15,22 +13,28 @@ Para acelerar sua integração, fornecemos SDKs oficiais e bibliotecas mantidas 
     npm install @ararahq/sdk
     ```
   </Card>
-  <Card title="Python" icon="python">
+  <Card title="PHP / Laravel (In Review)" icon="php">
+    ```bash
+    composer require ararahq/sdk
+    ```
+  </Card>
+  <Card title="Python (Coming Soon)" icon="python">
     ```bash
     pip install ararahq
     ```
   </Card>
-  <Card title="Java / Kotlin" icon="java">
+  <Card title="Java / Kotlin (Coming Soon)" icon="java">
     ```kotlin
-    implementation("com.arara:sdk:1.0.0")
-    ```
-  </Card>
-  <Card title="Go (Community)" icon="golang">
-    ```bash
-    go get github.com/ararahq/arara-go
+    implementation("com.ararahq:sdk")
     ```
   </Card>
 </CardGroup>
+
+---
+
+## Código Aberto & Soberania
+
+Todos os nossos SDKs são distribuídos sob a licença **MIT** e estão disponíveis no nosso [GitHub](https://github.com/ararahq). Acreditamos que a infraestrutura de mensagens deve ser transparente e extensível.
 
 ---
 
@@ -38,27 +42,29 @@ Para acelerar sua integração, fornecemos SDKs oficiais e bibliotecas mantidas 
 
 Nossos SDKs não são apenas "wrappers" de API. Eles incluem:
 
-1.  **Retentativas Automáticas**: Lógica de *Exponential Backoff* embutida para lidar com instabilidades de rede.
-2.  **Validação Local**: Verificamos o formato dos números e nomes dos templates antes mesmo de fazer o request, economizando tempo de latência.
-3.  **Tipagem Forte**: Autocomplete completo no seu editor (VS Code, IntelliJ) para todos os payloads e respostas.
-4.  **Logging Integrado**: Facilita o debug mapeando erros da API diretamente para exceções na sua linguagem.
+1.  **Retentativas Automáticas**: Lógica de *Exponential Backoff* embutida para lidar com instabilidades.
+2.  **Validação Local**: Verificamos o formato dos números e nomes dos templates antes do request.
+3.  **Tipagem Forte**: Autocomplete completo no seu editor (VS Code, IntelliJ) para todos os payloads.
+4.  **Universal Webhooks**: Tipagem nativa para processar eventos de status e mensagens recebidas.
 
 ---
 
-## Exemplo de Uso (TypeScript)
+## Exemplo de Uso (Node.js)
 
 ```typescript
-import { AraraClient } from '@ararahq/sdk';
+import { NodeSDK } from '@ararahq/sdk';
 
-const arara = new AraraClient('ara_sk_...');
+const sdk = new NodeSDK({
+  apiKey: 'sk_live_...'
+});
 
-const message = await arara.messages.send({
-  receiver: 'whatsapp:+5583991768778',
+const response = await sdk.messages.send({
+  receiver: 'whatsapp:+5511999998888',
   templateName: 'boas_vindas',
   variables: ['Micael']
 });
 
-console.log(`Mensagem enviada! ID: ${message.id}`);
+console.log(`Mensagem enviada! ID: ${response.id}`);
 ```
 
 ---
