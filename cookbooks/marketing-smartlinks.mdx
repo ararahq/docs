@@ -1,0 +1,58 @@
+---
+title: 'Marketing & Smart Links'
+description: 'Como usar o rastreamento de cliques da Arara para mensurar resultados.'
+---
+
+# Cookbook: Marketing & Smart Links
+
+No WhatsApp tradicional, você envia um link e nunca sabe quem clicou. Com os **Smart Links da Arara**, cada link em um botão de template é automaticamente encurtado e rastreado de forma única.
+
+## Como Funciona
+
+Ao criar um template com um botão do tipo `SMART_LINK`, a Arara intercepta a URL e gera um redirecionamento inteligente.
+
+1.  **Template**: Você define um botão com a URL `https://sualoja.com/oferta/{{1}}`.
+2.  **Disparo**: Você envia a variável `"promocao-verao"`.
+3.  **Resultado**: O cliente recebe um link encurtado (ex: `ararahq.com/l/xP92`). Quando ele clica, a Arara registra o evento e redireciona para sua loja.
+
+---
+
+## Exemplo de Implementação
+
+Não há necessidade de código extra para rastrear. Basta usar o nome do template correto.
+
+```javascript
+// A Arara cuida do encurtamento automaticamente se o template
+// foi configurado como SMART_LINK no dashboard.
+await arara.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'oferta_relampago_smart',
+  variables: ['promocao-verao']
+});
+```
+
+---
+
+## Benefícios do Smart Link
+
+### 1. Analytics em Tempo Real
+No dashboard da Arara, você verá o gráfico de cliques (CTR) de cada campanha, permitindo saber quais abordagens funcionam melhor.
+
+### 2. Retargeting (Opcional)
+Se você configurar um Webhook para o evento `link.clicked`, seu sistema pode disparar uma ação automática sempre que o cliente clicar, como enviar um cupom extra 10 minutos depois.
+
+### 3. Links Limpos
+Mensagens com links encurtados pela Arara têm uma estética mais profissional e transmitem mais confiança ao usuário final, aumentando a conversão.
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Webhooks" icon="satellite" href="/api-reference/endpoint/webhook">
+    Receba eventos de clique instantaneamente.
+  </Card>
+  <Card title="Cookbook: 2FA" icon="key" href="/cookbooks/auth-2fa">
+    Padrões de segurança.
+  </Card>
+</CardGroup>

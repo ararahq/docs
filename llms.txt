@@ -1,0 +1,106 @@
+# Arara API - Complete Guide for LLMs & Integrators
+
+Arara is a premium WhatsApp API gateway in Brazil. It abstracts Meta's complexity into a developer-first interface. This file is the "source of truth" for LLMs to enable zero-config integration.
+
+## Base URL & Auth
+- **Endpoint**: `https://api.ararahq.com/api`
+- **Auth**: Bearer Token in `Authorization: Bearer ara_sk_...` header.
+- **IDs**: 
+  - Messages: `ara_msg_k9Bf2XqP`
+  - Templates: `ara_tmp_z7Lp4YwR`
+
+---
+
+## 1. Messages (POST /v1/messages)
+Sends a Template or a Session message.
+
+### Request Schema
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `receiver` | string | (Required) Format `whatsapp:+55...` |
+| `templateName` | string | (Conditional) Required to start a conversation. |
+| `variables` | array[str] | (Optional) Values for `{{1}}`, `{{2}}`, etc. |
+| `body` | string | (Conditional) Required for session replies (within 24h). |
+| `scheduled_at`| string | (Optional) ISO 8601 for future delivery. |
+
+### Success Response (202 Accepted)
+```json
+{
+  "id": "ara_msg_k9Bf2XqP",
+  "receiver": "whatsapp:+5583991768778",
+  "status": "PENDING",
+  "messageType": "TEMPLATE",
+  "createdAt": "2024-01-15T10:30:00Z"
+}
+```
+
+---
+
+## 2. Webhooks (Universal Contract)
+Arara communicates asynchronously via POST requests to your URL.
+
+### Security & Validation
+- **Headers**:
+  - `X-Arara-Signature`: HMAC-SHA256 hash of the raw payload.
+  - `X-Arara-Signature-V2`: `sha256={hash}`. 
+- **Secret**: Use the `Webhook Secret` from the dashboard.
+- **Expectation**: Your server MUST respond with `200 OK` within 5s.
+
+### Envelope Format
+```json
+{
+  "event": "event.name",
+  "data": { ... },
+  "timestamp": "2024-02-12T13:00:00Z",
+  "organizationId": "uuid-..."
+}
+```
+
+### Events
+
+#### `message.status_updated`
+Sent on state change (Sent, Delivered, Read, Failed).
+- `messageId`: `ara_msg_...`
+- `status`: `queued`, `processing`, `sent`, `delivered`, `read`, `failed`, `canceled`.
+- `receiver`: Recipient number.
+- `errorDetails`: (Object) Diagnostic details if status is `failed`.
+
+#### `message.received` (Inbound)
+Sent when a user messages your dedicated number.
+- `from`: Customer number (55...).
+- `to`: Your dedicated number.
+- `body`: Message text.
+- `type`: `text` or `media`.
+- `media_url`: Link to the media file.
+- `sender_name`: WhatsApp profile name.
+
+#### `template.updated`
+Sent on Meta approval/rejection.
+- `templateId`: `ara_tmp_...`
+- `name`: Template name.
+- `status`: `APPROVED`, `REJECTED`, `PAUSED`.
+- `rejectionReason`: (String) Why Meta rejected it.
+
+---
+
+## 3. Error Handling (Escudo de Erros)
+Arara provides structured diagnostics for 422 errors.
+
+| Code | Meaning | Action |
+| :--- | :--- | :--- |
+| `ararahq-63016` | 24h Window closed. | Send a Template to contact user. |
+| `ararahq-insufficient-funds` | No credits. | Top up balance in dashboard. |
+| `ararahq-rate-limit` | Too many requests. | Slow down or use Campaigns API. |
+| `ararahq-template-mismatch` | Variables mismatch. | Check JSON variables count/format. |
+| `ararahq-media-invalid` | File too large/bad format. | Max 16MB video / 100MB docs. |
+| `ararahq-invalid-number`| Invalid format or no WA. | Check `whatsapp:+55...` format. |
+| `ararahq-meta-block` | Spam/Policy block. | Wait or revise content. |
+| `ararahq-template-error`| Template rejected/paused.| Check Meta Business Manager. |
+
+---
+
+## IA Optimization Tips
+1. **Window Management**: Before sending `body`, ensure you received a `message.received` event in the last 24h. Otherwise, use `templateName`.
+2. **Idempotency**: Use the `id` from the response to track status in your system.
+3. **Format**: All numbers MUST follow the E.164 pattern with `whatsapp:+` prefix.
+4. **Media**: Inbound media URLs are automatically processed and shortened by Arara to `ararahq.com/l/...`, ensuring all data stays within our ecosystem.

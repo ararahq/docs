@@ -1,6 +1,8 @@
----
-title: 'Escudo de Erros Arara'
+title: 'Escudo de Erros Arara 🛡️'
 description: 'Como a Arara traduz erros técnicos da Meta em soluções claras e humanas.'
+metadata:
+  og:title: 'Escudo de Erros Arara - Diagnósticos Inteligentes'
+  og:description: 'Tradução de códigos complexos da Meta para soluções acionáveis e humanas.'
 ---
 
 # Escudo de Erros Arara
@@ -16,6 +18,10 @@ Em vez de devolver um erro como `#131030`, a Arara analisa o contexto da sua con
 | ID Arara | O que houve (Diagnóstico) | Como agir? |
 | :--- | :--- | :--- |
 | `ararahq-63016` | "Janela de conversação fechada." | Envie um **Template** para reabrir a conversa. |
+| `ararahq-insufficient-funds` | "Saldo de créditos esgotado." | Recarregue sua carteira no painel. |
+| `ararahq-rate-limit` | "Limite de requisições excedido." | Reduza a velocidade ou use a API de Campanhas. |
+| `ararahq-template-mismatch` | "Variáveis do template inválidas." | Verifique se faltam parâmetros no JSON. |
+| `ararahq-media-invalid` | "Arquivo pesado ou não suportado." | Reduza o tamanho do arquivo (máx 16MB/100MB). |
 | `ararahq-template-error` | "Template rejeitado ou pausado." | Verifique o status no Gerenciador da Meta. |
 | `ararahq-invalid-number` | "Número inválido ou sem WhatsApp." | Verifique o formato +55DDD9XXXXXXXX. |
 | `ararahq-meta-block` | "Bloqueio preventivo de Spam." | Aguarde ou mude o conteúdo da mensagem. |

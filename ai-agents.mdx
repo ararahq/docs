@@ -1,0 +1,62 @@
+---
+title: 'Integração com IA e LLMs'
+description: 'Como usar a Arara como camada de ação e comunicação para seus agentes de IA.'
+---
+
+# Arara + IA: O Futuro da Comunicação
+
+A Arara foi construída com foco em **Agentes de IA**. Nossa API é otimizada para ser lida e executada por modelos como GPT-4, Claude e Gemini, servindo como os "braços" de execução dos seus assistentes.
+
+## Por Que Arara para IAs?
+
+Diferente de APIs genéricas, a Arara oferece:
+- **Alta Previsibilidade**: Respostas consistentes e estruturadas ideais para `JsonMode` ou `Function Calling`.
+- **Business Memory**: Memória contextual das interações para que a IA não "alucine" o status da conversa.
+- **llms.txt**: Um manifesto de integração compacto que você pode passar no contexto do prompt para que a IA aprenda a usar a API em segundos.
+
+---
+
+## Exemplo: Vercel AI SDK + Arara
+
+Você pode definir a Arara como uma `tool` para o seu modelo de linguagem:
+
+```typescript
+import { tool } from 'ai';
+import { z } from 'zod';
+
+export const sendWhatsApp = tool({
+  description: 'Envia uma mensagem de template via WhatsApp usando a Arara',
+  parameters: z.object({
+    receiver: z.string().describe('Número no formato whatsapp:+55...'),
+    templateName: z.string().describe('Identificador do template'),
+    variables: z.array(z.string()).optional()
+  }),
+  execute: async ({ receiver, templateName, variables }) => {
+    return await arara.messages.send({ receiver, templateName, variables });
+  }
+});
+```
+
+---
+
+## Business Memory Layer (BML)
+
+A Arara mantém o histórico de interações (Conversations) que pode ser consultado pela sua IA para saber se:
+1.  A janela de 24h está aberta.
+2.  Qual foi o último template enviado.
+3.  Se o cliente solicitou opt-out.
+
+Essa camada garante que seu agente de IA sempre tome a decisão mais assertiva de comunicação, economizando créditos e protegendo a saúde do seu número.
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="llms.txt" icon="robot" href="/llms.txt">
+    O guia otimizado para sua IA ler.
+  </Card>
+  <Card title="Cookbooks" icon="chef-hat" href="/cookbooks/auth-2fa">
+    Padrões de implementação.
+  </Card>
+</CardGroup>

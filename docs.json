@@ -34,6 +34,21 @@
                 "business-rules/template-management",
                 "business-rules/usage-policies"
               ]
+            },
+            {
+              "group": "Cookbooks (Casos de Uso)",
+              "pages": [
+                "cookbooks/auth-2fa",
+                "cookbooks/marketing-smartlinks",
+                "cookbooks/cart-recovery"
+              ]
+            },
+            {
+              "group": "Ecossistema",
+              "pages": [
+                "ai-agents",
+                "sdks"
+              ]
             }
           ]
         },

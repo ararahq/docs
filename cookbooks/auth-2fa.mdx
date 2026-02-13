@@ -1,0 +1,70 @@
+---
+title: 'Autenticação 2FA'
+description: 'Como enviar códigos de segurança e senhas temporárias (OTP) via WhatsApp.'
+---
+
+# Cookbook: Autenticação de Dois Fatores (2FA)
+
+O WhatsApp é um dos canais mais eficazes para o envio de códigos de segurança, com taxas de abertura e conversão superiores ao SMS tradicional. Neste guia, vamos configurar um fluxo completo de **One-Time Password (OTP)**.
+
+## Passo 1: Criar o Template no Dashboard
+
+Para enviar códigos, crie um template da categoria **AUTHENTICATION**. Isso garante prioridade de entrega e conformidade com as políticas da Meta.
+
+**Exemplo de Conteúdo:**
+> Seu código de acesso Arara é **{{1}}**. Não compartilhe este código com ninguém.
+
+---
+
+## Passo 2: Implementar o Envio via API
+
+Ao gerar o código de 6 dígitos no seu backend, dispare-o para o cliente usando o nome do template criado.
+
+```javascript
+const send2FACode = async (phone, code) => {
+  const response = await fetch('https://api.ararahq.com/api/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_API_KEY',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      receiver: `whatsapp:${phone}`,
+      templateName: 'auth_code_2fa',
+      variables: [code]
+    })
+  });
+  
+  return response.json();
+};
+
+// Uso
+const pin = Math.floor(100000 + Math.random() * 900000).toString();
+send2FACode('+5511999999999', pin);
+```
+
+---
+
+## Dicas de Segurança (Mundial)
+
+### 1. Mascaramento no Log
+No dashboard da Arara, as variáveis de templates de autenticação podem ser configuradas para **mascaramento**, garantindo que nem mesmo sua equipe administrativa veja o código do cliente.
+
+### 2. Expiração de Janela
+Códigos OTP devem expirar rapidamente (ex: 5 minutos). Se o usuário não digitar o código dentro desse tempo, peça para ele solicitar um novo disparo.
+
+### 3. Validação de Número
+Sempre valide o número de telefone no formato E.164 antes de enviar, evitando erros de processamento e custos desnecessários.
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Smart Links" icon="link" href="/cookbooks/marketing-smartlinks">
+    Aprenda a rastrear cliques em seus links.
+  </Card>
+  <Card title="Escudo de Erros" icon="shield" href="/erros">
+    Como tratar falhas de envio de código.
+  </Card>
+</CardGroup>

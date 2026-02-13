@@ -1,0 +1,75 @@
+---
+title: 'SDKs e Bibliotecas'
+description: 'Bibliotecas oficiais para integrar a Arara em sua linguagem favorita.'
+---
+
+# SDKs e Bibliotecas
+
+Para acelerar sua integração, fornecemos SDKs oficiais e bibliotecas mantidas pela comunidade. Nossos SDKs seguem padrões de **Clean Code** e oferecem suporte nativo a tipos (TypeScript/Kotlin/Python).
+
+## Bibliotecas Oficiais
+
+<CardGroup cols={2}>
+  <Card title="Node.js / TypeScript" icon="node">
+    ```bash
+    npm install @ararahq/sdk
+    ```
+  </Card>
+  <Card title="Python" icon="python">
+    ```bash
+    pip install ararahq
+    ```
+  </Card>
+  <Card title="Java / Kotlin" icon="java">
+    ```kotlin
+    implementation("com.arara:sdk:1.0.0")
+    ```
+  </Card>
+  <Card title="Go (Community)" icon="golang">
+    ```bash
+    go get github.com/ararahq/arara-go
+    ```
+  </Card>
+</CardGroup>
+
+---
+
+## Por Que Usar Nossos SDKs?
+
+Nossos SDKs não são apenas "wrappers" de API. Eles incluem:
+
+1.  **Retentativas Automáticas**: Lógica de *Exponential Backoff* embutida para lidar com instabilidades de rede.
+2.  **Validação Local**: Verificamos o formato dos números e nomes dos templates antes mesmo de fazer o request, economizando tempo de latência.
+3.  **Tipagem Forte**: Autocomplete completo no seu editor (VS Code, IntelliJ) para todos os payloads e respostas.
+4.  **Logging Integrado**: Facilita o debug mapeando erros da API diretamente para exceções na sua linguagem.
+
+---
+
+## Exemplo de Uso (TypeScript)
+
+```typescript
+import { AraraClient } from '@ararahq/sdk';
+
+const arara = new AraraClient('ara_sk_...');
+
+const message = await arara.messages.send({
+  receiver: 'whatsapp:+5583991768778',
+  templateName: 'boas_vindas',
+  variables: ['Micael']
+});
+
+console.log(`Mensagem enviada! ID: ${message.id}`);
+```
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Cookbooks" icon="book-open" href="/cookbooks/auth-2fa">
+    Veja exemplos práticos de implementação.
+  </Card>
+  <Card title="Escudo de Erros" icon="shield" href="/erros">
+    Entenda como tratar falhas com o SDK.
+  </Card>
+</CardGroup>
