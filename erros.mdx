@@ -1,0 +1,61 @@
+---
+title: 'Escudo de Erros Arara'
+description: 'Como a Arara traduz erros técnicos da Meta em soluções claras e humanas.'
+---
+
+# Escudo de Erros Arara
+
+Integrar com a API oficial do WhatsApp (Meta) pode ser frustrante devido a códigos de erro genéricos e documentação técnica obscura. O **Escudo de Erros Arara** é uma camada de inteligência que intercepta essas falhas e as traduz para você.
+
+## O Que é o Escudo de Erros?
+
+Em vez de devolver um erro como `#131030`, a Arara analisa o contexto da sua conta, do template e do destinatário para entregar uma mensagem que faça sentido para o seu negócio.
+
+### Exemplos de Tradução
+
+| ID Arara | O que houve (Diagnóstico) | Como agir? |
+| :--- | :--- | :--- |
+| `ararahq-63016` | "Janela de conversação fechada." | Envie um **Template** para reabrir a conversa. |
+| `ararahq-template-error` | "Template rejeitado ou pausado." | Verifique o status no Gerenciador da Meta. |
+| `ararahq-invalid-number` | "Número inválido ou sem WhatsApp." | Verifique o formato +55DDD9XXXXXXXX. |
+| `ararahq-meta-block` | "Bloqueio preventivo de Spam." | Aguarde ou mude o conteúdo da mensagem. |
+| `ararahq-opt-out` | "O destinatário bloqueou a empresa." | Remova o contato da sua lista de envios. |
+| `ararahq-generic` | "Erro genérico no processamento." | Tente reenviar em alguns minutos. |
+
+---
+
+## Benefícios Para o Desenvolvedor
+
+### 1. Diagnósticos Humanos
+Nossas mensagens de erro são escritas por humanos, para humanos. Você não precisa mais de um dicionário de códigos de erro para debugar sua integração.
+
+### 2. Sugestão de Próximos Passos
+Sempre que possível, o erro da Arara virá acompanhado de uma sugestão de ação:
+- *"Mude a categoria do template para UTILITY."*
+- *"Adicione créditos à sua carteira."*
+- *"Use o prefixo whatsapp:+ no número."*
+
+### 3. Retentativas Inteligentes
+Para erros temporários da Meta (como instabilidade técnica), a Arara possui um sistema de **Exponential Backoff** que tenta reenviar a mensagem automaticamente antes de marcar como falha definitiva.
+
+---
+
+## Como Ver os Detalhes do Erro
+
+Você pode consultar os detalhes de uma falha de duas formas:
+
+1.  **API**: No endpoint `GET /v1/messages/{id}`, o campo `status` mostrará `FAILED` e incluiremos um `failureReason`.
+2.  **Dashboard**: Na aba de Logs, cada mensagem falha possui um "badge" explicativo com o diagnóstico do Escudo de Erros.
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="API de Mensagens" icon="paper-plane" href="/api-reference/endpoint/messages">
+    Entenda os status de retorno da API
+  </Card>
+  <Card title="Referência da API" icon="book" href="/api-reference/introduction">
+    Veja a lista completa de códigos HTTP
+  </Card>
+</CardGroup>
