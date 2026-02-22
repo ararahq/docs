@@ -96,6 +96,27 @@ Extremamente útil para automação de fluxos. Avisa você no segundo em que a M
 
 ---
 
+## Eventos de Campanhas
+
+### `campaign.completed`
+Disparado quando a Arara termina de processar e enfileirar todos os contatos de uma campanha de alta escala.
+
+**Payload:**
+```json
+{
+  "event": "campaign.completed",
+  "data": {
+    "id": "7b3789fb-850a-4ce4-bbb2-80485a931061",
+    "name": "Campanha Lançamento",
+    "status": "completed",
+    "totalMessages": 10000,
+    "totalCost": 6000.00
+  }
+}
+```
+
+---
+
 ## Segurança (HMAC-SHA256)
 
 Para garantir que a requisição veio realmente da Arara e não foi alterada, enviamos dois cabeçalhos de assinatura:

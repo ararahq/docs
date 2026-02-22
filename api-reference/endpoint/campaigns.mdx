@@ -51,6 +51,14 @@ Cada item no array `contacts` deve seguir este formato:
 | `to` | string | Sim | Número no formato `whatsapp:+55...` |
 | `variables` | array | Sim | Lista de strings com os valores das variáveis do template |
 
+### Mapeamento de Variáveis
+
+As variáveis seguem a ordem indexada do template (ex: `{{1}}`, `{{2}}`). Ao enviar o array `variables`, a Arara mapeia o primeiro item para `{{1}}`, o segundo para `{{2}}` e assim por diante.
+
+**Exemplo:**
+Se seu template é: `Olá {{1}}, seu pedido {{2}} foi enviado!`
+O array deve ser: `["Micael", "12345"]`
+
 ## Exemplo de Requisição
 
 Abaixo, um exemplo de como disparar uma campanha para múltiplos contatos:
@@ -58,19 +66,19 @@ Abaixo, um exemplo de como disparar uma campanha para múltiplos contatos:
 ```json
 {
   "name": "Campanha Reativação 2024",
-  "templateName": "template_campanha_wpp",
+  "templateName": "template_campanha_v1",
   "contacts": [
     {
-      "to": "whatsapp:+5588994367170",
-      "variables": ["Amorzin"]
+      "to": "whatsapp:+5511999999999",
+      "variables": ["Cliente A"]
     },
     {
-      "to": "whatsapp:+5588994040994",
-      "variables": ["Marlon"]
+      "to": "whatsapp:+5511888888888",
+      "variables": ["Cliente B"]
     },
     {
-      "to": "whatsapp:+5583991768778",
-      "variables": ["Micael"]
+      "to": "whatsapp:+5511777777777",
+      "variables": ["Cliente C"]
     }
   ]
 }
@@ -91,6 +99,35 @@ curl -X POST https://api.ararahq.com/api/v1/campaigns \
     ]
   }'
 ```
+
+## Monitoramento via Webhook
+
+Para campanhas de larga escala, a Arara oferece notificações automáticas via webhook para que seu sistema saiba exatamente o que está acontecendo sem precisar consultar a API repetidamente.
+
+### Evento: `campaign.completed`
+
+Este evento é disparado assim que a Arara termina de processar todos os contatos da sua campanha e os coloca na fila de disparo.
+
+**Exemplo de Payload:**
+
+```json
+{
+  "event": "campaign.completed",
+  "timestamp": "2024-02-22T17:40:26Z",
+  "organizationId": "ara_org_...",
+  "data": {
+    "id": "7b3789fb-850a-4ce4-bbb2-80485a931061",
+    "name": "Campanha Lançamento",
+    "status": "completed",
+    "totalMessages": 10000,
+    "totalCost": 6000.00
+  }
+}
+```
+
+<Tip>
+  Além deste evento de conclusão de campanha, você continuará recebendo webhooks individuais (`message.status_updated`) para cada mensagem entregue ou lida dentro da campanha.
+</Tip>
 
 ## Resposta de Sucesso (202 Accepted)
 
