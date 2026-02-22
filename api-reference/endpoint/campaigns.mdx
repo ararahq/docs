@@ -1,0 +1,135 @@
+---
+title: 'Campanhas'
+description: 'Disparos em massa e alta escala via Arara'
+---
+
+# Campanhas
+
+A API de Campanhas é projetada para disparos de alta escala (10k, 100k+ mensagens) com eficiência máxima.
+
+### ⚡ Qual API devo usar?
+
+| Característica | API de Mensagens (`/messages`) | API de Campanhas (`/campaigns`) |
+| :--- | :--- | :--- |
+| **Volatilidade** | Baixa (1 por 1) | **Alta (Massa/Bulk)** |
+| **Resposta** | Síncrona (Espera o SQS) | **Assíncrona (Imediata)** |
+| **Uso Ideal** | Notificações, 2FA, Chat | **Marketing, Avisos Gerais, Newsletter** |
+| **Escala** | Até 100 por vez | **100.000+ mensagens** |
+
+## Como funciona?
+
+Diferente da API de mensagens individuais, as campanhas são processadas de forma assíncrona em duas fases: **Ingestão** e **Expansão**.
+
+## Endpoint
+
+`POST /api/v1/campaigns`
+
+## Autenticação
+
+Este endpoint requer autenticação. Inclua sua chave de API no cabeçalho `Authorization`:
+
+```bash
+Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+## Corpo da Requisição
+
+O corpo da requisição deve ser um objeto JSON contendo os detalhes da campanha e a lista de contatos.
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `name` | string | Sim | Nome identificador da campanha (ex: "Promoção Black Friday") |
+| `templateName` | string | Sim | Nome do template ou ID do provedor (Meta ID) |
+| `contacts` | array | Sim | Lista de objetos contendo o destinatário e suas variáveis |
+
+### Estrutura do Objeto `contacts`
+
+Cada item no array `contacts` deve seguir este formato:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `to` | string | Sim | Número no formato `whatsapp:+55...` |
+| `variables` | array | Sim | Lista de strings com os valores das variáveis do template |
+
+## Exemplo de Requisição
+
+Abaixo, um exemplo de como disparar uma campanha para múltiplos contatos:
+
+```json
+{
+  "name": "Campanha Reativação 2024",
+  "templateName": "template_campanha_wpp",
+  "contacts": [
+    {
+      "to": "whatsapp:+5588994367170",
+      "variables": ["Amorzin"]
+    },
+    {
+      "to": "whatsapp:+5588994040994",
+      "variables": ["Marlon"]
+    },
+    {
+      "to": "whatsapp:+5583991768778",
+      "variables": ["Micael"]
+    }
+  ]
+}
+```
+
+### Exemplo via cURL
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/campaigns \
+  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Campanha Lançamento",
+    "templateName": "boas_vindas_v1",
+    "contacts": [
+      { "to": "whatsapp:+5511999999999", "variables": ["João"] },
+      { "to": "whatsapp:+5511888888888", "variables": ["Maria"] }
+    ]
+  }'
+```
+
+## Resposta de Sucesso (202 Accepted)
+
+Como as campanhas podem ser muito grandes, a API responde imediatamente após validar o saldo e salvar os contatos no banco de dados.
+
+```json
+{
+  "id": "7b3789fb-850a-4ce4-bbb2-80485a931061",
+  "name": "Campanha Lançamento",
+  "status": "INGESTING",
+  "totalMessages": 2,
+  "totalCost": 1.20
+}
+```
+
+### Estados da Campanha
+
+*   **INGESTING**: A campanha foi aceita e os contatos estão sendo salvos.
+*   **PROCESSING**: A campanha está sendo expandida (as mensagens individuais estão sendo criadinhas e enfileiradas).
+*   **COMPLETED**: Todas as mensagens da campanha foram entregues para a fila de disparo.
+
+## Arquitetura de Escala
+
+A Arara utiliza uma arquitetura de duas fases para garantir que disparos massivos não afetem a performance da sua aplicação:
+
+1.  **Fase de Ingestão**: O saldo é validado e os contatos são salvos em lote (*Batch Insert*) no banco de dados. A API responde em milissegundos.
+2.  **Fase de Expansão (Async)**: Um worker dedicado consome a campanha em blocos, renderiza os templates e coloca cada mensagem na **Lazy-Time Queue** para envio final.
+
+<Info>
+  Para campanhas acima de 10.000 contatos, recomendamos o uso de webhooks para monitorar o status de entrega de cada mensagem individualmente.
+</Info>
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Mensagens Individuais" icon="message" href="/api-reference/endpoint/messages">
+    Envie mensagens únicas em tempo real
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/webhook">
+    Receba confirmações de entrega (Delivered/Read)
+  </Card>
+</CardGroup>

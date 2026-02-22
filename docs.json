@@ -65,6 +65,7 @@
               "group": "Endpoints",
               "pages": [
                 "api-reference/endpoint/messages",
+                "api-reference/endpoint/campaigns",
                 "api-reference/endpoint/templates",
                 "api-reference/endpoint/inbound",
                 "api-reference/endpoint/schedule",
