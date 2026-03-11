@@ -12,19 +12,19 @@ Para acelerar sua integração, fornecemos SDKs oficiais **100% Open Source**. N
     npm install @ararahq/sdk
     ```
   </Card>
-  <Card title="PHP / Laravel (In Review)" icon="php">
+  <Card title="PHP / Laravel" icon="php">
     ```bash
     composer require ararahq/sdk
     ```
   </Card>
-  <Card title="Python (Coming Soon)" icon="python">
+  <Card title="Python" icon="python">
     ```bash
-    pip install ararahq
+    pip install arara-api-sdk
     ```
   </Card>
-  <Card title="Java / Kotlin (Coming Soon)" icon="java">
+  <Card title="Java / Kotlin" icon="java">
     ```kotlin
-    implementation("com.ararahq:sdk")
+    implementation("com.ararahq:arara-java-sdk:1.0.0")
     ```
   </Card>
 </CardGroup>
@@ -48,24 +48,62 @@ Nossos SDKs não são apenas "wrappers" de API. Eles incluem:
 
 ---
 
-## Exemplo de Uso (Node.js)
+## Exemplo de Uso Multi-Linguagem
 
-```typescript
+Escolha sua stack e veja como é simples enviar uma mensagem com mídia e variáveis.
+
+<CodeGroup>
+```typescript Node.js
 import { NodeSDK } from '@ararahq/sdk';
 
-const sdk = new NodeSDK({
-  apiKey: 'sk_live_...'
-});
+const sdk = new NodeSDK({ apiKey: 'sk_live_...' });
 
 const response = await sdk.messages.send({
   receiver: 'whatsapp:+5511999998888',
   templateName: 'fatura_disponivel',
   variables: ['Micael', 'Janeiro'],
-  media_url: 'https://ararahq.com/l/FtFmja' // URL da mídia
+  media_url: 'https://ararahq.com/l/FtFmja'
 });
-
-console.log(`Mensagem enviada! ID: ${response.id}`);
 ```
+
+```php PHP
+use Arara\Sdk\Arara;
+
+$arara = new Arara('sk_live_...');
+
+$response = $arara->messages()->send([
+    'receiver' => 'whatsapp:+5511999998888',
+    'templateName' => 'fatura_disponivel',
+    'variables' => ['Micael', 'Janeiro'],
+    'media_url' => 'https://ararahq.com/l/FtFmja'
+]);
+```
+
+```python Python
+from arara_api_sdk import AraraClient
+
+with AraraClient(api_key="sk_live_...") as client:
+    response = client.messages.send({
+        "receiver": "whatsapp:+5511999998888",
+        "templateName": "fatura_disponivel",
+        "variables": ["Micael", "Janeiro"],
+        "media_url": "https://ararahq.com/l/FtFmja"
+    })
+```
+
+```java Java
+Arara arara = Arara.builder().apiKey("sk_live_...").build();
+
+MessageResponse response = arara.getMessages().send(
+    SendMessageRequest.builder()
+        .receiver("whatsapp:+5511999998888")
+        .templateName("fatura_disponivel")
+        .templateVariables(List.of("Micael", "Janeiro"))
+        .mediaUrl("https://ararahq.com/l/FtFmja")
+        .build()
+);
+```
+</CodeGroup>
 
 ---
 
