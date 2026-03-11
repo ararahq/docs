@@ -11,51 +11,35 @@
     "navigation": {
       "tabs": [
         {
-          "tab": "Guias",
+          "tab": "Bem-vindo",
           "groups": [
             {
-              "group": "Primeiros Passos",
+              "group": "Introdução",
+              "icon": "hand-wave",
+              "pages": ["index"]
+            }
+          ]
+        },
+        {
+          "tab": "Comece aqui",
+          "groups": [
+            {
+              "group": "Configuração Inicial",
+              "icon": "bolt",
               "pages": [
-                "index",
                 "quickstart",
                 "development",
                 "erros"
-              ]
-            },
-            {
-              "group": "Arquitetura",
-              "pages": [
-                "architecture/overview"
-              ]
-            },
-            {
-              "group": "Regras de Negócio",
-              "pages": [
-                "business-rules/template-management",
-                "business-rules/usage-policies"
-              ]
-            },
-            {
-              "group": "Cookbooks (Casos de Uso)",
-              "pages": [
-                "cookbooks/auth-2fa",
-                "cookbooks/marketing-smartlinks"
-              ]
-            },
-            {
-              "group": "Ecossistema",
-              "pages": [
-                "ai-agents",
-                "sdks"
               ]
             }
           ]
         },
         {
-          "tab": "Referência da API",
+          "tab": "Documentação",
           "groups": [
             {
-              "group": "Introdução",
+              "group": "Conceitos",
+              "icon": "book",
               "pages": [
                 "api-reference/introduction",
                 "api-reference/authentication"
@@ -63,6 +47,7 @@
             },
             {
               "group": "Endpoints",
+              "icon": "terminal",
               "pages": [
                 "api-reference/endpoint/messages",
                 "api-reference/endpoint/campaigns",
@@ -71,12 +56,46 @@
                 "api-reference/endpoint/schedule",
                 "api-reference/endpoint/webhook"
               ]
-            },
+            }
+          ]
+        },
+        {
+          "tab": "SDKs",
+          "groups": [
             {
-              "group": "Eventos",
-              "pages": [
-                "api-reference/events/partner-events"
-              ]
+              "group": "Bibliotecas Oficiais",
+              "icon": "code",
+              "pages": ["sdks"]
+            }
+          ]
+        },
+        {
+          "tab": "Arquitetura",
+          "groups": [
+            {
+              "group": "Visão Técnica",
+              "icon": "diagram-project",
+              "pages": ["architecture/overview"]
+            }
+          ]
+        },
+        {
+          "tab": "Ecossistema",
+          "groups": [
+            {
+              "group": "Automação e IA",
+              "icon": "robot",
+              "pages": ["ai-agents"]
+            }
+          ]
+        },
+        {
+          "tab": "Changelog",
+          "groups": [
+            {
+              "group": "Novidades",
+              "icon": "clock-rotate-left",
+              "pages": ["changelog"]
             }
           ]
         }
@@ -116,7 +135,7 @@
     "footer": {
       "socials": {
         "github": "https://github.com/ararahq",
-        "linkedin": "https://linkedin.com/company/mintlify"
+        "linkedin": "https://linkedin.com/company/ararahq"
       }
     }
   }

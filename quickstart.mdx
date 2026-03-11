@@ -1,36 +1,23 @@
 ---
-title: 'Quickstart'
-description: 'Aprenda a enviar sua primeira mensagem de WhatsApp usando a Arara.'
+title: 'Comece Agora'
+description: 'Envie sua primeira mensagem via WhatsApp em menos de 2 minutos.'
 ---
 
-## Boas-vindas ao Mundo da Comunicação Simplificada!
+Integre a Arara e envie sua primeira mensagem via WhatsApp em menos de 2 minutos. Projetada por desenvolvedores, para desenvolvedores.
 
-Este guia rápido vai te mostrar como é fácil integrar a Arara e enviar sua primeira mensagem de template via WhatsApp. Nossa missão é descomplicar, e você verá isso desde o primeiro `curl`.
-
-## Objetivo
-
-Siga os passos abaixo para enviar sua primeira mensagem em poucos minutos.
-
-## Pré-requisitos
+## Jato da Decolagem
 
 Antes de começar, certifique-se de ter:
+- **Uma conta ativa**: Faça login ou crie a sua no [Dashboard](https://www.ararahq.com/dashboard).
+- **Sua API Key**: Gerada instantaneamente no primeiro acesso.
+- **Linha Pronta**: Seu número dedicado configurado (caso ainda não tenha, fale com o suporte).
 
--   Uma **conta na Arara** - faça login no [Dashboard](https://www.ararahq.com/dashboard) para criar sua conta automaticamente.
--   Uma **Chave de API (`ara_sk_***`)**, que você receberá automaticamente ao fazer login pela primeira vez.
--   Um **template criado** no dashboard (você pode criar um template de teste).
--   Um número de celular **verificado** para receber as mensagens de teste.
--   Um cliente HTTP (como `curl` no terminal, Postman, Insomnia ou VS Code com extensão REST Client).
-
-<Warning>
-  **Importante**: O número de celular precisa ser cadastrado previamente pela equipe de suporte da Arara, junto com a documentação da empresa. Entre em contato com suporte@ararahq.com para solicitar o cadastro do número.
-</Warning>
-
-## Passo a Passo: Sua Primeira Mensagem
+## Tutorial: Sua Primeira Mensagem 🚀
 
 <Steps>
-  ### Passo 1: Faça Login e Obtenha sua Chave de API
-  <Step title="Receba sua Chave Única">
-    Acesse o [Dashboard da Arara](https://www.ararahq.com/dashboard) e faça login. Quando você fizer login pela primeira vez, uma chave de API será gerada automaticamente e **exibida apenas uma vez**.
+  ### Passo 1: Capture sua Chave de API
+  <Step title="Acesse suas Credenciais de Elite">
+    O acesso à Arara é protegido por uma chave única. Ao realizar seu primeiro login no [Dashboard](https://www.ararahq.com/dashboard), sua chave será gerada e exibida.
 
     <Warning>
       **IMPORTANTE**: Guarde sua chave imediatamente! Você não poderá vê-la novamente depois que fechar a tela. A chave terá o formato: `ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
@@ -63,7 +50,7 @@ Antes de começar, certifique-se de ter:
     -   `<NOME_TEMPLATE>` pelo nome do template que você criou.
 
     <CodeGroup>
-    ```bash cURL
+    ```bash cURL (Template)
     curl -X POST https://api.ararahq.com/api/v1/messages \
          -H "Authorization: Bearer <SUA_API_KEY>" \
          -H "Content-Type: application/json" \
@@ -71,6 +58,18 @@ Antes de começar, certifique-se de ter:
                "receiver": "whatsapp:+5583991768778",
                "templateName": "template_teste_inicio_conversa",
                "variables": []
+             }'
+    ```
+
+    ```bash cURL (Mídia)
+    curl -X POST https://api.ararahq.com/api/v1/messages \
+         -H "Authorization: Bearer <SUA_API_KEY>" \
+         -H "Content-Type: application/json" \
+         -d '{
+               "receiver": "whatsapp:+5583991768778",
+               "templateName": "mensagem_com_imagem",
+               "variables": ["Micael"],
+               "media_url": "https://ararahq.com/l/FtFmja"
              }'
     ```
 

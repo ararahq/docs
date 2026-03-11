@@ -3,7 +3,6 @@ title: 'Templates'
 description: 'Gerencie seus modelos de mensagem (Templates) do WhatsApp diretamente via API'
 ---
 
-# Gerenciamento de Templates
 
 A API de Templates da Arara permite que você crie, liste e monitore o status de aprovação dos seus modelos de mensagem. Nossa implementação é focada em **Developer Experience**, abstraindo a complexidade da Meta e garantindo que seus templates sejam aprovados com validações inteligentes (Foolproof).
 
@@ -39,20 +38,20 @@ Para facilitar a integração, preparamos exemplos "copia e cola" para os cenár
     ```
   </Accordion>
 
-  <Accordion title="Com Header e Footer">
-    Adicione um título em negrito (Header) e um rodapé discreto.
+  <Accordion title="Com Header de Mídia (Imagem/PDF)">
+    Inicie a conversa com um impacto visual ou envie faturas automaticamente.
     
     ```json
     {
-      "name": "resumo_pedido",
+      "name": "fatura_disponivel",
       "category": "UTILITY",
       "language": "pt_BR",
-      "header": "Confirmação de Pedido",
-      "body": "Olá {{1}}, recebemos seu pedido #{{2}} com sucesso!",
-      "footer": "Obrigado pela preferência.",
+      "header": "https://ararahq.com/l/ FtFmja",
+      "headerType": "media",
+      "body": "Olá {{1}}, sua fatura do mês {{2}} já está disponível.",
       "samples": {
         "1": "João",
-        "2": "9988"
+        "2": "Janeiro"
       }
     }
     ```
@@ -131,9 +130,10 @@ Para facilitar a integração, preparamos exemplos "copia e cola" para os cenár
 
 Para garantir que seu template seja aprovado rapidamente, aplicamos as seguintes regras:
 
-1.  **Cabeçalho (Header)**: Deve conter apenas texto simples. Emojis e caracteres especiais complexos são proibidos no header.
-2.  **Botões**: Você pode usar até 3 botões de **Quick Reply** OU 1 botão de **Link (URL/Smart Link)** + 1 botão de **Telefone**. Não é permitido misturar tipos.
-3.  **Smart Links**: Utilize o tipo `SMART_LINK` em botões de URL para que a Arara encurte e rastreie os cliques automaticamente.
+1.  **Cabeçalhos Dinâmicos**: Se usar `headerType: "text"`, o cabeçalho deve ser estático ou conter apenas uma variável `{{1}}`. Se usar `media`, o `header` deve ser uma URL válida de uma imagem (JPG/PNG) ou PDF.
+2.  **Normalização de Telefone**: No botão `PHONE_NUMBER`, a Arara normaliza automaticamente o número para o formato **E.164**. Você pode enviar `(11) 99999-9999` e nós converteremos para `+5511999999999`.
+3.  **Botões**: Você pode usar até 3 botões de **Quick Reply** OU 1 botão de **URL/Smart Link** + 1 botão de **Telefone**. Não é permitido misturar tipos.
+4.  **Smart Links**: Utilize o tipo `SMART_LINK` em botões de URL para que a Arara encurte e rastreie os cliques automaticamente.
 
 ---
 

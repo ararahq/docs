@@ -49,6 +49,11 @@
               "R$ 100,00"
             ]
           },
+          "media_url": {
+            "type": "string",
+            "description": "URL pública da mídia (Imagem, PDF) para templates com header de mídia",
+            "example": "https://ararahq.com/l/FtFmja"
+          },
           "body": {
             "type": "string",
             "description": "Corpo da mensagem (apenas para mensagens de sessão)"
@@ -58,6 +63,32 @@
             "format": "date-time",
             "description": "Data e hora para agenciamento (ISO 8601)"
           }
+        }
+      },
+      "CreateTemplateRequest": {
+        "type": "object",
+        "required": ["name", "category", "body"],
+        "properties": {
+          "name": { "type": "string", "example": "proposta_enviada" },
+          "category": { "type": "string", "enum": ["MARKETING", "UTILITY", "AUTHENTICATION"] },
+          "body": { "type": "string", "example": "Olá {{1}}, sua proposta está pronta." },
+          "header": { "type": "string", "description": "Texto do cabeçalho ou URL de mídia" },
+          "headerType": { "type": "string", "enum": ["text", "media", "document"] },
+          "footer": { "type": "string" },
+          "buttons": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TemplateButton" }
+          }
+        }
+      },
+      "TemplateButton": {
+        "type": "object",
+        "required": ["type", "text"],
+        "properties": {
+          "type": { "type": "string", "enum": ["QUICK_REPLY", "PHONE_NUMBER", "URL", "SMART_LINK", "COPY_CODE"] },
+          "text": { "type": "string", "example": "Falar no Telefone" },
+          "phone": { "type": "string", "description": "Número no formato E.164", "example": "+5511999999999" },
+          "url": { "type": "string", "example": "https://ararahq.com/docs" }
         }
       },
       "MessageResponse": {

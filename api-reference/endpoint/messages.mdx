@@ -3,7 +3,6 @@ title: 'Mensagens'
 description: 'Envie mensagens e consulte o status via Arara'
 ---
 
-# Mensagens
 
 A API de Mensagens permite que você envie e gerencie comunicações via WhatsApp de duas formas:
 
@@ -33,6 +32,7 @@ O corpo da requisição deve ser um objeto JSON. Você deve enviar **ou** `templ
 | `receiver` | string | Sim | Número do destinatário no formato `whatsapp:+5583991768778` |
 | `templateName` | string | Condicional* | Nome do template que foi criado no dashboard (obrigatório para mensagens de template) |
 | `variables` | array | Não | Lista de variáveis para preencher o template (padrão: `[]`) |
+| `media_url` | string | Não | URL pública da mídia (Imagem, PDF) para templates com header de mídia |
 | `body` | string | Condicional* | Texto da mensagem (obrigatório para mensagens de sessão/inbound) |
 
 \* Você deve enviar **ou** `templateName` **ou** `body`, mas não ambos.
@@ -108,6 +108,26 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
     "variables": ["João", "R$ 100,00"]
   }'
 ```
+
+### Enviar Mensagem com Mídia (Header de Mídia)
+
+Se o seu template foi criado com um **Header de Mídia** (Imagem, PDF ou Vídeo), você deve enviar a URL pública do arquivo no campo `media_url`.
+
+```bash curl
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5583991768778",
+    "templateName": "mensagem_com_anexo_pdf",
+    "variables": ["Micael"],
+    "media_url": "https://ararahq.com/l/FtFmja"
+  }'
+```
+
+<Tip>
+  **Dica**: Você pode usar o próprio dashboard da Arara para fazer upload da mídia e obter um Smart Link encurtado, garantindo tracking de cliques e melhor performance.
+</Tip>
 
 ### Enviar Mensagem de Texto Livre (Responder Inbound)
 
