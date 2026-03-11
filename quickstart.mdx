@@ -46,7 +46,7 @@ Antes de começar, certifique-se de ter:
 
     Substitua:
     -   `<SUA_API_KEY>` pela sua chave de API (`ara_sk_***`).
-    -   `<NUMERO_DESTINATARIO>` pelo número no formato `whatsapp:+5583991768778`.
+    -   `<NUMERO_DESTINATARIO>` pelo número no formato `whatsapp:+5511999999999`.
     -   `<NOME_TEMPLATE>` pelo nome do template que você criou.
 
     <CodeGroup>
@@ -55,9 +55,10 @@ Antes de começar, certifique-se de ter:
          -H "Authorization: Bearer <SUA_API_KEY>" \
          -H "Content-Type: application/json" \
          -d '{
-               "receiver": "whatsapp:+5583991768778",
+               "receiver": "whatsapp:+5511999999999",
                "templateName": "template_teste_inicio_conversa",
-               "variables": []
+               "variables": ["João"],
+               "scheduled_at": "2024-12-25T10:00:00Z"
              }'
     ```
 
@@ -66,9 +67,9 @@ Antes de começar, certifique-se de ter:
          -H "Authorization: Bearer <SUA_API_KEY>" \
          -H "Content-Type: application/json" \
          -d '{
-               "receiver": "whatsapp:+5583991768778",
+               "receiver": "whatsapp:+5511999999999",
                "templateName": "mensagem_com_imagem",
-               "variables": ["Micael"],
+               "variables": ["João"],
                "media_url": "https://ararahq.com/l/FtFmja"
              }'
     ```
@@ -77,7 +78,7 @@ Antes de começar, certifique-se de ter:
     import requests
 
     api_key = "<SUA_API_KEY>"
-    receiver = "whatsapp:+5583991768778"
+    receiver = "whatsapp:+5511999999999"
     
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -87,7 +88,9 @@ Antes de começar, certifique-se de ter:
     payload = {
         "receiver": receiver,
         "templateName": "template_teste_inicio_conversa",
-        "variables": []
+        "variables": ["João"],
+        "media_url": "https://ararahq.com/l/FtFmja",
+        "scheduled_at": "2024-12-25T10:00:00Z"
     }
     
     response = requests.post("https://api.ararahq.com/api/v1/messages", headers=headers, json=payload)
@@ -105,7 +108,7 @@ Antes de começar, certifique-se de ter:
       'Content-Type': 'application/json'
     };
     const body = {
-      receiver: 'whatsapp:+5583991768778',
+      receiver: 'whatsapp:+5511999999999',
       templateName: 'template_teste_inicio_conversa',
       variables: []
     };
@@ -127,9 +130,11 @@ Antes de começar, certifique-se de ter:
       'Content-Type': 'application/json'
     };
     const body = {
-      receiver: 'whatsapp:+5583991768778',
+      receiver: 'whatsapp:+5511999999999',
       templateName: 'template_teste_inicio_conversa',
-      variables: []
+      variables: ["João"],
+      media_url: 'https://ararahq.com/l/FtFmja',
+      scheduled_at: '2024-12-25T10:00:00Z'
     };
 
     const response = await fetch(url, {
@@ -156,9 +161,11 @@ Antes de começar, certifique-se de ter:
 
     ObjectMapper mapper = new ObjectMapper();
     String jsonBody = mapper.writeValueAsString(Map.of(
-        "receiver", "whatsapp:+5583991768778",
+        "receiver", "whatsapp:+5511999999999",
         "templateName", "template_teste_inicio_conversa",
-        "variables", List.of()
+        "variables", List.of("João"),
+        "media_url", "https://ararahq.com/l/FtFmja",
+        "scheduled_at", "2024-12-25T10:00:00Z"
     ));
 
     HttpRequest request = HttpRequest.newBuilder()
@@ -195,7 +202,7 @@ Antes de começar, certifique-se de ter:
         .build()
 
     val requestBody = MessageRequest(
-        receiver = "whatsapp:+5583991768778",
+        receiver = "whatsapp:+5511999999999",
         templateName = "template_teste_inicio_conversa",
         variables = emptyList()
     )
@@ -221,7 +228,7 @@ Antes de começar, certifique-se de ter:
     ```json
     {
       "id": "ara_msg_k9Bf2XqP",
-      "receiver": "whatsapp:+5583991768778",
+      "receiver": "whatsapp:+5511999999999",
       "templateName": "template_teste_inicio_conversa",
       "status": "PENDING",
       "messageType": "TEMPLATE",

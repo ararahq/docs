@@ -50,7 +50,7 @@ Quando você enviar a mensagem via API, você passará os valores no array `vari
 
 ```json
 {
-  "receiver": "whatsapp:+5583991768778",
+  "receiver": "whatsapp:+5511999999999",
   "templateName": "template_teste_inicio_conversa",
   "variables": ["João", "#12345", "R$ 100,00"]
 }
@@ -73,7 +73,7 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
     "variables": []
   }'

@@ -29,7 +29,7 @@ O corpo da requisição deve ser um objeto JSON. Você deve enviar **ou** `templ
 
 | Campo | Tipo | Obrigatório | Descrição |
 |-------|------|-------------|-----------|
-| `receiver` | string | Sim | Número do destinatário no formato `whatsapp:+5583991768778` |
+| `receiver` | string | Sim | Número do destinatário no formato `whatsapp:+5511999999999` |
 | `templateName` | string | Condicional* | Nome do template que foi criado no dashboard (obrigatório para mensagens de template) |
 | `variables` | array | Não | Lista de variáveis para preencher o template (padrão: `[]`) |
 | `media_url` | string | Não | URL pública da mídia (Imagem, PDF) para templates com header de mídia |
@@ -44,7 +44,7 @@ O número do destinatário deve estar no formato:
 - Código do país: `55` (Brasil)
 - DDD: `83`
 - Número: `991768778`
-- **Formato completo**: `whatsapp:+5583991768778`
+- **Formato completo**: `whatsapp:+5511999999999`
 
 <Info>
   O formato do número é importante! Sempre use o prefixo `whatsapp:+` seguido do código do país e o número completo sem espaços ou caracteres especiais.
@@ -88,7 +88,7 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
     "variables": []
   }'
@@ -103,7 +103,7 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
     "variables": ["João", "R$ 100,00"]
   }'
@@ -118,9 +118,9 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "mensagem_com_anexo_pdf",
-    "variables": ["Micael"],
+    "variables": ["João"],
     "media_url": "https://ararahq.com/l/FtFmja"
   }'
 ```
@@ -138,7 +138,7 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "body": "Olá! Como posso ajudar você hoje?"
   }'
 ```
@@ -156,7 +156,7 @@ Quando a mensagem é aceita para processamento, você receberá uma resposta `20
 ```json
 {
   "id": "ara_msg_k9Bf2XqP",
-  "receiver": "whatsapp:+5583991768778",
+  "receiver": "whatsapp:+5511999999999",
   "templateName": "template_teste_inicio_conversa",
   "status": "PENDING",
   "messageType": "TEMPLATE",
@@ -169,7 +169,7 @@ Quando a mensagem é aceita para processamento, você receberá uma resposta `20
 ```json
 {
   "id": "ara_msg_z7Lp4YwR",
-  "receiver": "whatsapp:+5583991768778",
+  "receiver": "whatsapp:+5511999999999",
   "body": "Olá! Como posso ajudar você hoje?",
   "status": "SENT_TO_PROVIDER",
   "messageType": "SESSION",
@@ -259,7 +259,7 @@ O número do destinatário está em formato inválido, o template não está apr
 ```json
 {
   "error": "Unprocessable Entity",
-  "message": "Invalid receiver format. Expected format: whatsapp:+5583991768778"
+  "message": "Invalid receiver format. Expected format: whatsapp:+5511999999999"
 }
 ```
 
@@ -289,7 +289,7 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
     "variables": []
   }'
@@ -304,9 +304,11 @@ headers = {
     "Content-Type": "application/json"
 }
 payload = {
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
-    "variables": []
+    "variables": ["João"],
+    "media_url": "https://ararahq.com/l/FtFmja",
+    "scheduled_at": "2024-12-25T10:00:00Z"
 }
 
 response = requests.post(url, json=payload, headers=headers)
@@ -322,9 +324,11 @@ const headers = {
   'Content-Type': 'application/json'
 };
 const body = {
-  receiver: 'whatsapp:+5583991768778',
+  receiver: 'whatsapp:+5511999999999',
   templateName: 'template_teste_inicio_conversa',
-  variables: []
+  variables: ["João"],
+  media_url: 'https://ararahq.com/l/FtFmja',
+  scheduled_at: '2024-12-25T10:00:00Z'
 };
 
 fetch(url, {
@@ -343,9 +347,11 @@ const headers = {
   'Content-Type': 'application/json'
 };
 const body = {
-  receiver: 'whatsapp:+5583991768778',
+  receiver: 'whatsapp:+5511999999999',
   templateName: 'template_teste_inicio_conversa',
-  variables: []
+  variables: ["João"],
+  media_url: 'https://ararahq.com/l/FtFmja',
+  scheduled_at: '2024-12-25T10:00:00Z'
 };
 
 const response = await fetch(url, {
@@ -372,9 +378,11 @@ HttpClient client = HttpClient.newBuilder()
 
 ObjectMapper mapper = new ObjectMapper();
 String jsonBody = mapper.writeValueAsString(Map.of(
-    "receiver", "whatsapp:+5583991768778",
+    "receiver", "whatsapp:+5511999999999",
     "templateName", "template_teste_inicio_conversa",
-    "variables", List.of()
+    "variables", List.of("João"),
+    "media_url", "https://ararahq.com/l/FtFmja",
+    "scheduled_at", "2024-12-25T10:00:00Z"
 ));
 
 HttpRequest request = HttpRequest.newBuilder()
@@ -411,7 +419,7 @@ val client = HttpClient.newBuilder()
     .build()
 
 val requestBody = MessageRequest(
-    receiver = "whatsapp:+5583991768778",
+    receiver = "whatsapp:+5511999999999",
     templateName = "template_teste_inicio_conversa",
     variables = emptyList()
 )

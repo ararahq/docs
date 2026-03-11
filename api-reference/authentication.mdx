@@ -49,7 +49,7 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
     "variables": []
   }'
@@ -64,7 +64,7 @@ headers = {
     "Content-Type": "application/json"
 }
 payload = {
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
     "variables": []
 }
@@ -82,7 +82,7 @@ const headers = {
   'Content-Type': 'application/json'
 };
 const body = {
-  receiver: 'whatsapp:+5583991768778',
+  receiver: 'whatsapp:+5511999999999',
   templateName: 'template_teste_inicio_conversa',
   variables: []
 };
@@ -103,7 +103,7 @@ const headers = {
   'Content-Type': 'application/json'
 };
 const body = {
-  receiver: 'whatsapp:+5583991768778',
+  receiver: 'whatsapp:+5511999999999',
   templateName: 'template_teste_inicio_conversa',
   variables: []
 };
@@ -132,7 +132,7 @@ HttpClient client = HttpClient.newBuilder()
 
 ObjectMapper mapper = new ObjectMapper();
 String jsonBody = mapper.writeValueAsString(Map.of(
-    "receiver", "whatsapp:+5583991768778",
+    "receiver", "whatsapp:+5511999999999",
     "templateName", "template_teste_inicio_conversa",
     "variables", List.of()
 ));
@@ -171,7 +171,7 @@ val client = HttpClient.newBuilder()
     .build()
 
 val requestBody = MessageRequest(
-    receiver = "whatsapp:+5583991768778",
+    receiver = "whatsapp:+5511999999999",
     templateName = "template_teste_inicio_conversa",
     variables = emptyList()
 )

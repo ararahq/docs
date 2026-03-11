@@ -19,7 +19,7 @@ Primary endpoint for Template and Session messages.
 ### 1.1 Request Payload
 ```typescript
 interface SendMessageRequest {
-  receiver: string;        // E.164 format: whatsapp:+5583991768778
+  receiver: string;        // E.164 format: whatsapp:+5511999999999
   templateName?: string;   // Required to start a conversation (Outbound)
   variables?: string[];    // Array of strings for {{1}}, {{2}}, etc.
   body?: string;           // Required for session replies (Inbound window < 24h)
@@ -32,7 +32,7 @@ interface SendMessageRequest {
 ```json
 {
   "id": "ara_msg_k9Bf2XqP",
-  "receiver": "whatsapp:+5583991768778",
+  "receiver": "whatsapp:+5511999999999",
   "status": "PENDING",
   "messageType": "TEMPLATE",
   "createdAt": "2024-01-15T10:30:00Z"

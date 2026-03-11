@@ -31,7 +31,7 @@
           "receiver": {
             "type": "string",
             "description": "Número do destinatário no formato whatsapp:+55...",
-            "example": "whatsapp:+5583991768778"
+            "example": "whatsapp:+5511999999999"
           },
           "templateName": {
             "type": "string",

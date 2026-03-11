@@ -39,7 +39,7 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
     "variables": [],
     "scheduledAt": "2024-01-15T14:30:00Z"
@@ -62,7 +62,7 @@ scheduled_time = datetime.now(timezone.utc).replace(
 ).isoformat()
 
 payload = {
-    "receiver": "whatsapp:+5583991768778",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
     "variables": [],
     "scheduledAt": scheduled_time
@@ -85,7 +85,7 @@ const headers = {
 const scheduledAt = new Date('2024-01-15T14:30:00Z').toISOString();
 
 const body = {
-  receiver: 'whatsapp:+5583991768778',
+  receiver: 'whatsapp:+5511999999999',
   templateName: 'template_teste_inicio_conversa',
   variables: [],
   scheduledAt: scheduledAt
@@ -111,7 +111,7 @@ const headers = {
 const scheduledAt = new Date('2024-01-15T14:30:00Z').toISOString();
 
 const body = {
-  receiver: 'whatsapp:+5583991768778',
+  receiver: 'whatsapp:+5511999999999',
   templateName: 'template_teste_inicio_conversa',
   variables: [],
   scheduledAt: scheduledAt
@@ -159,7 +159,7 @@ Quando uma mensagem é agendada com sucesso, você receberá uma resposta simila
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
-  "receiver": "whatsapp:+5583991768778",
+  "receiver": "whatsapp:+5511999999999",
   "templateName": "template_teste_inicio_conversa",
   "status": "SCHEDULED",
   "scheduledAt": "2024-01-15T14:30:00Z",

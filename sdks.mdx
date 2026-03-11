@@ -19,7 +19,7 @@ Para acelerar sua integração, fornecemos SDKs oficiais **100% Open Source**. N
   </Card>
   <Card title="Python" icon="python">
     ```bash
-    pip install ararahq-sdk
+    pip install ararahq-sdk==1.8.0
     ```
   </Card>
   <Card title="Java / Kotlin" icon="java">
@@ -61,7 +61,7 @@ const sdk = new NodeSDK({ apiKey: 'sk_live_...' });
 const response = await sdk.messages.send({
   receiver: 'whatsapp:+5511999998888',
   templateName: 'fatura_disponivel',
-  variables: ['Micael', 'Janeiro'],
+  variables: ['João', 'Janeiro'],
   media_url: 'https://ararahq.com/l/FtFmja'
 });
 ```
@@ -74,7 +74,7 @@ $arara = new Arara('sk_live_...');
 $response = $arara->messages()->send([
     'receiver' => 'whatsapp:+5511999998888',
     'templateName' => 'fatura_disponivel',
-    'variables' => ['Micael', 'Janeiro'],
+    'variables' => ['João', 'Janeiro'],
     'media_url' => 'https://ararahq.com/l/FtFmja'
 ]);
 ```
@@ -86,7 +86,7 @@ with AraraClient(api_key="sk_live_...") as client:
     response = client.messages.send({
         "receiver": "whatsapp:+5511999998888",
         "templateName": "fatura_disponivel",
-        "variables": ["Micael", "Janeiro"],
+        "variables": ["João", "Janeiro"],
         "media_url": "https://ararahq.com/l/FtFmja"
     })
 ```
@@ -98,7 +98,7 @@ MessageResponse response = arara.getMessages().send(
     SendMessageRequest.builder()
         .receiver("whatsapp:+5511999998888")
         .templateName("fatura_disponivel")
-        .templateVariables(List.of("Micael", "Janeiro"))
+        .templateVariables(List.of("João", "Janeiro"))
         .mediaUrl("https://ararahq.com/l/FtFmja")
         .build()
 );

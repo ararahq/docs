@@ -308,7 +308,7 @@ Todo SDK deve implementar pelo menos:
       async send(params: SendMessageParams): Promise<Message> {
         // Validação
         if (!params.receiver.startsWith('whatsapp:+')) {
-          throw new Error('Receiver must be in format whatsapp:+5583991768778');
+          throw new Error('Receiver must be in format whatsapp:+5511999999999');
         }
         
         return this.client.request('POST', '/v1/messages', {
@@ -346,7 +346,7 @@ Todo SDK deve implementar pelo menos:
             # Validação
             if not params.receiver.startswith('whatsapp:+'):
                 raise ValueError(
-                    'Receiver must be in format whatsapp:+5583991768778'
+                    'Receiver must be in format whatsapp:+5511999999999'
                 )
             
             data = {
@@ -390,7 +390,7 @@ Todo SDK deve implementar pelo menos:
             // Validação
             if (!params.getReceiver().startsWith("whatsapp:+")) {
                 throw new IllegalArgumentException(
-                    "Receiver must be in format whatsapp:+5583991768778"
+                    "Receiver must be in format whatsapp:+5511999999999"
                 );
             }
             
