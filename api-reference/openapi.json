@@ -43,16 +43,12 @@
             "items": {
               "type": "string"
             },
-            "description": "Lista de variáveis para preencher o template",
+            "description": "Lista de variáveis para preencher o template. Se o template tiver Header (Imagem/PDF), a URL deve ser enviada na primeira posição (variables[0]).",
             "example": [
+              "https://ararahq.com/l/FtFmja",
               "João",
               "R$ 100,00"
             ]
-          },
-          "media_url": {
-            "type": "string",
-            "description": "URL pública da mídia (Imagem, PDF) para templates com header de mídia",
-            "example": "https://ararahq.com/l/FtFmja"
           },
           "body": {
             "type": "string",

@@ -1,49 +1,120 @@
 ---
-title: 'Bem-vindo à API da Arara 🦜'
-description: 'A API de WhatsApp mais amada pelos desenvolvedores brasileiros.'
-mode: 'wide'
+title: "Bem-vindo à Documentação da Arara"
+mode: "custom"
 ---
 
-Integre o WhatsApp em sua aplicação com a simplicidade que a Meta não oferece. A Arara fornece a infraestrutura robusta, escalável e segura que você precisa para se comunicar com milhões em segundos.
+<div style={{ 
+    position: "relative",
+    textAlign: "center", 
+    padding: "80px 20px",
+    backgroundImage: "url('/images/arara-hero-bg-simple.png')",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    borderBottom: "1px solid rgba(255,255,255,0.08)"
+}}
+>
+  {" "}
+  <h1 style={{ fontSize: "40px", fontWeight: "600", marginBottom: "16px", color: "#fff" }}>
+      Bem-vindo à API da Arara
+  </h1>
 
-<CardGroup cols={3}>
-  <Card title="Primeiros Passos" icon="bolt" href="/quickstart">
-    Envie sua primeira mensagem em menos de 2 minutos com nosso guia prático.
-  </Card>
-  <Card title="Templates Dinâmicos" icon="bezier-curve" href="/business-rules/template-management">
-    Crie experiências ricas com botões de ação, variáveis e fluxos inteligentes.
-  </Card>
-  <Card title="Autenticação Segura" icon="key" href="/api-reference/authentication">
-    Gerencie suas chaves de API e proteja sua integração com padrões de elite.
-  </Card>
-  <Card title="Escalabilidade Real" icon="bolt-auto" href="/api-reference/endpoint/campaigns">
-    Dispare 100k+ mensagens simultâneas com nossa infraestrutura massiva.
-  </Card>
-  <Card title="Smart Links (Raio-X)" icon="magnifying-glass-chart" href="/cookbooks/marketing-smartlinks">
-    Rastreamento de cliques e encurtamento automático integrado em cada disparo.
-  </Card>
-  <Card title="Mídia & Documentos" icon="file-arrow-up" href="/api-reference/endpoint/messages">
-    Suporte nativo para imagens, vídeos e PDFs com entrega garantida.
-  </Card>
-</CardGroup>
+ <p
+  style={{
+    maxWidth: "800px",
+    margin: "0 auto",
+    opacity: 0.8,
+    fontSize: "18px",
+    fontWeight: "300",
+  }}
+>
+  Integre o WhatsApp em sua aplicação com a simplicidade que você sempre quis.
+  <br />
+  Infraestrutura robusta, escalável e segura para se comunicar em segundos.
+</p>
+</div>
 
-## Explore Mais
+<div style={{ 
+  padding: "60px 20px",
+  maxWidth: "1100px",
+  margin: "0 auto"
+}}>
+  <div style={{ 
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: "24px",
+    marginBottom: "32px"
+  }}>
+    <Card icon="rocket" title="Primeiros Passos" href="/quickstart">
+      Aprenda como fazer sua primeira chamada à API e começar a disparar mensagens.
+    </Card>
 
-<CardGroup cols={2}>
-  <Card title="SDKs Oficiais" icon="code" href="/sdks">
-    Explore nossos SDKs oficiais para Node.js, PHP, Python e Java.
-  </Card>
-  <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/webhook">
-    Receba notificações de eventos (entrega, leitura) em tempo real.
-  </Card>
-</CardGroup>
+    <Card icon="box" title="Templates" href="/business-rules/template-management">
+      Crie experiências ricas com botões de ação, variáveis e fluxos inteligentes.
+    </Card>
 
----
+    <Card icon="key" title="Chaves de API" href="/api-reference/authentication">
+      Consulte como gerar e gerenciar suas credenciais com segurança. 
+    </Card>
 
-## Suporte & Comunidade
+    <Card icon="bell" title="Webhooks" href="/api-reference/endpoint/webhook">
+      Receba notificações de eventos em tempo real para automação.
+    </Card>
 
-Precisa de ajuda? Estamos aqui para você.
+    <Card icon="code" title="SDKs Oficiais" href="/sdks">
+      Explore as bibliotecas oficiais para Node.js, PHP, Python e Java.
+    </Card>
 
-- **Suporte Técnico**: Entre em contato via suporte@ararahq.com.
-- **LinkedIn**: Siga a [Arara no LinkedIn](https://linkedin.com/company/ararahq).
-- **GitHub**: Contribua com nossos [SDKs Open Source](https://github.com/ararahq).
+    <Card icon="clock-rotate-left" title="Changelog" href="/changelog">
+      Veja as últimas alterações e melhorias na nossa plataforma.
+    </Card>
+
+    <Card icon="terminal" title="Endpoints API" href="/api-reference/endpoint/messages">
+      Documentação completa de todos os recursos da API.
+    </Card>
+
+    <Card icon="diagram-project" title="Arquitetura" href="/architecture/overview">
+      Entenda como a Arara funciona por baixo do capô.
+    </Card>
+
+    <Card icon="robot" title="IA e Automação" href="/ai-agents">
+      Integre fluxos de inteligência artificial com o WhatsApp.
+    </Card>
+
+  </div>
+</div>
+
+<div style={{ 
+  padding: "60px 20px",
+  maxWidth: "1100px",
+  margin: "0 auto"
+}}>
+  <h2 style={{ 
+    fontSize: "28px", 
+    fontWeight: "600", 
+    marginBottom: "32px",
+    color: "#fff"
+  }}>
+    Suporte & Comunidade
+  </h2>
+
+  <div style={{ 
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: "24px"
+  }}>
+
+    <Card icon="headset" title="Suporte Técnico" href="mailto:suporte@ararahq.com">
+      Fale com nosso time de especialistas para ajuda na integração.
+    </Card>
+
+    <Card icon="linkedin" title="LinkedIn" href="https://linkedin.com/company/ararahq">
+      Acompanhe as novidades e tendências do mercado.
+    </Card>
+
+    <Card icon="github" title="GitHub" href="https://github.com/ararahq">
+      Contribua com nossos projetos e SDKs open source.
+    </Card>
+  </div>
+</div>
+

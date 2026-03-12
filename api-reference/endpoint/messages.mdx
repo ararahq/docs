@@ -31,8 +31,7 @@ O corpo da requisição deve ser um objeto JSON. Você deve enviar **ou** `templ
 |-------|------|-------------|-----------|
 | `receiver` | string | Sim | Número do destinatário no formato `whatsapp:+5511999999999` |
 | `templateName` | string | Condicional* | Nome do template que foi criado no dashboard (obrigatório para mensagens de template) |
-| `variables` | array | Não | Lista de variáveis para preencher o template (padrão: `[]`) |
-| `media_url` | string | Não | URL pública da mídia (Imagem, PDF) para templates com header de mídia |
+| `variables` | array | Não | Lista de variáveis para preencher o template. Se o template tiver Header (Imagem ou PDF), a URL deve ser enviada na **primeira posição** (`variables[0]`). |
 | `body` | string | Condicional* | Texto da mensagem (obrigatório para mensagens de sessão/inbound) |
 
 \* Você deve enviar **ou** `templateName` **ou** `body`, mas não ambos.
@@ -111,7 +110,7 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
 
 ### Enviar Mensagem com Mídia (Header de Mídia)
 
-Se o seu template foi criado com um **Header de Mídia** (Imagem, PDF ou Vídeo), você deve enviar a URL pública do arquivo no campo `media_url`.
+Se o seu template foi criado com um **Header de Mídia** (Imagem, PDF ou Vídeo), você deve enviar a URL pública do arquivo na **primeira posição** do array `variables`.
 
 ```bash curl
 curl -X POST https://api.ararahq.com/api/v1/messages \
@@ -120,8 +119,7 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
   -d '{
     "receiver": "whatsapp:+5511999999999",
     "templateName": "mensagem_com_anexo_pdf",
-    "variables": ["João"],
-    "media_url": "https://ararahq.com/l/FtFmja"
+    "variables": ["https://ararahq.com/l/FtFmja", "João"]
   }'
 ```
 
@@ -306,8 +304,7 @@ headers = {
 payload = {
     "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
-    "variables": ["João"],
-    "media_url": "https://ararahq.com/l/FtFmja",
+    "variables": ["https://ararahq.com/l/FtFmja", "João"],
     "scheduled_at": "2024-12-25T10:00:00Z"
 }
 
@@ -326,8 +323,7 @@ const headers = {
 const body = {
   receiver: 'whatsapp:+5511999999999',
   templateName: 'template_teste_inicio_conversa',
-  variables: ["João"],
-  media_url: 'https://ararahq.com/l/FtFmja',
+  variables: ["https://ararahq.com/l/FtFmja", "João"],
   scheduled_at: '2024-12-25T10:00:00Z'
 };
 
@@ -349,8 +345,7 @@ const headers = {
 const body = {
   receiver: 'whatsapp:+5511999999999',
   templateName: 'template_teste_inicio_conversa',
-  variables: ["João"],
-  media_url: 'https://ararahq.com/l/FtFmja',
+  variables: ["https://ararahq.com/l/FtFmja", "João"],
   scheduled_at: '2024-12-25T10:00:00Z'
 };
 
@@ -380,8 +375,7 @@ ObjectMapper mapper = new ObjectMapper();
 String jsonBody = mapper.writeValueAsString(Map.of(
     "receiver", "whatsapp:+5511999999999",
     "templateName", "template_teste_inicio_conversa",
-    "variables", List.of("João"),
-    "media_url", "https://ararahq.com/l/FtFmja",
+    "variables", List.of("https://ararahq.com/l/FtFmja", "João"),
     "scheduled_at", "2024-12-25T10:00:00Z"
 ));
 

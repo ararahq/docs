@@ -1,141 +1,154 @@
-  {
-    "$schema": "https://mintlify.com/docs.json",
-    "theme": "mint",
-    "name": "Arara Documentation",
-    "colors": {
-      "primary": "#FF6B35",
-      "light": "#FF6B35",
-      "dark": "#CC5A1F"
-    },
-    "favicon": "/images/favicon.png",
-    "navigation": {
-      "tabs": [
-        {
-          "tab": "Bem-vindo",
-          "groups": [
-            {
-              "group": "Introdução",
-              "icon": "hand-wave",
-              "pages": ["index"]
-            }
-          ]
-        },
-        {
-          "tab": "Comece aqui",
-          "groups": [
-            {
-              "group": "Configuração Inicial",
-              "icon": "bolt",
-              "pages": [
-                "quickstart",
-                "development",
-                "erros"
-              ]
-            }
-          ]
-        },
-        {
-          "tab": "Documentação",
-          "groups": [
-            {
-              "group": "Conceitos",
-              "icon": "book",
-              "pages": [
-                "api-reference/introduction",
-                "api-reference/authentication"
-              ]
-            },
-            {
-              "group": "Endpoints",
-              "icon": "terminal",
-              "pages": [
-                "api-reference/endpoint/messages",
-                "api-reference/endpoint/campaigns",
-                "api-reference/endpoint/templates",
-                "api-reference/endpoint/inbound",
-                "api-reference/endpoint/schedule",
-                "api-reference/endpoint/webhook"
-              ]
-            }
-          ]
-        },
-        {
-          "tab": "SDKs",
-          "groups": [
-            {
-              "group": "Bibliotecas Oficiais",
-              "icon": "code",
-              "pages": ["sdks"]
-            }
-          ]
-        },
-        {
-          "tab": "Arquitetura",
-          "groups": [
-            {
-              "group": "Visão Técnica",
-              "icon": "diagram-project",
-              "pages": ["architecture/overview"]
-            }
-          ]
-        },
-        {
-          "tab": "Ecossistema",
-          "groups": [
-            {
-              "group": "Automação e IA",
-              "icon": "robot",
-              "pages": ["ai-agents"]
-            }
-          ]
-        },
-        {
-          "tab": "Changelog",
-          "groups": [
-            {
-              "group": "Novidades",
-              "icon": "clock-rotate-left",
-              "pages": ["changelog"]
-            }
-          ]
-        }
-      ],
-      "global": {
-        "anchors": [
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Arara Documentation",
+  "colors": {
+    "primary": "#FF6B35",
+    "light": "#FF6B35",
+    "dark": "#FF6B35"
+  },
+  "appearance": {
+    "default": "dark",
+    "strict": true
+  },
+  "fonts": {
+    "family": "Fustat"
+  },
+  "favicon": "/images/favicon.png",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Bem-vindo",
+        "groups": [
           {
-            "anchor": "GitHub",
-            "href": "https://github.com/ararahq/",
-            "icon": "github"
-          },
-          {
-            "anchor": "Landing Page",
-            "href": "https://www.ararahq.com",
-            "icon": "browser"
+            "group": "Introdução",
+            "pages": ["index"]
           }
         ]
+      },
+      {
+        "tab": "Comece aqui",
+        "groups": [
+          {
+            "group": "Configuração Inicial",
+            "pages": [
+              "quickstart",
+              "development",
+              "erros"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Documentação",
+        "groups": [
+          {
+            "group": "Conceitos",
+            "pages": [
+              "api-reference/introduction",
+              "api-reference/authentication"
+            ]
+          },
+          {
+            "group": "Mensagens",
+            "pages": [
+              "api-reference/endpoint/messages"
+            ]
+          },
+          {
+            "group": "Campanhas e Agendamentos",
+            "pages": [
+              "api-reference/endpoint/campaigns",
+              "api-reference/endpoint/schedule"
+            ]
+          },
+          {
+            "group": "Automação",
+            "pages": [
+              "api-reference/endpoint/templates",
+              "api-reference/endpoint/webhook"
+            ]
+          },
+          {
+            "group": "Outros",
+            "pages": [
+              "api-reference/endpoint/inbound"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDKs",
+        "groups": [
+          {
+            "group": "Oficiais",
+            "pages": ["sdks"]
+          }
+        ]
+      },
+      {
+        "tab": "Arquitetura",
+        "groups": [
+          {
+            "group": "Internos",
+            "pages": ["architecture/overview"]
+          }
+        ]
+      },
+      {
+        "tab": "Ecossistema",
+        "groups": [
+          {
+            "group": "IA",
+            "pages": ["ai-agents"]
+          }
+        ]
+      },
+      {
+        "tab": "Changelog",
+        "pages": ["changelog"]
       }
-    },
-    "logo": {
-      "light": "/logo/logo-black-transparente.png",
-      "dark": "/logo/logo-white-transparente.png"
-    },
-    "navbar": {
-      "links": [
+    ],
+    "global": {
+      "anchors": [
         {
-          "label": "Support",
-          "href": "mailto:suporte@ararahq.com"
+          "anchor": "GitHub",
+          "href": "https://github.com/ararahq/",
+          "icon": "github"
+        },
+        {
+          "anchor": "Landing Page",
+          "href": "https://www.ararahq.com",
+          "icon": "browser"
         }
-      ],
-      "primary": {
-        "type": "button",
-        "label": "Dashboard",
-        "href": "https://www.ararahq.com/dashboard"
+      ]
+    }
+  },
+  "logo": {
+    "light": "/logo/logo-black-transparente.png",
+    "dark": "/logo/logo-white-transparente.png"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "llms.txt",
+        "href": "https://docs.ararahq.com/llms.txt"
+      },
+      {
+        "label": "Repositório",
+        "href": "https://github.com/ararahq"
       }
-    },
-    "footer": {
-      "socials": {
-        "github": "https://github.com/ararahq",
-        "linkedin": "https://linkedin.com/company/ararahq"
-      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Dashboard",
+      "href": "https://www.ararahq.com/dashboard"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/ararahq",
+      "linkedin": "https://linkedin.com/company/ararahq"
     }
   }
+}
