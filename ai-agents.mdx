@@ -7,19 +7,36 @@ description: 'Arara Revenue OS: Camada de ação e inteligência para agentes de
 
 A Arara não é apenas uma API de mensagens; é um **Sistema Operacional de Receita**. Nossa infraestrutura foi desenhada para que IAs como Claude, GPT-4 e Gemini possam não apenas falar, mas agir e tomar decisões de negócio.
 
-## Model Context Protocol (MCP)
+<CardGroup cols={2}>
+  <Card title="Model Context Protocol" icon="plug">
+    Conectividade nativa entre seu LLM e a infraestrutura Arara.
+  </Card>
+  <Card title="Escala Global" icon="globe">
+    Pronto para milhões de mensagens com orquestração inteligente.
+  </Card>
+</CardGroup>
 
-O **Arara MCP** transforma sua IA em um agente autônomo de vendas e suporte. Com ele, a IA ganha acesso nativo ao ecossistema Arara e AbacatePay.
+## Os 5 Pilares do Revenue OS
 
-### Os 5 Pilares do Revenue OS
+O nosso MCP foi construído sobre cinco pilares fundamentais para escala:
 
-O nosso MCP foi construbuilt sobre cinco pilares fundamentais para escala:
-
-1.  **Autonomous Revenue Recovery**: A IA monitora "leaks" de receita (Pix vencidos, falhas de cartão) e sugere ações de recuperação imediatas.
-2.  **Atomic Negotiation**: Ferramentas para a IA negociar descontos e gerar links de pagamento do AbacatePay diretamente no chat.
-3.  **Guardian Mode (Brand Safety)**: Um firewall de IA que intercepta mensagens sensíveis ou fora de política antes do envio.
-4.  **Business Memory Layer (BML)**: Vetorização do histórico para que a IA saiba o "mood" e o contexto de cada cliente.
-5.  **Mass Orchestration**: Disparos inteligentes e segmentados para milhares de contatos com gestão automatizada de respostas.
+<Steps>
+  <Step title="Autonomous Revenue Recovery">
+    A IA monitora "leaks" de receita (Pix vencidos, falhas de cartão) e sugere ações de recuperação imediatas.
+  </Step>
+  <Step title="Atomic Negotiation">
+    Ferramentas para a IA negociar descontos e gerar links de pagamento do AbacatePay diretamente no chat.
+  </Step>
+  <Step title="Guardian Mode (Brand Safety)">
+    Um firewall de IA que intercepta mensagens sensíveis ou fora de política antes do envio.
+  </Step>
+  <Step title="Business Memory Layer (BML)">
+    Vetoraização do histórico para que a IA saiba o "mood" e o contexto de cada cliente.
+  </Step>
+  <Step title="Mass Orchestration">
+    Disparos inteligentes e segmentados para milhares de contatos com gestão automatizada de respostas.
+  </Step>
+</Steps>
 
 ---
 
@@ -42,19 +59,27 @@ Quando você conecta o MCP, as seguintes ferramentas ficam disponíveis para a I
 
 Você não precisa decorar comandos. Basta dar ordens contextuais para a IA:
 
-> "AI, verifique se temos algum Pix vencido do AbacatePay de ontem e me dê um relatório."
+<AccordionGroup>
+  <Accordion title="Recuperação de Receita" icon="money-bill-trend-up">
+    "AI, verifique se temos algum Pix vencido do AbacatePay de ontem e me dê um relatório."
+  </Accordion>
 
-> "O cliente João achou o valor alto. Gere um link de pagamento de R$ 150 (com 10% de desconto) e envie para o WhatsApp dele explicando a oferta."
+  <Accordion title="Negociação Atômica" icon="handshake">
+    "O cliente João achou o valor alto. Gere um link de pagamento de R$ 150 (com 10% de desconto) e envie para o WhatsApp dele explicando a oferta."
+  </Accordion>
 
-> "Qual é o perfil de compra e o 'mood' do cliente (11) 99999-9999 antes de eu responder a dúvida dele?"
+  <Accordion title="Inteligência de Cliente" icon="brain">
+    "Qual é o perfil de compra e o 'mood' do cliente (11) 99999-9999 antes de eu responder a dúvida dele?"
+  </Accordion>
+</AccordionGroup>
 
 ---
 
-### Como Conectar (Modo Hosted)
+## Como Conectar (Modo Hosted)
 
 Use nosso servidor oficial para ter acesso imediato a todas essas ferramentas.
 
-#### 1. Claude Desktop
+### 1. Claude Desktop
 Adicione ao seu `claude_desktop_config.json`:
 
 ```json
@@ -71,7 +96,7 @@ Adicione ao seu `claude_desktop_config.json`:
 }
 ```
 
-#### 2. Cursor
+### 2. Cursor
 Adicione em **Settings > Models > MCP Servers**:
 - **Name**: AraraHQ
 - **Type**: `SSE`
@@ -86,6 +111,54 @@ Se você deseja que seus clientes ou colaboradores usem o Arara MCP em suas pró
 1.  **Chave de API**: O usuário deve gerar uma `API_KEY` no painel da Arara.
 2.  **Configuração**: Forneça o trecho JSON acima, instruindo-os a substituir `SUA_CHAVE_ARARA_AQUI` pela chave que geraram.
 3.  **Segurança**: O servidor em `mcp.ararahq.com` é compartilhado e não armazena chaves. Cada chamada de ferramenta utiliza a chave enviada no header da sessão.
+
+---
+## SDK vs MCP: Qual usar?
+
+A Arara oferece duas formas de integrar inteligência ao seu fluxo. Você pode usar ambas simultaneamente:
+
+| Versão | Quando usar? | Benefício |
+| :--- | :--- | :--- |
+| **Node SDK** (`@ararahq/sdk`) | Backends tradicionais, scripts e automações fixas. | Tipagem forte e controle total do fluxo programático. |
+| **MCP Server** (`sse`) | Chatbots, Agentes de IA e ferramentas como Claude/Cursor. | Descoberta automática de ferramentas pela IA sem código extra. |
+
+---
+
+## Exemplo: Vercel AI SDK + Arara
+
+Você pode integrar a Arara de duas formas no Vercel AI SDK:
+
+### Opção A: Via Node SDK (Controle Manual)
+Ideal para quando você quer definir exatamente quais parâmetros a IA pode ver.
+
+```typescript
+import { NodeSDK } from '@ararahq/sdk';
+import { generateText, tool } from 'ai';
+import { z } from 'zod';
+
+const arara = new NodeSDK({ apiKey: process.env.ARARA_API_KEY });
+
+const result = await generateText({
+  model: openai('gpt-4o'),
+  tools: {
+    sendWhatsApp: tool({
+      description: 'Envia uma mensagem de WhatsApp via Arara',
+      parameters: z.object({ to: z.string(), text: z.string() }),
+      execute: async ({ to, text }) => arara.messages.send({ receiver: to, body: text }),
+    }),
+  },
+  prompt: 'Notifique o cliente João que o seu pedido está pronto.',
+});
+```
+
+### Opção B: Via MCP (Plug & Play)
+Ideal para dar à IA acesso a todo o ecossistema (Arara + AbacatePay) instantaneamente.
+
+```typescript
+import { ModelContextProtocolClient } from '@modelcontextprotocol/sdk/client';
+// O MCP expõe automaticamente send_smart_message, negotiate_payment, etc.
+// Use o cliente MCP para conectar sua aplicação Node ao servidor mcp.ararahq.com
+```
 
 ---
 
