@@ -1,22 +1,32 @@
 ---
 title: 'Integração com IA e LLMs'
-description: 'Como usar a Arara como camada de ação e comunicação para seus agentes de IA.'
+description: 'Arara Revenue OS: Camada de ação e inteligência para agentes de IA.'
 ---
 
 # Arara + IA: O Futuro da Comunicação
 
-A Arara foi construída com foco em **Agentes de IA**. Nossa API é otimizada para ser lida e executada por modelos como GPT-4, Claude e Gemini, servindo como os "braços" de execução dos seus assistentes.
+A Arara não é apenas uma API de mensagens; é um **Sistema Operacional de Receita**. Nossa infraestrutura foi desenhada para que IAs como Claude, GPT-4 e Gemini possam não apenas falar, mas agir e tomar decisões de negócio.
 
 ## Model Context Protocol (MCP)
 
-O **Arara MCP** é a forma mais rápida de dar superpoderes ao seu Claude Desktop, Cursor ou qualquer IDE compatível. Com ele, a IA ganha ferramentas nativas para enviar mensagens, consultar histórico e gerar cobranças.
+O **Arara MCP** transforma sua IA em um agente autônomo de vendas e suporte. Com ele, a IA ganha acesso nativo ao ecossistema Arara e AbacatePay.
+
+### Os 5 Pilares do Revenue OS
+
+O nosso MCP foi construído sobre cinco pilares fundamentais para escala:
+
+1.  **Autonomous Revenue Recovery**: A IA monitora "leaks" de receita (Pix vencidos, falhas de cartão) e sugere ações de recuperação imediatas.
+2.  **Atomic Negotiation**: Ferramentas para a IA negociar descontos e gerar links de pagamento do AbacatePay diretamente no chat.
+3.  **Guardian Mode (Brand Safety)**: Um firewall de IA que intercepta mensagens sensíveis ou fora de política antes do envio.
+4.  **Business Memory Layer (BML)**: Vetorização do histórico para que a IA saiba o "mood" e o contexto de cada cliente.
+5.  **Mass Orchestration**: Disparos inteligentes e segmentados para milhares de contatos com gestão automatizada de respostas.
 
 ### Como Conectar (Modo Hosted)
 
-Nós mantemos um servidor MCP oficial pronto para uso. Você só precisa apontar seu cliente para a nossa URL e fornecer sua chave de API.
+Use nosso servidor oficial para ter acesso imediato a todas essas ferramentas.
 
 #### 1. Claude Desktop
-Adicione o seguinte ao seu `claude_desktop_config.json`:
+Adicione ao seu `claude_desktop_config.json`:
 
 ```json
 {
@@ -24,7 +34,8 @@ Adicione o seguinte ao seu `claude_desktop_config.json`:
     "ararahq": {
       "url": "https://mcp.ararahq.com/sse",
       "headers": {
-        "X-Arara-Key": "SUA_CHAVE_ARARA_AQUI"
+        "X-Arara-Key": "SUA_CHAVE_ARARA_AQUI",
+        "X-Abacate-Key": "SUA_CHAVE_ABACATE_AQUI"
       }
     }
   }
@@ -32,7 +43,7 @@ Adicione o seguinte ao seu `claude_desktop_config.json`:
 ```
 
 #### 2. Cursor
-Vá em **Settings > Models > MCP Servers** e adicione um novo servidor:
+Adicione em **Settings > Models > MCP Servers**:
 - **Name**: AraraHQ
 - **Type**: `SSE`
 - **URL**: `https://mcp.ararahq.com/sse`
