@@ -13,13 +13,42 @@ O **Arara MCP** transforma sua IA em um agente autônomo de vendas e suporte. Co
 
 ### Os 5 Pilares do Revenue OS
 
-O nosso MCP foi construído sobre cinco pilares fundamentais para escala:
+O nosso MCP foi construbuilt sobre cinco pilares fundamentais para escala:
 
 1.  **Autonomous Revenue Recovery**: A IA monitora "leaks" de receita (Pix vencidos, falhas de cartão) e sugere ações de recuperação imediatas.
 2.  **Atomic Negotiation**: Ferramentas para a IA negociar descontos e gerar links de pagamento do AbacatePay diretamente no chat.
 3.  **Guardian Mode (Brand Safety)**: Um firewall de IA que intercepta mensagens sensíveis ou fora de política antes do envio.
 4.  **Business Memory Layer (BML)**: Vetorização do histórico para que a IA saiba o "mood" e o contexto de cada cliente.
 5.  **Mass Orchestration**: Disparos inteligentes e segmentados para milhares de contatos com gestão automatizada de respostas.
+
+---
+
+## Referência de Ferramentas (Tools)
+
+Quando você conecta o MCP, as seguintes ferramentas ficam disponíveis para a IA:
+
+| Ferramenta | O que faz? |
+| :--- | :--- |
+| `send_smart_message` | Envia mensagens via WhatsApp (integrado ao Guardian Mode). |
+| `check_revenue_leaks` | **(V2)** Identifica cobranças pendentes ou vencidas no AbacatePay. |
+| `negotiate_payment` | **(V2)** Cria produtos e links de pagamento dinâmicos para fechar vendas no chat. |
+| `confirm_payment_handshake` | **(V2)** Verifica o status real de um pagamento (Trusted Handshake). |
+| `get_customer_insights` | **(BML)** Cruza histórico do Arara com metadados do AbacatePay. |
+| `mass_orchestration` | Orquestra disparos em massa com firewall de segurança de IA. |
+
+---
+
+## Exemplos de Uso (Prompts)
+
+Você não precisa decorar comandos. Basta dar ordens contextuais para a IA:
+
+> "AI, verifique se temos algum Pix vencido do AbacatePay de ontem e me dê um relatório."
+
+> "O cliente João achou o valor alto. Gere um link de pagamento de R$ 150 (com 10% de desconto) e envie para o WhatsApp dele explicando a oferta."
+
+> "Qual é o perfil de compra e o 'mood' do cliente (11) 99999-9999 antes de eu responder a dúvida dele?"
+
+---
 
 ### Como Conectar (Modo Hosted)
 
@@ -60,5 +89,11 @@ Se você deseja que seus clientes ou colaboradores usem o Arara MCP em suas pró
 
 ---
 
-## Exemplo: Vercel AI SDK + Arara
-... (rest of the file remains similar or updated)
+## Business Memory Layer (BML)
+
+O BML não é apenas um log; é a inteligência que permite à IA saber:
+1.  **Contexto Financeiro**: O cliente tem pagamentos atrasados? (AbacatePay).
+2.  **Histórico Emocional**: O cliente está satisfeito ou teve falhas técnicas recentes? (Arara Messages).
+3.  **Janela de Oportunidade**: A janela de 24h está aberta para uma oferta "Trusted Handshake"?
+
+Essa camada garante que seu agente de IA sempre tome a decisão mais assertiva de comunicação, economizando créditos e protegendo a saúde do seu número.
