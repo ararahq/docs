@@ -1,172 +1,249 @@
 ---
-title: 'Integração com IA e LLMs'
-description: 'Arara Revenue OS: Camada de ação e inteligência para agentes de IA.'
+title: 'MCP: Arara para Agentes de IA'
+description: 'Conecte Claude, GPT-4 ou qualquer LLM à infraestrutura da AraraHQ. Envie mensagens, recupere receita e orquestre campanhas por linguagem natural.'
 ---
 
-# Arara + IA: O Futuro da Comunicação
+A Arara expõe um servidor MCP (Model Context Protocol) que dá a qualquer agente de IA acesso completo à sua conta: mensagens, templates, campanhas, conversas, base de conhecimento e recuperação de receita via AbacatePay.
 
-A Arara não é apenas uma API de mensagens; é um **Sistema Operacional de Receita**. Nossa infraestrutura foi desenhada para que IAs como Claude, GPT-4 e Gemini possam não apenas falar, mas agir e tomar decisões de negócio.
-
-<CardGroup cols={2}>
-  <Card title="Model Context Protocol" icon="plug">
-    Conectividade nativa entre seu LLM e a infraestrutura Arara.
+<CardGroup cols={3}>
+  <Card title="19 ferramentas" icon="wrench">
+    Cobertura completa da conta — sem precisar escrever código.
   </Card>
-  <Card title="Escala Global" icon="globe">
-    Pronto para milhões de mensagens com orquestração inteligente.
+  <Card title="Guardian Mode" icon="shield-check">
+    Firewall de IA ativo em todos os envios. Nada sensível sai sem inspeção.
+  </Card>
+  <Card title="Revenue Recovery" icon="money-bill-trend-up">
+    Recuperação autônoma de Pix vencido e falhas de pagamento via AbacatePay.
   </Card>
 </CardGroup>
 
-## Os 5 Pilares do Revenue OS
+---
 
-O nosso MCP foi construído sobre cinco pilares fundamentais para escala:
+## Como Conectar
+
+<Tabs>
+  <Tab title="Claude Desktop">
+    Edite o arquivo `claude_desktop_config.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "ararahq": {
+          "url": "https://mcp.ararahq.com/sse",
+          "headers": {
+            "X-Arara-Key": "SUA_API_KEY_ARARA",
+            "X-Abacate-Key": "SUA_API_KEY_ABACATEPAY"
+          }
+        }
+      }
+    }
+    ```
+
+    <Note>
+      `X-Abacate-Key` é opcional. Necessário apenas para as ferramentas de revenue recovery (AbacatePay).
+    </Note>
+  </Tab>
+
+  <Tab title="Cursor">
+    Acesse **Settings → Models → MCP Servers** e adicione:
+
+    - **Name**: AraraHQ
+    - **Type**: `SSE`
+    - **URL**: `https://mcp.ararahq.com/sse`
+    - **Header** `X-Arara-Key`: sua API key da Arara
+  </Tab>
+
+  <Tab title="Windsurf">
+    Edite o arquivo `.windsurf/mcp.json` na raiz do projeto:
+
+    ```json
+    {
+      "servers": {
+        "ararahq": {
+          "url": "https://mcp.ararahq.com/sse",
+          "headers": {
+            "X-Arara-Key": "SUA_API_KEY_ARARA"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+
+  <Tab title="Modo Local (stdio)">
+    Para rodar o servidor localmente via npx:
+
+    ```json
+    {
+      "mcpServers": {
+        "ararahq": {
+          "command": "npx",
+          "args": ["-y", "@ararahq/mcp"],
+          "env": {
+            "ARARA_API_KEY": "SUA_API_KEY_ARARA",
+            "ABACATEPAY_API_KEY": "SUA_API_KEY_ABACATEPAY"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Ferramentas Disponíveis
+
+### Conta e Configuração
+
+| Ferramenta | O que faz |
+| :--- | :--- |
+| `get_account_overview` | Saldo da carteira, métricas de entrega (sent / delivered / read / failed) e spend total |
+| `manage_organization` | Gerencia números ativos, configuração de webhook, brain config e membros do time |
+| `manage_api_keys` | Lista, cria e revoga API keys da conta |
+| `configure_guardian_policy` | Define regras customizadas de bloqueio de conteúdo para a sessão (palavras proibidas, padrões de marca) |
+
+### Mensagens
+
+| Ferramenta | O que faz |
+| :--- | :--- |
+| `send_smart_message` | Envia mensagem única para um número (texto, template ou mídia). Guardian Mode ativo. |
+| `send_batch_messages` | Envia até 1.000 mensagens em uma única chamada. Guardian Mode ativo em cada mensagem. |
+| `manage_messages` | Lista mensagens do dashboard com filtros ou consulta o status de um ID específico |
+
+### Templates
+
+| Ferramenta | O que faz |
+| :--- | :--- |
+| `manage_templates` | Cria, lista, consulta status de aprovação, analytics por template e deleta templates |
+
+### Campanhas
+
+| Ferramenta | O que faz |
+| :--- | :--- |
+| `create_campaign` | Cria e dispara campanha com template + lista de destinatários e variáveis por contato |
+| `monitor_campaign_responses` | Busca conversas abertas desde o disparo, classifica cada resposta por urgência (URGENT / COMPLAINT / QUESTION / POSITIVE / ROUTINE) e retorna fila de triage |
+
+### Conversas
+
+| Ferramenta | O que faz |
+| :--- | :--- |
+| `manage_conversations` | Lista conversas abertas, acessa histórico completo de uma conversa e envia reply. Guardian Mode ativo no reply. |
+
+### Conteúdo e Memória
+
+| Ferramenta | O que faz |
+| :--- | :--- |
+| `upload_media` | Sobe arquivo de uma URL para o CDN da Arara e retorna short URL |
+| `manage_knowledge_base` | Lista, salva, atualiza e deleta entradas da base de conhecimento do brain |
+| `build_business_memory` | Analisa histórico de conversas (sentimento, humor, urgência), calcula LTV via AbacatePay, classifica o tier do cliente (NEW / ENGAGED / VIP) e salva na base de conhecimento |
+
+### Revenue Recovery (AbacatePay)
+
+| Ferramenta | O que faz |
+| :--- | :--- |
+| `autonomous_recovery` | Escaneia todos os leaks do AbacatePay, enriquece cada um com histórico de mensagens do cliente, calcula total de R$ em risco e retorna briefing pronto para ação imediata |
+| `atomic_negotiation_cycle` | Cria produto + checkout com desconto + envia o link via WhatsApp em uma única chamada atômica |
+| `confirm_payment_handshake` | Verifica o status real de um checkout em tempo real |
+| `check_revenue_leaks` | Scan rápido de checkouts pendentes ou vencidos no AbacatePay |
+| `negotiate_payment` | Cria produto e checkout no AbacatePay e retorna o link (sem enviar) |
+
+---
+
+## Os 5 Pilares
 
 <Steps>
   <Step title="Autonomous Revenue Recovery">
-    A IA monitora "leaks" de receita (Pix vencidos, falhas de cartão) e sugere ações de recuperação imediatas.
+    `autonomous_recovery` monitora leaks (Pix vencido, falha de cartão), busca o histórico de cada cliente e entrega ao agente um briefing completo: quanto está em risco, qual o humor do cliente, qual a janela de oportunidade. O agente age sem esperar ordem.
   </Step>
   <Step title="Atomic Negotiation">
-    Ferramentas para a IA negociar descontos e gerar links de pagamento do AbacatePay diretamente no chat.
+    `atomic_negotiation_cycle` executa o ciclo completo em uma chamada: cria o produto com desconto, gera o checkout no AbacatePay e envia o link via WhatsApp. O diálogo vira o contrato.
   </Step>
   <Step title="Guardian Mode (Brand Safety)">
-    Um firewall de IA que intercepta mensagens sensíveis ou fora de política antes do envio.
+    Todas as ferramentas de envio passam pelo Guardian antes de qualquer mensagem sair. `configure_guardian_policy` permite definir regras customizadas por sessão: palavras proibidas, padrões de marca, dados sensíveis. Nada escapa.
   </Step>
-  <Step title="Business Memory Layer (BML)">
-    Vetoraização do histórico para que a IA saiba o "mood" e o contexto de cada cliente.
+  <Step title="Business Memory Layer">
+    `build_business_memory` constrói um perfil profundo: sentimento das últimas conversas, LTV histórico, tier do cliente, janela de 24h aberta ou não. A IA sabe com quem está falando antes de falar.
   </Step>
   <Step title="Mass Orchestration">
-    Disparos inteligentes e segmentados para milhares de contatos com gestão automatizada de respostas.
+    `create_campaign` + `monitor_campaign_responses` formam o ciclo completo: dispara segmentado, lê o aftermath, classifica respostas por urgência, sugere auto-reply para POSITIVE e QUESTION, escala URGENT e COMPLAINT para humano.
   </Step>
 </Steps>
 
 ---
 
-## Referência de Ferramentas (Tools)
-
-Quando você conecta o MCP, as seguintes ferramentas ficam disponíveis para a IA:
-
-| Ferramenta | O que faz? |
-| :--- | :--- |
-| `send_smart_message` | Envia mensagens via WhatsApp (integrado ao Guardian Mode). |
-| `check_revenue_leaks` | **(V2)** Identifica cobranças pendentes ou vencidas no AbacatePay. |
-| `negotiate_payment` | **(V2)** Cria produtos e links de pagamento dinâmicos para fechar vendas no chat. |
-| `confirm_payment_handshake` | **(V2)** Verifica o status real de um pagamento (Trusted Handshake). |
-| `get_customer_insights` | **(BML)** Cruza histórico do Arara com metadados do AbacatePay. |
-| `mass_orchestration` | Orquestra disparos em massa com firewall de segurança de IA. |
-
----
-
-## Exemplos de Uso (Prompts)
-
-Você não precisa decorar comandos. Basta dar ordens contextuais para a IA:
+## Exemplos de Uso
 
 <AccordionGroup>
-  <Accordion title="Recuperação de Receita" icon="money-bill-trend-up">
-    "AI, verifique se temos algum Pix vencido do AbacatePay de ontem e me dê um relatório."
+  <Accordion title="Recuperação de receita autônoma" icon="money-bill-trend-up">
+    ```
+    "Verifique se temos algum leak de receita do AbacatePay. Para os 3 maiores valores,
+    analise o perfil de cada cliente e me dê um plano de ação para recuperar hoje."
+    ```
+
+    O agente chama `autonomous_recovery`, recebe o briefing por cliente com valor em risco,
+    histórico de conversas e sugestão de abordagem. Sem precisar de mais contexto.
   </Accordion>
 
-  <Accordion title="Negociação Atômica" icon="handshake">
-    "O cliente João achou o valor alto. Gere um link de pagamento de R$ 150 (com 10% de desconto) e envie para o WhatsApp dele explicando a oferta."
+  <Accordion title="Negociação atômica no WhatsApp" icon="handshake">
+    ```
+    "O cliente (11) 99999-9999 achou o valor alto. Gere um link com 15% de desconto
+    e mande no WhatsApp dele explicando a oferta."
+    ```
+
+    Uma chamada para `atomic_negotiation_cycle` cria o produto, gera o checkout e envia.
+    Use `confirm_payment_handshake` para checar confirmação.
   </Accordion>
 
-  <Accordion title="Inteligência de Cliente" icon="brain">
-    "Qual é o perfil de compra e o 'mood' do cliente (11) 99999-9999 antes de eu responder a dúvida dele?"
+  <Accordion title="Campanha com gestão de respostas" icon="bullhorn">
+    ```
+    "Dispare a campanha de reativação para a lista de clientes inativos.
+    Após 2 horas, me traga uma triagem das respostas priorizando os mais urgentes."
+    ```
+
+    `create_campaign` dispara. Depois, `monitor_campaign_responses` retorna a fila
+    classificada por URGENT → COMPLAINT → QUESTION → POSITIVE → ROUTINE.
+  </Accordion>
+
+  <Accordion title="Perfil de cliente antes de responder" icon="brain">
+    ```
+    "Antes de eu responder o cliente (21) 88888-8888, me dê o perfil completo dele:
+    humor das últimas interações, histórico de pagamentos e se a janela de 24h está aberta."
+    ```
+
+    `build_business_memory` cruza histórico de conversas com AbacatePay e retorna
+    tier, mood score, LTV e janela de oportunidade.
+  </Accordion>
+
+  <Accordion title="Gestão operacional da conta" icon="gear">
+    ```
+    "Me dê um resumo da conta: saldo, taxa de entrega da última semana
+    e quais templates estão aprovados e prontos para uso."
+    ```
+
+    `get_account_overview` + `manage_templates` com `action: list`.
   </Accordion>
 </AccordionGroup>
 
 ---
 
-## Como Conectar (Modo Hosted)
+## SDK vs MCP
 
-Use nosso servidor oficial para ter acesso imediato a todas essas ferramentas.
-
-### 1. Claude Desktop
-Adicione ao seu `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "ararahq": {
-      "url": "https://mcp.ararahq.com/sse",
-      "headers": {
-        "X-Arara-Key": "SUA_CHAVE_ARARA_AQUI",
-        "X-Abacate-Key": "SUA_CHAVE_ABACATE_AQUI"
-      }
-    }
-  }
-}
-```
-
-### 2. Cursor
-Adicione em **Settings > Models > MCP Servers**:
-- **Name**: AraraHQ
-- **Type**: `SSE`
-- **URL**: `https://mcp.ararahq.com/sse`
-
----
-
-## Como Liberar para Outros Usuários
-
-Se você deseja que seus clientes ou colaboradores usem o Arara MCP em suas próprias máquinas:
-
-1.  **Chave de API**: O usuário deve gerar uma `API_KEY` no painel da Arara.
-2.  **Configuração**: Forneça o trecho JSON acima, instruindo-os a substituir `SUA_CHAVE_ARARA_AQUI` pela chave que geraram.
-3.  **Segurança**: O servidor em `mcp.ararahq.com` é compartilhado e não armazena chaves. Cada chamada de ferramenta utiliza a chave enviada no header da sessão.
-
----
-## SDK vs MCP: Qual usar?
-
-A Arara oferece duas formas de integrar inteligência ao seu fluxo. Você pode usar ambas simultaneamente:
-
-| Versão | Quando usar? | Benefício |
+| | **Node SDK** | **MCP Server** |
 | :--- | :--- | :--- |
-| **Node SDK** (`@ararahq/sdk`) | Backends tradicionais, scripts e automações fixas. | Tipagem forte e controle total do fluxo programático. |
-| **MCP Server** (`sse`) | Chatbots, Agentes de IA e ferramentas como Claude/Cursor. | Descoberta automática de ferramentas pela IA sem código extra. |
+| **Quando usar** | Backends, scripts, automações fixas | Agentes de IA, Claude, Cursor, Windsurf |
+| **Como integra** | `npm install @ararahq/sdk` | Configuração JSON no cliente de IA |
+| **Controle** | Total — você define cada chamada | Automático — a IA descobre e usa as tools |
+| **Melhor para** | Pipelines programáticos | Orquestração por linguagem natural |
 
 ---
 
-## Exemplo: Vercel AI SDK + Arara
+## Segurança
 
-Você pode integrar a Arara de duas formas no Vercel AI SDK:
+- **Chaves não armazenadas**: o servidor `mcp.ararahq.com` não persiste suas chaves. Elas são usadas apenas durante a sessão ativa via header.
+- **Guardian Mode obrigatório**: todas as ferramentas de envio passam por inspeção antes de qualquer mensagem sair.
+- **Escopo por chave**: o MCP opera com as mesmas permissões da API key fornecida. Use chaves com escopo mínimo necessário.
 
-### Opção A: Via Node SDK (Controle Manual)
-Ideal para quando você quer definir exatamente quais parâmetros a IA pode ver.
-
-```typescript
-import { NodeSDK } from '@ararahq/sdk';
-import { generateText, tool } from 'ai';
-import { z } from 'zod';
-
-const arara = new NodeSDK({ apiKey: process.env.ARARA_API_KEY });
-
-const result = await generateText({
-  model: openai('gpt-4o'),
-  tools: {
-    sendWhatsApp: tool({
-      description: 'Envia uma mensagem de WhatsApp via Arara',
-      parameters: z.object({ to: z.string(), text: z.string() }),
-      execute: async ({ to, text }) => arara.messages.send({ receiver: to, body: text }),
-    }),
-  },
-  prompt: 'Notifique o cliente João que o seu pedido está pronto.',
-});
-```
-
-### Opção B: Via MCP (Plug & Play)
-Ideal para dar à IA acesso a todo o ecossistema (Arara + AbacatePay) instantaneamente.
-
-```typescript
-import { ModelContextProtocolClient } from '@modelcontextprotocol/sdk/client';
-// O MCP expõe automaticamente send_smart_message, negotiate_payment, etc.
-// Use o cliente MCP para conectar sua aplicação Node ao servidor mcp.ararahq.com
-```
-
----
-
-## Business Memory Layer (BML)
-
-O BML não é apenas um log; é a inteligência que permite à IA saber:
-1.  **Contexto Financeiro**: O cliente tem pagamentos atrasados? (AbacatePay).
-2.  **Histórico Emocional**: O cliente está satisfeito ou teve falhas técnicas recentes? (Arara Messages).
-3.  **Janela de Oportunidade**: A janela de 24h está aberta para uma oferta "Trusted Handshake"?
-
-Essa camada garante que seu agente de IA sempre tome a decisão mais assertiva de comunicação, economizando créditos e protegendo a saúde do seu número.
+<Warning>
+  Nunca compartilhe sua `X-Arara-Key` publicamente. Gere chaves dedicadas para cada agente ou ambiente no painel da Arara.
+</Warning>
