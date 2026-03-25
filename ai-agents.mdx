@@ -81,7 +81,8 @@ A Arara expõe um servidor MCP (Model Context Protocol) que dá a qualquer agent
           "args": ["-y", "@ararahq/mcp"],
           "env": {
             "ARARA_API_KEY": "SUA_API_KEY_ARARA",
-            "ABACATEPAY_API_KEY": "SUA_API_KEY_ABACATEPAY"
+            "ABACATEPAY_API_KEY": "SUA_API_KEY_ABACATEPAY",
+            "ARARA_BASE_URL": "https://new-api.ararahq.com/api"
           }
         }
       }
@@ -89,6 +90,10 @@ A Arara expõe um servidor MCP (Model Context Protocol) que dá a qualquer agent
     ```
   </Tab>
 </Tabs>
+
+<Note>
+  **Usando a V2 da AraraHQ?** No modo local (stdio), adicione `"ARARA_BASE_URL": "https://new-api.ararahq.com/api"` no bloco `env`. Nos modos SSE (Claude Desktop, Cursor, Windsurf), o servidor remoto `mcp.ararahq.com` já roteia automaticamente com base na sua API key.
+</Note>
 
 ---
 

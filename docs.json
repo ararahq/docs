@@ -145,6 +145,10 @@
       "href": "https://www.ararahq.com/dashboard"
     }
   },
+  "announcement": {
+    "title": "Usando a V2 da AraraHQ? Sua base URL e https://new-api.ararahq.com/api",
+    "href": "/api-reference/introduction#base-url-v2"
+  },
   "footer": {
     "socials": {
       "github": "https://github.com/ararahq",

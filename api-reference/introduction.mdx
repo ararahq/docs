@@ -21,6 +21,20 @@ Todas as requisições à API v1 devem ser feitas para:
 https://api.ararahq.com/api/v1
 ```
 
+### Base URL V2
+
+<Note>
+  **Migrando para a V2?** Se voce esta utilizando a nova infraestrutura V2 da AraraHQ, sua base URL sera diferente. Substitua a URL acima por:
+
+  ```http
+  https://new-api.ararahq.com/api/v1
+  ```
+
+  Nos SDKs oficiais, basta configurar o parametro `baseUrl` (Node.js) ou `base_url` (Python) ao instanciar o cliente. Via variavel de ambiente, defina `ARARA_BASE_URL=https://new-api.ararahq.com/api`.
+
+  A API V1 (`api.ararahq.com`) continua funcionando normalmente. A migracao para V2 e opcional e pode ser feita gradualmente.
+</Note>
+
 ## Autenticação
 
 Segurança é nossa prioridade. Autentique suas chamadas usando o cabeçalho `Authorization` com sua **API Key**:

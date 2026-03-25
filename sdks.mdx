@@ -48,6 +48,32 @@ Nossos SDKs não são apenas "wrappers" de API. Eles incluem:
 
 ---
 
+## Configurando a Base URL (V2)
+
+<Note>
+  Se voce esta utilizando a **V2 da AraraHQ**, configure a base URL ao instanciar o SDK:
+
+  ```typescript Node.js
+  const sdk = new NodeSDK({
+    apiKey: 'sk_live_...',
+    baseUrl: 'https://new-api.ararahq.com/api'
+  });
+  ```
+
+  ```python Python
+  from arara_api_sdk import AraraClient
+
+  client = AraraClient(
+      api_key="sk_live_...",
+      base_url="https://new-api.ararahq.com/api"
+  )
+  ```
+
+  Voce tambem pode definir a variavel de ambiente `ARARA_BASE_URL=https://new-api.ararahq.com/api` em vez de passar no construtor.
+</Note>
+
+---
+
 ## Exemplo de Uso Multi-Linguagem
 
 Escolha sua stack e veja como é simples enviar uma mensagem com mídia e variáveis.
