@@ -1,0 +1,2113 @@
+openapi: 3.1.0
+info:
+  title: AraraHQ API
+  description: |
+    AraraHQ is a Brazilian CPaaS -- "Resend for WhatsApp". This API allows you to send WhatsApp messages,
+    manage templates, run campaigns, manage contacts, and more.
+
+    ## Authentication
+    All endpoints require a Bearer token using an API key. Keys are prefixed with `ara_live_` (production)
+    or `ara_test_` (sandbox).
+
+    ```
+    Authorization: Bearer ara_live_your_api_key_here
+    ```
+
+    ## Modes
+    - **LIVE** -- Production mode. Messages are delivered to real recipients and credits are consumed.
+    - **TEST** -- Sandbox mode. Messages are simulated and no credits are consumed.
+
+    ## Rate Limiting
+    Requests that exceed the rate limit will receive a `429 Too Many Requests` response.
+
+    ## Error Format
+    All errors follow a consistent format:
+    ```json
+    {
+      "error": {
+        "code": "ERROR_CODE",
+        "message": "Human-readable description."
+      }
+    }
+    ```
+  version: 2.0.0
+  contact:
+    name: AraraHQ Support
+    url: https://ararahq.com
+    email: support@ararahq.com
+
+servers:
+  - url: "{baseUrl}"
+    description: AraraHQ API
+    variables:
+      baseUrl:
+        default: https://new-api.ararahq.com/api
+        description: Base URL da API. Use https://api.ararahq.com/api para v1.
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Messages
+    description: Send and retrieve WhatsApp messages
+  - name: Templates
+    description: Create, list, and manage WhatsApp message templates
+  - name: Campaigns
+    description: Send bulk messages to multiple recipients
+  - name: Brain
+    description: AI knowledge base, rules, and revenue analysis
+  - name: Contacts
+    description: Manage your contact list
+  - name: API Keys
+    description: Create, list, and revoke API keys
+  - name: Phone Numbers
+    description: List organization phone numbers
+  - name: Conversations
+    description: View and reply to WhatsApp conversations
+  - name: Webhooks
+    description: Receive e-commerce events (cart abandoned, payment failed, etc.)
+  - name: Console - Finance
+    description: Wallet balance, transactions, billing, and fiscal data
+  - name: Console - Insights
+    description: Metrics, revenue stats, message logs, and test messages
+
+paths:
+  # ──────────────────────────────────────────────
+  # Messages
+  # ──────────────────────────────────────────────
+  /v1/messages:
+    post:
+      operationId: sendMessage
+      summary: Send a WhatsApp message
+      description: |
+        Send a text message or a pre-approved template message to a WhatsApp number.
+        You must provide either `templateName` or `body`, but not both.
+      tags: [Messages]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "202":
+          description: Message accepted for delivery
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid request payload
+        "401":
+          description: Missing or invalid API key
+        "403":
+          description: Forbidden -- insufficient permissions or inactive account
+
+  /v1/messages/{internalId}:
+    get:
+      operationId: getMessage
+      summary: Retrieve a message by ID
+      tags: [Messages]
+      parameters:
+        - name: internalId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The internal message ID returned when the message was sent
+      responses:
+        "200":
+          description: Message details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Forbidden -- you do not own this message
+        "404":
+          description: Message not found
+
+  # ──────────────────────────────────────────────
+  # Templates
+  # ──────────────────────────────────────────────
+  /v1/templates:
+    post:
+      operationId: createTemplate
+      summary: Create a WhatsApp message template
+      description: |
+        Submits a new template for WhatsApp approval. The template will be sent to the
+        provider for review. Use `GET /v1/templates/{id}/status` to check approval status.
+      tags: [Templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTemplateRequest"
+      responses:
+        "201":
+          description: Template created and submitted for approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateResponse"
+        "400":
+          description: Invalid request payload
+        "401":
+          description: Missing or invalid API key
+
+    get:
+      operationId: listTemplates
+      summary: List all templates
+      description: Returns all templates for the authenticated user. Optionally filter by name.
+      tags: [Templates]
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter templates by exact name
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TemplateResponse"
+
+  /v1/templates/{id}:
+    get:
+      operationId: getTemplate
+      summary: Get a template by ID
+      tags: [Templates]
+      parameters:
+        - $ref: "#/components/parameters/TemplateId"
+      responses:
+        "200":
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateResponse"
+        "403":
+          description: Forbidden
+        "404":
+          description: Template not found
+
+    delete:
+      operationId: deleteTemplate
+      summary: Delete a template
+      tags: [Templates]
+      parameters:
+        - $ref: "#/components/parameters/TemplateId"
+      responses:
+        "204":
+          description: Template deleted
+        "403":
+          description: Forbidden
+        "404":
+          description: Template not found
+
+  /v1/templates/{id}/status:
+    get:
+      operationId: getTemplateStatus
+      summary: Check template approval status
+      description: Queries the provider for the latest approval status of the template.
+      tags: [Templates]
+      parameters:
+        - $ref: "#/components/parameters/TemplateId"
+      responses:
+        "200":
+          description: Current approval status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateStatusResponse"
+        "403":
+          description: Forbidden
+        "404":
+          description: Template not found
+
+  /v1/templates/{id}/analytics:
+    get:
+      operationId: getTemplateAnalytics
+      summary: Get template analytics
+      description: Returns delivery and read metrics for a specific template.
+      tags: [Templates]
+      parameters:
+        - $ref: "#/components/parameters/TemplateId"
+      responses:
+        "200":
+          description: Template analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateAnalyticsResponse"
+        "403":
+          description: Forbidden
+        "404":
+          description: Template not found
+
+  # ──────────────────────────────────────────────
+  # Campaigns
+  # ──────────────────────────────────────────────
+  /v1/campaigns:
+    get:
+      operationId: listCampaigns
+      summary: List all campaigns
+      tags: [Campaigns]
+      responses:
+        "200":
+          description: List of campaigns
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CampaignResponse"
+
+    post:
+      operationId: createCampaign
+      summary: Create and send a campaign
+      description: |
+        Creates a campaign that sends a template message to multiple contacts.
+        Requires the `Idempotency-Key` header to prevent duplicate sends.
+      tags: [Campaigns]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignRequest"
+      responses:
+        "200":
+          description: Campaign created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "400":
+          description: Invalid request payload
+        "401":
+          description: Missing or invalid API key
+
+  /v1/campaigns/{id}:
+    get:
+      operationId: getCampaign
+      summary: Get campaign details
+      tags: [Campaigns]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Campaign ID
+      responses:
+        "200":
+          description: Campaign details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "403":
+          description: Forbidden
+        "404":
+          description: Campaign not found
+
+  /v1/campaigns/estimate:
+    get:
+      operationId: estimateCampaign
+      summary: Estimate campaign cost
+      description: Returns a cost estimate before creating a campaign.
+      tags: [Campaigns]
+      parameters:
+        - name: templateName
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Name of the template to use
+        - name: count
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: Number of recipients
+      responses:
+        "200":
+          description: Cost estimate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignEstimateResponse"
+
+  /v1/campaigns/import:
+    post:
+      operationId: importCampaign
+      summary: Import a campaign from a file
+      description: |
+        Upload a CSV/XLSX file with contacts and create a campaign. The file must contain
+        phone numbers and optionally template variable columns. Use `columnMapping` to map
+        file columns to template variables.
+      tags: [Campaigns]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - name
+                - templateName
+                - columnMapping
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV or XLSX file with contacts
+                name:
+                  type: string
+                  description: Campaign name
+                templateName:
+                  type: string
+                  description: Name of the template to use
+                columnMapping:
+                  type: string
+                  description: JSON string mapping file columns to template variables (e.g. `{"phone":"A","name":"B"}`)
+      responses:
+        "202":
+          description: Campaign import accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "400":
+          description: Invalid file or parameters
+
+  # ──────────────────────────────────────────────
+  # Brain
+  # ──────────────────────────────────────────────
+  /v1/brain/knowledge:
+    post:
+      operationId: addKnowledge
+      summary: Add knowledge to the AI brain
+      description: Ingests text content into the organization's knowledge base for AI-powered responses.
+      tags: [Brain]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrainKnowledgeRequest"
+      responses:
+        "200":
+          description: Knowledge ingested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrainKnowledgeResponse"
+
+  /v1/brain/knowledge/upload:
+    post:
+      operationId: uploadKnowledgeFile
+      summary: Upload a file to the AI brain
+      description: Ingests a file (PDF, TXT, etc.) into the knowledge base.
+      tags: [Brain]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - tags
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File to ingest
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: Tags to categorize the knowledge
+      responses:
+        "200":
+          description: File ingested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrainKnowledgeResponse"
+
+  /v1/brain/search:
+    get:
+      operationId: searchBrain
+      summary: Search the knowledge base
+      description: Performs a semantic search across the organization's knowledge base.
+      tags: [Brain]
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+      responses:
+        "200":
+          description: List of relevant knowledge chunks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /v1/brain/rules:
+    post:
+      operationId: addRule
+      summary: Add a business rule
+      description: Saves a business rule (tone, pricing, general) for the AI brain.
+      tags: [Brain]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrainRuleRequest"
+      responses:
+        "200":
+          description: Rule saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+
+    get:
+      operationId: getRules
+      summary: List all business rules
+      tags: [Brain]
+      responses:
+        "200":
+          description: List of business rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BusinessKnowledge"
+
+  /v1/brain/rules/{id}:
+    delete:
+      operationId: deleteRule
+      summary: Delete a business rule
+      tags: [Brain]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Rule ID
+      responses:
+        "200":
+          description: Rule deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "404":
+          description: Rule not found
+
+  /v1/brain/sources:
+    get:
+      operationId: getSources
+      summary: List knowledge sources
+      description: Returns a list of all knowledge source identifiers.
+      tags: [Brain]
+      responses:
+        "200":
+          description: List of source identifiers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+    delete:
+      operationId: deleteSource
+      summary: Delete a knowledge source
+      description: Removes all knowledge entries from a specific source.
+      tags: [Brain]
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Source identifier to delete
+      responses:
+        "200":
+          description: Source deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+
+  /v1/brain/audit:
+    get:
+      operationId: getAudit
+      summary: Get brain audit logs
+      tags: [Brain]
+      responses:
+        "200":
+          description: List of audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BrainAuditLog"
+
+  /v1/brain/stats:
+    get:
+      operationId: getBrainStats
+      summary: Get brain statistics
+      tags: [Brain]
+      responses:
+        "200":
+          description: Brain statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrainStats"
+
+  /v1/brain/analyze/revenue:
+    post:
+      operationId: analyzeRevenue
+      summary: Analyze revenue with AI
+      description: Uses the AI brain to analyze revenue data and provide insights.
+      tags: [Brain]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevenueAnalysisRequest"
+      responses:
+        "200":
+          description: AI analysis response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: string
+                    description: AI-generated revenue analysis
+
+  # ──────────────────────────────────────────────
+  # Contacts
+  # ──────────────────────────────────────────────
+  /v1/contacts:
+    get:
+      operationId: listContacts
+      summary: List contacts
+      description: Returns a paginated list of contacts. Supports search and opt-out filtering.
+      tags: [Contacts]
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search query (name, phone, or email)
+        - name: isOptedOut
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filter by opt-out status
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: Page number (zero-based)
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+          description: Page size
+      responses:
+        "200":
+          description: Paginated list of contacts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contacts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContactResponse"
+                  total:
+                    type: integer
+                    format: int64
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalPages:
+                    type: integer
+
+  /v1/contacts/batch:
+    post:
+      operationId: batchUpsertContacts
+      summary: Batch upsert contacts
+      description: |
+        Creates or updates multiple contacts in a single request. If a contact with the
+        same phone number already exists, it will be updated.
+      tags: [Contacts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/ContactRequest"
+      responses:
+        "200":
+          description: Contacts upserted successfully
+          content:
+            application/json:
+              schema:
+                type: string
+                description: Success message
+
+  /v1/contacts/stats:
+    get:
+      operationId: getContactStats
+      summary: Get contact statistics
+      tags: [Contacts]
+      responses:
+        "200":
+          description: Contact statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+                  format: int64
+                description: Map of stat keys to counts
+
+  /v1/contacts/{phone}:
+    get:
+      operationId: getContactByPhone
+      summary: Get a contact by phone number
+      tags: [Contacts]
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Phone number (e.g. +5511999999999)
+      responses:
+        "200":
+          description: Contact details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "404":
+          description: Contact not found
+
+  # ──────────────────────────────────────────────
+  # API Keys
+  # ──────────────────────────────────────────────
+  /v1/api-keys:
+    post:
+      operationId: createApiKey
+      summary: Create a new API key
+      tags: [API Keys]
+      parameters:
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [LIVE, TEST]
+            default: LIVE
+          description: Key mode (LIVE for production, TEST for sandbox)
+      responses:
+        "201":
+          description: API key created. The plain text key is only shown once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedApiKey"
+        "400":
+          description: Invalid mode
+        "403":
+          description: Forbidden -- LIVE keys require an active account
+
+    get:
+      operationId: listApiKeys
+      summary: List API keys
+      description: Returns metadata about your API keys (prefix, last four characters, mode). The full key is never returned.
+      tags: [API Keys]
+      parameters:
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [LIVE, TEST]
+          description: Filter by key mode
+      responses:
+        "200":
+          description: List of API key metadata
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeyInfo"
+
+  /v1/api-keys/sandbox-reveal:
+    get:
+      operationId: revealSandboxKey
+      summary: Reveal sandbox API key
+      description: Returns the full sandbox (TEST) API key in plain text.
+      tags: [API Keys]
+      responses:
+        "200":
+          description: Sandbox key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plainTextKey:
+                    type: string
+                    description: Full sandbox API key
+        "404":
+          description: No sandbox key found
+
+  /v1/api-keys/onboarding-complete:
+    post:
+      operationId: completeOnboarding
+      summary: Mark onboarding as complete
+      tags: [API Keys]
+      responses:
+        "200":
+          description: Onboarding marked as complete
+
+  /v1/api-keys/{id}:
+    delete:
+      operationId: revokeApiKey
+      summary: Revoke an API key
+      tags: [API Keys]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: API key ID
+      responses:
+        "204":
+          description: API key revoked
+        "404":
+          description: API key not found
+
+  # ──────────────────────────────────────────────
+  # Phone Numbers
+  # ──────────────────────────────────────────────
+  /v1/numbers:
+    get:
+      operationId: listPhoneNumbers
+      summary: List organization phone numbers
+      tags: [Phone Numbers]
+      responses:
+        "200":
+          description: List of phone numbers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PhoneNumberResponse"
+
+  # ──────────────────────────────────────────────
+  # Conversations
+  # ──────────────────────────────────────────────
+  /v1/conversations:
+    get:
+      operationId: listConversations
+      summary: List conversations
+      description: Returns a paginated list of WhatsApp conversations for the organization.
+      tags: [Conversations]
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search by phone number
+      responses:
+        "200":
+          description: Paginated list of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ConversationSummaryResponse"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+
+  /v1/conversations/{conversationId}/messages:
+    get:
+      operationId: getConversationMessages
+      summary: Get messages in a conversation
+      tags: [Conversations]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ConversationMessageResponse"
+
+  /v1/conversations/{conversationId}/reply:
+    post:
+      operationId: replyToConversation
+      summary: Reply to a conversation
+      description: |
+        Send a free-text reply within a conversation. The 24-hour WhatsApp window must be open.
+        If the window is closed, use `POST /v1/conversations/send-template` to re-open it.
+      tags: [Conversations]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConversationReplyRequest"
+      responses:
+        "201":
+          description: Reply sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ConversationMessageResponse"
+        "400":
+          description: Conversation window is closed or invalid request
+
+  /v1/conversations/send-template:
+    post:
+      operationId: sendTemplateToPhone
+      summary: Send a template message to a phone number
+      description: |
+        Sends a pre-approved template message to initiate or re-open a conversation.
+        Use this when the 24-hour conversation window has expired.
+      tags: [Conversations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendTemplateToPhoneRequest"
+      responses:
+        "201":
+          description: Template message sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ConversationMessageResponse"
+
+  # ──────────────────────────────────────────────
+  # Webhooks
+  # ──────────────────────────────────────────────
+  /webhook/cart:
+    post:
+      operationId: handleCartAbandoned
+      summary: Handle e-commerce webhook events
+      description: |
+        Receives e-commerce events such as cart abandonment, payment failure, PIX creation,
+        or boleto due reminders. Arara will automatically send the appropriate WhatsApp
+        message to the customer.
+      tags: [Webhooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartAbandonedWebhookRequest"
+      responses:
+        "202":
+          description: Webhook event accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartAbandonedWebhookResponse"
+        "400":
+          description: Invalid webhook payload
+
+  # ──────────────────────────────────────────────
+  # Console - Finance
+  # ──────────────────────────────────────────────
+  /v1/console/wallet/balance:
+    get:
+      operationId: getWalletBalance
+      summary: Get wallet balance
+      tags: [Console - Finance]
+      parameters:
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [LIVE, TEST]
+            default: LIVE
+      responses:
+        "200":
+          description: Wallet balance
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                description: Formatted wallet balance information
+
+  /v1/console/wallet/transactions:
+    get:
+      operationId: getWalletTransactions
+      summary: Get wallet transactions
+      tags: [Console - Finance]
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated wallet transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletTransactionPage"
+
+  /v1/console/billing/status:
+    get:
+      operationId: getBillingStatus
+      summary: Get billing status
+      description: Returns the current plan, available plans, and subscription status.
+      tags: [Console - Finance]
+      responses:
+        "200":
+          description: Billing status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingStatusResponse"
+
+  /v1/console/billing/change-plan:
+    post:
+      operationId: changePlan
+      summary: Change subscription plan
+      description: Creates a Stripe checkout session for plan change.
+      tags: [Console - Finance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planKey]
+              properties:
+                planKey:
+                  type: string
+                  description: Key of the target plan
+      responses:
+        "200":
+          description: Checkout session URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSessionResponse"
+        "400":
+          description: Missing planKey
+
+  /v1/console/billing/portal:
+    get:
+      operationId: getBillingPortal
+      summary: Get Stripe billing portal URL
+      tags: [Console - Finance]
+      responses:
+        "200":
+          description: Billing portal URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    description: Stripe Customer Portal URL
+
+  /v1/console/billing/create-payment-intent:
+    post:
+      operationId: createPaymentIntent
+      summary: Create a payment intent for wallet recharge
+      description: Creates a Stripe payment intent to add credits to the wallet. Requires an active subscription.
+      tags: [Console - Finance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentIntentRequest"
+      responses:
+        "200":
+          description: Payment intent created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                description: Stripe payment intent details
+        "403":
+          description: Active subscription required
+
+  /v1/console/organization/fiscal:
+    get:
+      operationId: getFiscalData
+      summary: Get organization fiscal data
+      tags: [Console - Finance]
+      responses:
+        "200":
+          description: Fiscal data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FiscalDataDTO"
+        "404":
+          description: No fiscal data found
+
+    post:
+      operationId: saveFiscalData
+      summary: Save organization fiscal data
+      tags: [Console - Finance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FiscalDataDTO"
+      responses:
+        "200":
+          description: Fiscal data saved
+
+  # ──────────────────────────────────────────────
+  # Console - Insights
+  # ──────────────────────────────────────────────
+  /v1/console/metrics:
+    get:
+      operationId: getMetrics
+      summary: Get dashboard metrics
+      tags: [Console - Insights]
+      parameters:
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [LIVE, TEST]
+            default: LIVE
+      responses:
+        "200":
+          description: Dashboard metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v1/console/revenue-stats:
+    get:
+      operationId: getRevenueStats
+      summary: Get revenue statistics
+      tags: [Console - Insights]
+      responses:
+        "200":
+          description: Revenue statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v1/console/messages:
+    get:
+      operationId: getConsoleMessages
+      summary: List message logs
+      tags: [Console - Insights]
+      parameters:
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [LIVE, TEST]
+            default: LIVE
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated message logs
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v1/console/messages/{internalId}:
+    get:
+      operationId: getConsoleMessageDetail
+      summary: Get message detail
+      tags: [Console - Insights]
+      parameters:
+        - name: internalId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Message detail
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /v1/console/test-message/eligibility:
+    get:
+      operationId: getTestMessageEligibility
+      summary: Check test message eligibility
+      description: Checks whether the user is eligible to send a free test message.
+      tags: [Console - Insights]
+      responses:
+        "200":
+          description: Eligibility status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestMessageEligibility"
+
+  /v1/console/test-message:
+    post:
+      operationId: sendTestMessage
+      summary: Send a free test message
+      description: Sends a free test WhatsApp message to verify your integration.
+      tags: [Console - Insights]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  description: Recipient phone number (e.g. +5511999999999)
+      responses:
+        "202":
+          description: Test message queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messageId:
+                    type: string
+                    description: Internal message ID
+                  status:
+                    type: string
+                    example: queued
+        "422":
+          description: Not eligible to send test message
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: "ara_live_* or ara_test_*"
+      description: |
+        API key authentication. Use your API key as the Bearer token.
+        Keys prefixed with `ara_live_` operate in production mode.
+        Keys prefixed with `ara_test_` operate in sandbox mode.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Unique key to prevent duplicate requests. Recommended for message sends.
+
+    IdempotencyKeyRequired:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Unique key to prevent duplicate requests. Required for this endpoint.
+
+    TemplateId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Template ID
+
+  schemas:
+    # ── Messages ──
+    SendMessageRequest:
+      type: object
+      required: [receiver]
+      properties:
+        receiver:
+          type: string
+          description: Recipient phone number in E.164 format (e.g. +5511999999999)
+        channel:
+          type: string
+          default: whatsapp
+          description: Delivery channel
+        templateName:
+          type: string
+          description: Name of an approved template. Mutually exclusive with `body`.
+        templateVariables:
+          type: array
+          items:
+            type: string
+          description: Ordered list of variable values for the template. Also accepted as `variables`.
+        smartLinkParam:
+          type: string
+          description: Smart link parameter value
+        smartLinkUrl:
+          type: string
+          description: Smart link base URL
+        body:
+          type: string
+          description: Free-text message body. Mutually exclusive with `templateName`. Only works within the 24h conversation window.
+        scheduled_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp to schedule the message for future delivery
+        mode:
+          type: string
+          enum: [LIVE, TEST]
+          description: Override the mode (defaults to the API key mode)
+
+    MessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Internal message ID
+        status:
+          type: string
+          description: Current message status (e.g. QUEUED, SENT, DELIVERED, READ, FAILED)
+        mode:
+          type: string
+          enum: [LIVE, TEST]
+        sender:
+          type: string
+          description: Sender phone number
+        receiver:
+          type: string
+          description: Recipient phone number
+        body:
+          type: string
+          description: Processed message content
+        cost:
+          type: number
+          format: decimal
+          description: Cost in BRL credits
+
+    # ── Templates ──
+    CreateTemplateRequest:
+      type: object
+      required: [name, category, body]
+      properties:
+        name:
+          type: string
+          description: Template name (will be normalized to lowercase with underscores)
+        category:
+          type: string
+          enum: [MARKETING, UTILITY, AUTHENTICATION]
+          description: WhatsApp template category
+        body:
+          type: string
+          description: Template body text. Use `{{1}}`, `{{2}}`, etc. for variables.
+        language:
+          type: string
+          default: pt_BR
+          description: Template language code
+        header:
+          type: string
+          description: Header text or media URL
+        footer:
+          type: string
+          description: Footer text
+        buttons:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateButton"
+        samples:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of variable index to example value (e.g. `{"1":"John","2":"R$ 50"}`)
+        variableExamples:
+          type: array
+          items:
+            type: string
+          description: Legacy field for variable examples (prefer `samples`)
+
+    TemplateButton:
+      type: object
+      required: [type, text]
+      properties:
+        type:
+          type: string
+          enum: [QUICK_REPLY, PHONE_NUMBER, URL, SMART_LINK, COPY_CODE]
+        text:
+          type: string
+          description: Button label
+        url:
+          type: string
+          description: URL for URL-type buttons
+        phone:
+          type: string
+          description: Phone number for PHONE_NUMBER-type buttons
+        extraConfig:
+          type: object
+          additionalProperties: true
+          description: Additional button configuration
+
+    TemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        formattedName:
+          type: string
+          description: Normalized template name (lowercase, underscores)
+        category:
+          type: string
+        originalCategory:
+          type: string
+          description: Category originally chosen by the user (may differ after provider review)
+        language:
+          type: string
+        providerName:
+          type: string
+        providerTemplateId:
+          type: string
+        providerStatus:
+          type: string
+          description: Approval status (e.g. PENDING, APPROVED, REJECTED)
+        rejectionReason:
+          type: string
+        bodyPreview:
+          type: string
+          description: Preview of the template body text
+        structureJson:
+          type: object
+          description: Full template structure as JSON
+        usageGuide:
+          type: object
+          description: Instructions on how to use this template
+        variablesSchema:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of variable index to example value
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TemplateStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Approval status (e.g. PENDING, APPROVED, REJECTED)
+        rejectionReason:
+          type: string
+        category:
+          type: string
+
+    TemplateAnalyticsResponse:
+      type: object
+      properties:
+        sent:
+          type: integer
+          format: int64
+        delivered:
+          type: integer
+          format: int64
+        read:
+          type: integer
+          format: int64
+        failed:
+          type: integer
+          format: int64
+        deliveryRate:
+          type: string
+          description: Delivery rate as percentage (e.g. "95.2")
+        readRate:
+          type: string
+          description: Read rate as percentage (e.g. "72.0")
+
+    # ── Campaigns ──
+    CampaignRequest:
+      type: object
+      required: [name, templateName, contacts]
+      properties:
+        name:
+          type: string
+          description: Campaign name
+        templateName:
+          type: string
+          description: Name of an approved template to use
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignContactRequest"
+          description: List of recipients with their template variables
+
+    CampaignContactRequest:
+      type: object
+      required: [to]
+      properties:
+        to:
+          type: string
+          description: Recipient phone number in E.164 format
+        variables:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Ordered list of template variable values for this recipient
+
+    CampaignResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          description: Campaign status (e.g. PENDING, PROCESSING, COMPLETED, FAILED)
+        totalMessages:
+          type: integer
+        processedMessages:
+          type: integer
+        failedMessages:
+          type: integer
+        totalCost:
+          type: number
+          format: decimal
+        internalId:
+          type: string
+
+    CampaignEstimateResponse:
+      type: object
+      properties:
+        templateCost:
+          type: number
+          format: decimal
+          description: Provider cost per message
+        araraFee:
+          type: number
+          format: decimal
+          description: Arara fee per message
+        unitPrice:
+          type: number
+          format: decimal
+          description: Total cost per message
+        totalCost:
+          type: number
+          format: decimal
+          description: Total campaign cost
+        templateCategory:
+          type: string
+        recipientCount:
+          type: integer
+
+    # ── Brain ──
+    BrainKnowledgeRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          description: Text content to ingest into the knowledge base
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Tags to categorize the knowledge
+
+    BrainKnowledgeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        totalChunks:
+          type: integer
+          description: Number of chunks the content was split into
+
+    BrainRuleRequest:
+      type: object
+      required: [type, content]
+      properties:
+        type:
+          type: string
+          enum: [TONE, PRICING, GENERAL]
+          description: Rule category
+        content:
+          type: string
+          description: Rule content
+
+    BusinessKnowledge:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    BrainAuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        action:
+          type: string
+        details:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    BrainStats:
+      type: object
+      properties:
+        totalMemories:
+          type: integer
+          format: int64
+        totalRules:
+          type: integer
+          format: int64
+        status:
+          type: string
+        latencyAvg:
+          type: number
+          format: double
+
+    RevenueAnalysisRequest:
+      type: object
+      properties:
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+          default: []
+
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          description: Message role (e.g. user, assistant)
+        content:
+          type: string
+
+    # ── Contacts ──
+    ContactRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+          description: Phone number in E.164 format
+        email:
+          type: string
+          format: email
+        attributes:
+          type: object
+          additionalProperties: true
+          default: {}
+          description: Custom key-value attributes
+
+    ContactResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── API Keys ──
+    GeneratedApiKey:
+      type: object
+      properties:
+        plainTextKey:
+          type: string
+          description: The full API key in plain text. This is only shown once at creation time.
+
+    ApiKeyInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        prefix:
+          type: string
+          description: Key prefix (e.g. ara_live_)
+        lastFour:
+          type: string
+          description: Last 4 characters of the key
+        mode:
+          type: string
+          enum: [LIVE, TEST]
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          description: Last usage timestamp or "Nunca" if never used
+
+    # ── Phone Numbers ──
+    PhoneNumberResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        internalId:
+          type: string
+        phoneNumber:
+          type: string
+        name:
+          type: string
+        lastVerificationCode:
+          type: string
+
+    # ── Conversations ──
+    ConversationSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        customerPhone:
+          type: string
+        lastInteractionAt:
+          type: string
+          format: date-time
+        windowOpen:
+          type: boolean
+          description: Whether the 24-hour WhatsApp conversation window is currently open
+        createdAt:
+          type: string
+          format: date-time
+
+    ConversationMessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sender:
+          type: string
+        receiver:
+          type: string
+        messageType:
+          type: string
+          description: Message type (e.g. OUTBOUND, INBOUND)
+        templateName:
+          type: string
+        body:
+          type: string
+        processedContent:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        deliveredAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+
+    ConversationReplyRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          description: Message text to send
+
+    SendTemplateToPhoneRequest:
+      type: object
+      required: [receiver, templateName]
+      properties:
+        receiver:
+          type: string
+          description: Recipient phone number in E.164 format
+        templateName:
+          type: string
+          description: Name of an approved template
+        templateVariables:
+          type: array
+          items:
+            type: string
+          description: Ordered list of template variable values
+
+    # ── Webhooks ──
+    CartAbandonedWebhookRequest:
+      type: object
+      required: [event, phone, checkout_url]
+      properties:
+        event:
+          type: string
+          enum: [cart.abandoned, payment.failed, pix.created, boleto.due]
+          description: Event type
+        name:
+          type: string
+          description: Customer name
+        phone:
+          type: string
+          description: Customer phone number in E.164 format
+        total:
+          type: number
+          format: double
+          description: Cart total value
+        checkout_url:
+          type: string
+          format: uri
+          description: Checkout URL to send to the customer
+        minutes_without_payment:
+          type: integer
+          description: Minutes since cart was created without payment
+        pix_qr_code:
+          type: string
+          description: PIX QR code string (required for pix.created events)
+
+    CartAbandonedWebhookResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message_id:
+          type: string
+          format: uuid
+        received_at:
+          type: string
+          format: date-time
+
+    # ── Console - Finance ──
+    BillingStatusResponse:
+      type: object
+      properties:
+        currentPlan:
+          $ref: "#/components/schemas/PlanInfoDTO"
+        availablePlans:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanInfoDTO"
+        subscriptionStatus:
+          type: string
+          enum: [ACTIVE, CANCELLED, PAST_DUE, TRIALING]
+        nextBillingDate:
+          type: string
+          format: date-time
+
+    PlanInfoDTO:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        priceMonthly:
+          type: number
+          format: decimal
+        priceAnnually:
+          type: number
+          format: decimal
+        isCurrent:
+          type: boolean
+        feePerMessage:
+          type: number
+          format: decimal
+
+    CheckoutSessionResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Stripe checkout session URL
+
+    CreatePaymentIntentRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: integer
+          description: Amount in centavos (BRL). For example, 5000 = R$ 50.00
+
+    FiscalDataDTO:
+      type: object
+      required: [type, document, name, email, address, city, state, zipCode]
+      properties:
+        type:
+          type: string
+          enum: [PF, PJ]
+          description: Person type (PF = individual, PJ = company)
+        document:
+          type: string
+          description: CPF (individual) or CNPJ (company)
+        name:
+          type: string
+          description: Full name or company legal name
+        email:
+          type: string
+          format: email
+          description: Email for invoice delivery
+        address:
+          type: string
+          description: Street address with number and complement
+        city:
+          type: string
+        state:
+          type: string
+          description: State abbreviation (2 characters, e.g. SP)
+          maxLength: 2
+        zipCode:
+          type: string
+          description: Brazilian ZIP code (CEP)
+
+    WalletTransactionPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              amount:
+                type: number
+                format: decimal
+              type:
+                type: string
+              description:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        number:
+          type: integer
+        size:
+          type: integer
+
+    # ── Console - Insights ──
+    TestMessageEligibility:
+      type: object
+      properties:
+        eligible:
+          type: boolean
+          description: Whether the user can send a test message
+        reason:
+          type: string
+          description: Reason if not eligible
+
+    # ── Shared ──
+    StatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer

@@ -74,6 +74,13 @@
             "pages": [
               "api-reference/endpoint/inbound"
             ]
+          },
+          {
+            "group": "Regras de Negócio",
+            "pages": [
+              "business-rules/template-management",
+              "business-rules/usage-policies"
+            ]
           }
         ]
       },
@@ -92,6 +99,18 @@
           {
             "group": "Internos",
             "pages": ["architecture/overview"]
+          }
+        ]
+      },
+      {
+        "tab": "Cookbooks",
+        "groups": [
+          {
+            "group": "Receitas",
+            "pages": [
+              "cookbooks/auth-2fa",
+              "cookbooks/marketing-smartlinks"
+            ]
           }
         ]
       },
