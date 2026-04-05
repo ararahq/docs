@@ -22,7 +22,7 @@
         "tab": "Bem-vindo",
         "groups": [
           {
-            "group": "Introdução",
+            "group": "Introducao",
             "pages": ["index"]
           }
         ]
@@ -31,17 +31,16 @@
         "tab": "Comece aqui",
         "groups": [
           {
-            "group": "Configuração Inicial",
+            "group": "Configuracao Inicial",
             "pages": [
               "quickstart",
-              "development",
               "erros"
             ]
           }
         ]
       },
       {
-        "tab": "Documentação",
+        "tab": "API Reference",
         "groups": [
           {
             "group": "Conceitos",
@@ -53,31 +52,52 @@
           {
             "group": "Mensagens",
             "pages": [
-              "api-reference/endpoint/messages"
+              "api-reference/endpoint/v2/messages"
             ]
           },
           {
-            "group": "Campanhas e Agendamentos",
+            "group": "Templates",
             "pages": [
-              "api-reference/endpoint/campaigns",
-              "api-reference/endpoint/schedule"
+              "api-reference/endpoint/v2/templates"
             ]
           },
           {
-            "group": "Automação",
+            "group": "Contatos",
             "pages": [
+              "api-reference/endpoint/v2/contacts"
+            ]
+          },
+          {
+            "group": "Campanhas",
+            "pages": [
+              "api-reference/endpoint/v2/campaigns"
+            ]
+          },
+          {
+            "group": "API Keys",
+            "pages": [
+              "api-reference/endpoint/v2/api-keys"
+            ]
+          },
+          {
+            "group": "Flows",
+            "pages": [
+              "api-reference/endpoint/v2/flows"
+            ]
+          },
+          {
+            "group": "V1 (Legacy)",
+            "pages": [
+              "api-reference/endpoint/messages",
               "api-reference/endpoint/templates",
-              "api-reference/endpoint/webhook"
-            ]
-          },
-          {
-            "group": "Outros",
-            "pages": [
+              "api-reference/endpoint/campaigns",
+              "api-reference/endpoint/schedule",
+              "api-reference/endpoint/webhook",
               "api-reference/endpoint/inbound"
             ]
           },
           {
-            "group": "Regras de Negócio",
+            "group": "Regras de Negocio",
             "pages": [
               "business-rules/template-management",
               "business-rules/usage-policies"
@@ -91,15 +111,6 @@
           {
             "group": "Oficiais",
             "pages": ["sdks"]
-          }
-        ]
-      },
-      {
-        "tab": "Arquitetura",
-        "groups": [
-          {
-            "group": "Internos",
-            "pages": ["architecture/overview"]
           }
         ]
       },
@@ -155,7 +166,7 @@
         "href": "https://docs.ararahq.com/llms.txt"
       },
       {
-        "label": "Repositório",
+        "label": "Repositorio",
         "href": "https://github.com/ararahq"
       }
     ],
@@ -164,10 +175,6 @@
       "label": "Dashboard",
       "href": "https://www.ararahq.com/dashboard"
     }
-  },
-  "announcement": {
-    "title": "Usando a V2 da AraraHQ? Sua base URL e https://new-api.ararahq.com/api",
-    "href": "/api-reference/introduction#base-url-v2"
   },
   "footer": {
     "socials": {
