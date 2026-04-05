@@ -1,97 +1,144 @@
 ---
-title: 'Referência da API'
-description: 'A especificação técnica completa para integrar a Arara em seu ecossistema'
+title: 'Referencia da API'
+description: 'Base URL, autenticacao, formatos de resposta e codigos de erro.'
 ---
-
-
-Bem-vindo à central de comando da Arara. Nossa API v1 foi meticulosamente desenhada para ser a ponte mais rápida, robusta e escalável entre sua aplicação e o ecossistema WhatsApp Business.
-
-## A Filosofia Arara: Engineering First
-
-A Arara nasceu para eliminar a fricção entre o código e o cliente. Nossos diferenciais são:
-- **Simplicidade Radical**: Endpoints previsíveis, RESTful e sem boilerplate.
-- **Escala Massiva**: Infraestrutura testada para milhões de mensagens com Lazy-Time Queue.
-- **Diagnóstico Humano**: O **Escudo de Erros** traduz falhas da Meta em soluções acionáveis.
 
 ## Base URL
 
-Todas as requisições à API v1 devem ser feitas para:
+Todas as requisicoes devem ser feitas para:
 
-```http
-https://api.ararahq.com/api/v1
+```
+https://new-api.ararahq.com/api
 ```
 
-### Base URL V2
+Endpoints sao versionados no path (ex: `/v2/messages`, `/v2/templates`).
 
-<Note>
-  **Migrando para a V2?** Se voce esta utilizando a nova infraestrutura V2 da AraraHQ, sua base URL sera diferente. Substitua a URL acima por:
+<Accordion title="Usando a V1?">
+  A V1 continua disponivel em `https://api.ararahq.com/api/v1`. Se voce esta migrando, consulte a secao [V1 (Legacy)](/api-reference/endpoint/messages) para a documentacao dos endpoints antigos.
+</Accordion>
 
-  ```http
-  https://new-api.ararahq.com/api/v1
-  ```
+## Autenticacao
 
-  Nos SDKs oficiais, basta configurar o parametro `baseUrl` (Node.js) ou `base_url` (Python) ao instanciar o cliente. Via variavel de ambiente, defina `ARARA_BASE_URL=https://new-api.ararahq.com/api`.
-
-  A API V1 (`api.ararahq.com`) continua funcionando normalmente. A migracao para V2 e opcional e pode ser feita gradualmente.
-</Note>
-
-## Autenticação
-
-Segurança é nossa prioridade. Autentique suas chamadas usando o cabeçalho `Authorization` com sua **API Key**:
+Todas as requisicoes exigem um header `Authorization` com sua API key:
 
 ```bash
-Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
----
+Existem dois tipos de chave:
 
-## Módulos Principais
+| Prefixo | Ambiente | Descricao |
+|---------|----------|-----------|
+| `ara_live_` | Producao | Mensagens entregues a destinatarios reais. Creditos consumidos. |
+| `ara_test_` | Sandbox | Mensagens simuladas. Nenhum credito consumido. |
 
-Navegue pelos componentes da nossa infraestrutura:
+Consulte a pagina de [Autenticacao](/api-reference/authentication) para detalhes sobre criacao e revogacao de chaves.
+
+## Formato de resposta
+
+Todas as respostas sao em **JSON**. Datas seguem o padrao **ISO 8601 (UTC)**.
+
+### Resposta de sucesso (objeto)
+
+```json
+{
+  "id": "ara_msg_k9Bf2XqP",
+  "status": "QUEUED",
+  "createdAt": "2026-04-04T14:30:00Z"
+}
+```
+
+### Resposta de sucesso (lista paginada)
+
+Toda lista retorna o mesmo envelope:
+
+```json
+{
+  "data": [
+    { "id": "ara_tpl_abc123", "name": "hello_world_v2" }
+  ],
+  "pagination": {
+    "page": 0,
+    "size": 20,
+    "totalElements": 150,
+    "totalPages": 8
+  }
+}
+```
+
+### Resposta de erro
+
+Todos os erros seguem o mesmo formato:
+
+```json
+{
+  "error": {
+    "code": "INSUFFICIENT_CREDITS",
+    "message": "Your wallet does not have enough credits for this operation."
+  }
+}
+```
+
+Consulte a pagina de [Erros](/erros) para a lista completa de codigos.
+
+## Paginacao
+
+Endpoints que retornam listas aceitam os seguintes query parameters:
+
+| Parametro | Tipo | Default | Descricao |
+|-----------|------|---------|-----------|
+| `page` | integer | `0` | Numero da pagina (zero-indexed). |
+| `size` | integer | `20` | Itens por pagina (maximo 100). |
+
+## Rate limits
+
+Requisicoes que excedam o limite recebem `429 Too Many Requests`. O header `Retry-After` indica quantos segundos aguardar.
+
+## Idempotencia
+
+Endpoints `POST` que criam recursos aceitam o header `Idempotency-Key` para evitar duplicatas em retries:
+
+```bash
+Idempotency-Key: unique-request-id-123
+```
+
+Se uma requisicao com a mesma chave ja foi processada, a API retorna a resposta original sem criar um novo recurso.
+
+## Codigos de status HTTP
+
+| Codigo | Descricao | Quando |
+|--------|-----------|--------|
+| `200` | OK | Sucesso com body (ex: listar, consultar). |
+| `201` | Created | Recurso criado com sucesso (ex: criar template). |
+| `202` | Accepted | Requisicao aceita para processamento assincrono (ex: enviar mensagem). |
+| `204` | No Content | Sucesso sem body (ex: deletar recurso). |
+| `400` | Bad Request | Input invalido ou malformado. |
+| `401` | Unauthorized | API key invalida ou ausente. |
+| `403` | Forbidden | Autenticado, mas sem permissao para este recurso. |
+| `404` | Not Found | Recurso nao encontrado. |
+| `409` | Conflict | Conflito (duplicata, estado invalido). |
+| `429` | Too Many Requests | Rate limit excedido. |
+| `500` | Internal Server Error | Erro interno. Tente novamente ou contate suporte. |
+
+## Modulos
 
 <CardGroup cols={2}>
-  <Card title="Mensagens" icon="paper-plane" href="/api-reference/endpoint/messages">
-    Envio de Templates, Sessões e Mídia com alta performance.
+  <Card title="Mensagens" icon="paper-plane" href="/api-reference/endpoint/v2/messages">
+    Envio e consulta de mensagens WhatsApp e Email.
   </Card>
-  <Card title="Templates" icon="bezier-curve" href="/api-reference/endpoint/templates">
-    Criação e gestão de modelos ricos com botões CTA e validação Meta.
+  <Card title="Templates" icon="bezier-curve" href="/api-reference/endpoint/v2/templates">
+    Criacao e gestao de templates.
   </Card>
-  <Card title="Campanhas" icon="bolt" href="/api-reference/endpoint/campaigns">
-    Disparos em massa (10k-100k+) processados de forma assíncrona.
+  <Card title="Contatos" icon="address-book" href="/api-reference/endpoint/v2/contacts">
+    Gestao de contatos com busca e batch upsert.
   </Card>
-  <Card title="Webhooks Universais" icon="webhook" href="/api-reference/endpoint/webhook">
-    Notificações em tempo real com segurança HMAC-SHA256.
+  <Card title="Campanhas" icon="bolt" href="/api-reference/endpoint/v2/campaigns">
+    Disparos em massa para 100k+ destinatarios.
+  </Card>
+  <Card title="API Keys" icon="key" href="/api-reference/endpoint/v2/api-keys">
+    Criacao e revogacao de chaves programaticamente.
+  </Card>
+  <Card title="Flows" icon="diagram-project" href="/api-reference/endpoint/v2/flows">
+    Disparo e teste de automacoes.
   </Card>
 </CardGroup>
-
----
-
-## Padrões Globais
-
-### Formato de Resposta
-A API responde exclusivamente em **JSON**. Todas as datas seguem o padrão **ISO 8601 (UTC)**.
-
-### Códigos de Status HTTP
-
-| Código | Descrição | Contexto Arara |
-|--------|-----------|---------------|
-| `200` | OK | Sucesso síncrono (ex: listar templates). |
-| `202` | Accepted | Requisição aceita para processamento (ex: envio de mensagem). |
-| `400` | Bad Request | Parâmetros inválidos ou malformados. |
-| `401` | Unauthorized | API Key inválida ou ausente. |
-| `422` | Unprocessable Entity | **Escudo de Erros**: Dados válidos, mas regra de negócio violada. |
-| `500` | Server Error | Falha interna no processamento Arara. |
-
----
-
-## Boas Práticas e Compliance
-
-A Arara preza pela qualidade da rede WhatsApp. Para manter sua pontuação de qualidade alta:
-- ✅ **Opt-in Explicito**: Envie mensagens apenas para clientes que autorizaram.
-- ✅ **Conteúdo Relevante**: Evite spam e mensagens excessivamente comerciais.
-- ✅ **Tratamento de Erros**: Implemente lógica de retry baseada nos diagnósticos do nosso Escudo de Erros.
-
-<Card title="Políticas de Uso & Boas Práticas" icon="shield-check" href="/business-rules/usage-policies">
-  Leia nosso guia completo sobre como manter sua conta saudável e evitar banimentos.
-</Card>
-

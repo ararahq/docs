@@ -1,66 +1,123 @@
 ---
-title: "Escudo de Erros Arara 🛡️"
-description: "Como a Arara traduz erros técnicos da Meta em soluções claras e humanas."
-og:title: "Escudo de Erros Arara - Diagnósticos Inteligentes"
-og:description: "Tradução de códigos complexos da Meta para soluções acionáveis."
+title: 'Erros'
+description: 'Formato de erros, codigos comuns e diagnosticos da Arara.'
 ---
 
+## Formato de erro
 
-Integrar com a API oficial do WhatsApp (Meta) pode ser frustrante devido a códigos de erro genéricos e documentação técnica obscura. O **Escudo de Erros Arara** é uma camada de inteligência que intercepta essas falhas e as traduz para você.
+Todas as respostas de erro seguem o mesmo formato:
 
-## O Que é o Escudo de Erros?
+```json
+{
+  "error": {
+    "code": "INSUFFICIENT_CREDITS",
+    "message": "Your wallet does not have enough credits for this operation."
+  }
+}
+```
 
-Em vez de devolver um erro como `#131030`, a Arara analisa o contexto da sua conta, do template e do destinatário para entregar uma mensagem que faça sentido para o seu negócio.
+| Campo | Tipo | Descricao |
+|-------|------|-----------|
+| `error.code` | string | Codigo maquina do erro (constante, pode ser usado em logica de retry). |
+| `error.message` | string | Descricao legivel para humanos. |
 
-### Exemplos de Tradução
+## Codigos de erro comuns
 
-| ID Arara | O que houve (Diagnóstico) | Como agir? |
-| :--- | :--- | :--- |
-| `ararahq-63016` | "Janela de conversação fechada." | Envie um **Template** para reabrir a conversa. |
-| `ararahq-insufficient-funds` | "Saldo de créditos esgotado." | Recarregue sua carteira no painel. |
-| `ararahq-rate-limit` | "Limite de requisições excedido." | Reduza a velocidade ou use a API de Campanhas. |
-| `ararahq-template-mismatch` | "Variáveis do template inválidas." | Verifique se faltam parâmetros no JSON. |
-| `ararahq-media-invalid` | "Arquivo pesado ou não suportado." | Reduza o tamanho do arquivo (máx 16MB/100MB). |
-| `ararahq-template-error` | "Template rejeitado ou pausado." | Verifique o status no Gerenciador da Meta. |
-| `ararahq-invalid-number` | "Número inválido ou sem WhatsApp." | Verifique o formato +55DDD9XXXXXXXX. |
-| `ararahq-meta-block` | "Bloqueio preventivo de Spam." | Aguarde ou mude o conteúdo da mensagem. |
-| `ararahq-opt-out` | "O destinatário bloqueou a empresa." | Remova o contato da sua lista de envios. |
-| `ararahq-generic` | "Erro genérico no processamento." | Tente reenviar em alguns minutos. |
+### Autenticacao e autorizacao
 
----
+| Codigo | HTTP | Descricao |
+|--------|------|-----------|
+| `INVALID_API_KEY` | 401 | API key invalida, expirada ou revogada. |
+| `MISSING_API_KEY` | 401 | Header `Authorization` ausente. |
+| `FORBIDDEN` | 403 | Chave valida, mas sem permissao para este recurso ou ambiente. |
 
-## Benefícios Para o Desenvolvedor
+### Validacao de input
 
-### 1. Diagnósticos Humanos
-Nossas mensagens de erro são escritas por humanos, para humanos. Você não precisa mais de um dicionário de códigos de erro para debugar sua integração.
+| Codigo | HTTP | Descricao |
+|--------|------|-----------|
+| `INVALID_PHONE_NUMBER` | 400 | Numero de telefone em formato invalido. |
+| `INVALID_EMAIL` | 400 | Endereco de email invalido. |
+| `MISSING_REQUIRED_FIELD` | 400 | Campo obrigatorio ausente no body. |
+| `INVALID_TEMPLATE_VARIABLES` | 400 | Variaveis do template nao conferem com o esperado. |
+| `TEMPLATE_NOT_FOUND` | 404 | Template nao existe ou nao pertence a sua organizacao. |
+| `MESSAGE_NOT_FOUND` | 404 | Mensagem nao encontrada. |
+| `CAMPAIGN_NOT_FOUND` | 404 | Campanha nao encontrada. |
+| `CONTACT_NOT_FOUND` | 404 | Contato nao encontrado. |
 
-### 2. Sugestão de Próximos Passos
-Sempre que possível, o erro da Arara virá acompanhado de uma sugestão de ação:
-- *"Mude a categoria do template para UTILITY."*
-- *"Adicione créditos à sua carteira."*
-- *"Use o prefixo whatsapp:+ no número."*
+### Regras de negocio
 
-### 3. Retentativas Inteligentes
-Para erros temporários da Meta (como instabilidade técnica), a Arara possui um sistema de **Exponential Backoff** que tenta reenviar a mensagem automaticamente antes de marcar como falha definitiva.
+| Codigo | HTTP | Descricao |
+|--------|------|-----------|
+| `INSUFFICIENT_CREDITS` | 402 | Saldo de creditos insuficiente. Recarregue sua carteira. |
+| `TEMPLATE_NOT_APPROVED` | 422 | Template ainda nao foi aprovado pela Meta. |
+| `TEMPLATE_PAUSED` | 422 | Template pausado por baixa qualidade. |
+| `SESSION_WINDOW_CLOSED` | 422 | Janela de 24h fechada. Envie um template para reabrir a conversa. |
+| `DUPLICATE_RESOURCE` | 409 | Recurso ja existe (ex: template com mesmo nome). |
+| `IDEMPOTENCY_CONFLICT` | 409 | Requisicao com mesma `Idempotency-Key` ja processada com body diferente. |
 
----
+### Rate limiting
 
-## Como Ver os Detalhes do Erro
+| Codigo | HTTP | Descricao |
+|--------|------|-----------|
+| `RATE_LIMIT_EXCEEDED` | 429 | Limite de requisicoes excedido. Aguarde e tente novamente. |
 
-Você pode consultar os detalhes de uma falha de duas formas:
+### Erros internos
 
-1.  **API**: No endpoint `GET /v1/messages/{id}`, o campo `status` mostrará `FAILED` e incluiremos um `failureReason`.
-2.  **Dashboard**: Na aba de Logs, cada mensagem falha possui um "badge" explicativo com o diagnóstico do Escudo de Erros.
+| Codigo | HTTP | Descricao |
+|--------|------|-----------|
+| `INTERNAL_ERROR` | 500 | Erro interno do servidor. Tente novamente ou contate suporte. |
+| `PROVIDER_ERROR` | 502 | Erro no provider externo (Meta, email). Retry automatico em andamento. |
+| `SERVICE_UNAVAILABLE` | 503 | Servico temporariamente indisponivel. |
 
----
+## Escudo de Erros (WhatsApp)
 
-## Próximos Passos
+A Arara traduz erros tecnicos da Meta em diagnosticos legiveis. Em vez de receber um codigo generico como `#131030`, voce recebe uma explicacao clara e uma sugestao de acao.
 
-<CardGroup cols={2}>
-  <Card title="API de Mensagens" icon="paper-plane" href="/api-reference/endpoint/messages">
-    Entenda os status de retorno da API
-  </Card>
-  <Card title="Referência da API" icon="book" href="/api-reference/introduction">
-    Veja a lista completa de códigos HTTP
-  </Card>
-</CardGroup>
+| Codigo Arara | Diagnostico | Acao recomendada |
+|:-------------|:------------|:-----------------|
+| `ararahq-63016` | Janela de conversacao fechada. | Envie um template para reabrir a conversa. |
+| `ararahq-insufficient-funds` | Saldo de creditos esgotado. | Recarregue sua carteira no painel. |
+| `ararahq-rate-limit` | Limite de requisicoes excedido. | Reduza a velocidade ou use a API de Campanhas. |
+| `ararahq-template-mismatch` | Variaveis do template invalidas. | Verifique os parametros no JSON. |
+| `ararahq-media-invalid` | Arquivo pesado ou nao suportado. | Reduza o tamanho do arquivo (max 16MB/100MB). |
+| `ararahq-template-error` | Template rejeitado ou pausado. | Verifique o status no Gerenciador da Meta. |
+| `ararahq-invalid-number` | Numero invalido ou sem WhatsApp. | Verifique o formato (DDI + DDD + numero). |
+| `ararahq-meta-block` | Bloqueio preventivo de spam. | Aguarde ou mude o conteudo da mensagem. |
+| `ararahq-opt-out` | O destinatario bloqueou a empresa. | Remova o contato da sua lista de envios. |
+| `ararahq-generic` | Erro generico no processamento. | Tente reenviar em alguns minutos. |
+
+## Como consultar o erro de uma mensagem
+
+Ao consultar uma mensagem com status `FAILED`, o campo `failureReason` contem o codigo do erro:
+
+```bash
+curl https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+```json
+{
+  "id": "ara_msg_k9Bf2XqP",
+  "status": "FAILED",
+  "failureReason": "ararahq-63016",
+  "failureMessage": "Janela de conversacao fechada. Envie um template para reabrir a conversa.",
+  "createdAt": "2026-04-04T14:30:00Z"
+}
+```
+
+## Retentativas automaticas
+
+Para erros temporarios (instabilidade da Meta, timeouts), a Arara aplica retry com backoff exponencial automaticamente antes de marcar a mensagem como `FAILED`. Voce nao precisa implementar retry no seu lado para esses casos.
+
+<Accordion title="V1 Legacy">
+  Na V1, o formato de erro era diferente:
+
+  ```json
+  {
+    "error": "Unauthorized",
+    "message": "Invalid or expired API key"
+  }
+  ```
+
+  A V2 padroniza todos os erros no formato `{ "error": { "code": "...", "message": "..." } }`.
+</Accordion>
