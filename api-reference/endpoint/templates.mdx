@@ -1,7 +1,17 @@
 ---
-title: 'Templates'
+
+<Warning>
+  **Esta e a documentacao da V1 (legacy).** [Ver documentacao V2](/api-reference/endpoint/v2/templates)
+</Warning>
+
+title: 'Templates (V1)'
 description: 'Gerencie seus modelos de mensagem (Templates) do WhatsApp diretamente via API'
 ---
+
+<Warning>
+  **Esta e a documentacao da V1 (legacy).** [Ver documentacao V2](/api-reference/endpoint/v2/templates)
+</Warning>
+
 
 
 A API de Templates da Arara permite que você crie, liste e monitore o status de aprovação dos seus modelos de mensagem. Nossa implementação é focada em **Developer Experience**, abstraindo a complexidade da Meta e garantindo que seus templates sejam aprovados com validações inteligentes (Foolproof).
@@ -11,6 +21,11 @@ A API de Templates da Arara permite que você crie, liste e monitore o status de
 </Warning>
 
 ---
+
+<Warning>
+  **Esta e a documentacao da V1 (legacy).** [Ver documentacao V2](/api-reference/endpoint/v2/templates)
+</Warning>
+
 
 ## Criar um Template `POST /v1/templates`
 
@@ -137,6 +152,11 @@ Para garantir que seu template seja aprovado rapidamente, aplicamos as seguintes
 
 ---
 
+<Warning>
+  **Esta e a documentacao da V1 (legacy).** [Ver documentacao V2](/api-reference/endpoint/v2/templates)
+</Warning>
+
+
 ## Listar Templates `GET /v1/templates`
 
 Retorna todos os templates criados pela sua organização.
@@ -150,6 +170,11 @@ Retorna todos os templates criados pela sua organização.
 Retorna uma lista de objetos contendo o `providerStatus` (ex: `PENDING`, `APPROVED`, `REJECTED`) e o `variablesSchema` para ajudar no envio de mensagens.
 
 ---
+
+<Warning>
+  **Esta e a documentacao da V1 (legacy).** [Ver documentacao V2](/api-reference/endpoint/v2/templates)
+</Warning>
+
 
 ## Consultar Status em Tempo Real `GET /v1/templates/{id}/status`
 
@@ -166,6 +191,11 @@ Embora a Arara atualize o status automaticamente via Webhook, você pode consult
 
 ---
 
+<Warning>
+  **Esta e a documentacao da V1 (legacy).** [Ver documentacao V2](/api-reference/endpoint/v2/templates)
+</Warning>
+
+
 ## Deletar Template `DELETE /v1/templates/{id}`
 
 Remove o template da base da Arara. 
@@ -175,6 +205,11 @@ Remove o template da base da Arara.
 </Info>
 
 ---
+
+<Warning>
+  **Esta e a documentacao da V1 (legacy).** [Ver documentacao V2](/api-reference/endpoint/v2/templates)
+</Warning>
+
 
 ## Próximos Passos
 
