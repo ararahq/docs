@@ -48,50 +48,25 @@
             "default": true,
             "groups": [
               {
-                "group": "Conceitos",
+                "group": "Visão geral",
                 "pages": [
                   "api-reference/introduction",
                   "api-reference/authentication"
                 ]
               },
               {
-                "group": "Mensagens",
+                "group": "Endpoints",
                 "pages": [
-                  "api-reference/endpoint/v2/messages"
-                ]
-              },
-              {
-                "group": "Templates",
-                "pages": [
-                  "api-reference/endpoint/v2/templates"
-                ]
-              },
-              {
-                "group": "Contatos",
-                "pages": [
-                  "api-reference/endpoint/v2/contacts"
-                ]
-              },
-              {
-                "group": "Campanhas",
-                "pages": [
-                  "api-reference/endpoint/v2/campaigns"
-                ]
-              },
-              {
-                "group": "API Keys",
-                "pages": [
-                  "api-reference/endpoint/v2/api-keys"
-                ]
-              },
-              {
-                "group": "Flows",
-                "pages": [
+                  "api-reference/endpoint/v2/messages",
+                  "api-reference/endpoint/v2/templates",
+                  "api-reference/endpoint/v2/contacts",
+                  "api-reference/endpoint/v2/campaigns",
+                  "api-reference/endpoint/v2/api-keys",
                   "api-reference/endpoint/v2/flows"
                 ]
               },
               {
-                "group": "Regras de Negocio",
+                "group": "Regras de negócio",
                 "pages": [
                   "business-rules/template-management",
                   "business-rules/usage-policies"
@@ -104,50 +79,25 @@
             "tag": "Legacy",
             "groups": [
               {
-                "group": "Conceitos",
+                "group": "Visão geral",
                 "pages": [
                   "api-reference/introduction",
                   "api-reference/authentication"
                 ]
               },
               {
-                "group": "Mensagens",
+                "group": "Endpoints",
                 "pages": [
-                  "api-reference/endpoint/messages"
-                ]
-              },
-              {
-                "group": "Templates",
-                "pages": [
-                  "api-reference/endpoint/templates"
-                ]
-              },
-              {
-                "group": "Campanhas",
-                "pages": [
-                  "api-reference/endpoint/campaigns"
-                ]
-              },
-              {
-                "group": "Agendamento",
-                "pages": [
-                  "api-reference/endpoint/schedule"
-                ]
-              },
-              {
-                "group": "Webhooks",
-                "pages": [
-                  "api-reference/endpoint/webhook"
-                ]
-              },
-              {
-                "group": "Inbound",
-                "pages": [
+                  "api-reference/endpoint/messages",
+                  "api-reference/endpoint/templates",
+                  "api-reference/endpoint/campaigns",
+                  "api-reference/endpoint/schedule",
+                  "api-reference/endpoint/webhook",
                   "api-reference/endpoint/inbound"
                 ]
               },
               {
-                "group": "Regras de Negocio",
+                "group": "Regras de negócio",
                 "pages": [
                   "business-rules/template-management",
                   "business-rules/usage-policies"

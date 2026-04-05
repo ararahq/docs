@@ -1,6 +1,6 @@
 ---
 title: 'Campanhas'
-description: 'Disparos em massa para 100k+ destinatarios.'
+description: 'Disparos em massa para 100k+ destinatários.'
 ---
 
 ## Quando usar campanhas
@@ -92,7 +92,7 @@ print(response.json())
 | `name` | string | Sim | Nome identificador da campanha. |
 | `template` | string | Sim | Nome do template pre-aprovado. |
 | `channel` | string | Sim | Canal: `whatsapp` ou `email`. |
-| `contacts` | array | Sim | Lista de destinatarios com variaveis. |
+| `contacts` | array | Sim | Lista de destinatários com variaveis. |
 | `contacts[].to` | string | Sim | Numero de telefone (WhatsApp) ou email. |
 | `contacts[].variables` | object | Nao | Variaveis do template para este contato. |
 | `scheduledAt` | string | Nao | Data/hora de envio agendado (ISO 8601). |
@@ -206,7 +206,7 @@ curl "https://new-api.ararahq.com/api/v2/campaigns/estimate?template=promo_black
 |-----------|------|-------------|-----------|
 | `template` | string | Sim | Nome do template. |
 | `channel` | string | Sim | Canal: `whatsapp` ou `email`. |
-| `totalContacts` | integer | Sim | Quantidade de destinatarios. |
+| `totalContacts` | integer | Sim | Quantidade de destinatários. |
 
 ### Response `200 OK`
 
