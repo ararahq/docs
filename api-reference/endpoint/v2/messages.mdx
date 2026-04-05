@@ -1,0 +1,301 @@
+---
+title: 'Mensagens'
+description: 'Envie e consulte mensagens via WhatsApp ou Email.'
+---
+
+## Enviar uma mensagem
+
+`POST /v2/messages`
+
+<Tabs>
+  <Tab title="WhatsApp">
+    ### Request
+
+    <CodeGroup>
+
+    ```bash cURL
+    curl -X POST https://new-api.ararahq.com/api/v2/messages \
+      -H "Authorization: Bearer ara_live_xxx" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "to": "5511999999999",
+        "channel": "whatsapp",
+        "template": "pedido_confirmado",
+        "variables": {
+          "1": "Joao",
+          "2": "12345"
+        }
+      }'
+    ```
+
+    ```javascript Node.js
+    const response = await fetch("https://new-api.ararahq.com/api/v2/messages", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer ara_live_xxx",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to: "5511999999999",
+        channel: "whatsapp",
+        template: "pedido_confirmado",
+        variables: { "1": "Joao", "2": "12345" },
+      }),
+    });
+
+    const data = await response.json();
+    console.log(data);
+    ```
+
+    ```python Python
+    import requests
+
+    response = requests.post(
+        "https://new-api.ararahq.com/api/v2/messages",
+        headers={
+            "Authorization": "Bearer ara_live_xxx",
+            "Content-Type": "application/json",
+        },
+        json={
+            "to": "5511999999999",
+            "channel": "whatsapp",
+            "template": "pedido_confirmado",
+            "variables": {"1": "Joao", "2": "12345"},
+        },
+    )
+
+    print(response.json())
+    ```
+
+    </CodeGroup>
+
+    ### Response `202 Accepted`
+
+    ```json
+    {
+      "id": "ara_msg_k9Bf2XqP",
+      "to": "5511999999999",
+      "channel": "whatsapp",
+      "template": "pedido_confirmado",
+      "status": "QUEUED",
+      "messageType": "TEMPLATE",
+      "createdAt": "2026-04-04T14:30:00Z"
+    }
+    ```
+  </Tab>
+
+  <Tab title="Email">
+    ### Request
+
+    <CodeGroup>
+
+    ```bash cURL
+    curl -X POST https://new-api.ararahq.com/api/v2/messages \
+      -H "Authorization: Bearer ara_live_xxx" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "to": "cliente@exemplo.com",
+        "channel": "email",
+        "template": "welcome_email",
+        "variables": {
+          "1": "Joao"
+        }
+      }'
+    ```
+
+    ```javascript Node.js
+    const response = await fetch("https://new-api.ararahq.com/api/v2/messages", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer ara_live_xxx",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to: "cliente@exemplo.com",
+        channel: "email",
+        template: "welcome_email",
+        variables: { "1": "Joao" },
+      }),
+    });
+
+    const data = await response.json();
+    console.log(data);
+    ```
+
+    ```python Python
+    import requests
+
+    response = requests.post(
+        "https://new-api.ararahq.com/api/v2/messages",
+        headers={
+            "Authorization": "Bearer ara_live_xxx",
+            "Content-Type": "application/json",
+        },
+        json={
+            "to": "cliente@exemplo.com",
+            "channel": "email",
+            "template": "welcome_email",
+            "variables": {"1": "Joao"},
+        },
+    )
+
+    print(response.json())
+    ```
+
+    </CodeGroup>
+
+    ### Response `202 Accepted`
+
+    ```json
+    {
+      "id": "ara_msg_r4Xp7MnQ",
+      "to": "cliente@exemplo.com",
+      "channel": "email",
+      "template": "welcome_email",
+      "status": "QUEUED",
+      "messageType": "TEMPLATE",
+      "createdAt": "2026-04-04T14:30:00Z"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Parametros
+
+| Campo | Tipo | Obrigatorio | Descricao |
+|-------|------|-------------|-----------|
+| `to` | string | Sim | Destinatario. WhatsApp: numero com DDI (ex: `5511999999999`). Email: endereco de email. |
+| `channel` | string | Sim | Canal de envio: `whatsapp` ou `email`. |
+| `template` | string | Condicional | Nome do template pre-aprovado. Obrigatorio para mensagens de template. |
+| `body` | string | Condicional | Texto livre. Obrigatorio para mensagens de sessao (WhatsApp, dentro da janela de 24h). |
+| `variables` | object | Nao | Variaveis do template. Chave = posicao (`"1"`, `"2"`), valor = conteudo. |
+| `mediaUrl` | string | Nao | URL publica de midia (imagem, PDF, video) para templates com header de midia. |
+| `scheduledAt` | string | Nao | Data/hora de envio agendado (ISO 8601). Se omitido, envia imediatamente. |
+| `idempotencyKey` | string | Nao | Chave de idempotencia. Tambem pode ser enviada via header `Idempotency-Key`. |
+
+<Info>
+  Voce deve enviar `template` ou `body`, mas nao ambos. Use `template` para iniciar conversas. Use `body` para responder dentro da janela de 24h.
+</Info>
+
+### Mensagem de sessao (texto livre)
+
+Para responder uma mensagem recebida dentro da janela de 24h:
+
+```bash
+curl -X POST https://new-api.ararahq.com/api/v2/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "5511999999999",
+    "channel": "whatsapp",
+    "body": "Ola! Como posso ajudar?"
+  }'
+```
+
+Response `202 Accepted`:
+
+```json
+{
+  "id": "ara_msg_z7Lp4YwR",
+  "to": "5511999999999",
+  "channel": "whatsapp",
+  "body": "Ola! Como posso ajudar?",
+  "status": "QUEUED",
+  "messageType": "SESSION",
+  "createdAt": "2026-04-04T14:30:00Z"
+}
+```
+
+---
+
+## Consultar uma mensagem
+
+`GET /v2/messages/{id}`
+
+<CodeGroup>
+
+```bash cURL
+curl https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+```javascript Node.js
+const response = await fetch(
+  "https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP",
+  {
+    headers: { "Authorization": "Bearer ara_live_xxx" },
+  }
+);
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP",
+    headers={"Authorization": "Bearer ara_live_xxx"},
+)
+
+print(response.json())
+```
+
+</CodeGroup>
+
+### Response `200 OK`
+
+```json
+{
+  "id": "ara_msg_k9Bf2XqP",
+  "to": "5511999999999",
+  "channel": "whatsapp",
+  "template": "pedido_confirmado",
+  "status": "DELIVERED",
+  "messageType": "TEMPLATE",
+  "mode": "LIVE",
+  "createdAt": "2026-04-04T14:30:00Z",
+  "sentAt": "2026-04-04T14:30:02Z",
+  "deliveredAt": "2026-04-04T14:30:05Z"
+}
+```
+
+### Status possiveis
+
+| Status | Descricao |
+|--------|-----------|
+| `QUEUED` | Mensagem aceita e na fila de processamento. |
+| `SENT` | Mensagem enviada ao provider (Meta/email). |
+| `DELIVERED` | Mensagem entregue ao destinatario. |
+| `READ` | Mensagem lida pelo destinatario (apenas WhatsApp). |
+| `FAILED` | Falha no envio. Consulte `failureReason` para detalhes. |
+
+### Campos da resposta
+
+| Campo | Tipo | Descricao |
+|-------|------|-----------|
+| `id` | string | Identificador unico da mensagem (ex: `ara_msg_...`). |
+| `to` | string | Destinatario. |
+| `channel` | string | Canal (`whatsapp` ou `email`). |
+| `template` | string | Nome do template utilizado (se aplicavel). |
+| `body` | string | Texto da mensagem (se aplicavel). |
+| `status` | string | Status atual da mensagem. |
+| `messageType` | string | Tipo: `TEMPLATE` ou `SESSION`. |
+| `mode` | string | Ambiente: `LIVE` ou `TEST`. |
+| `failureReason` | string | Codigo de erro da Arara (apenas quando `status` = `FAILED`). |
+| `createdAt` | string | Data de criacao (ISO 8601). |
+| `sentAt` | string | Data de envio ao provider (ISO 8601). |
+| `deliveredAt` | string | Data de entrega ao destinatario (ISO 8601). |
+| `readAt` | string | Data de leitura (ISO 8601, apenas WhatsApp). |
+
+<Accordion title="V1 Legacy">
+  Na V1, o endpoint e `POST /v1/messages` com os seguintes campos:
+
+  - `receiver` em vez de `to` (formato `whatsapp:+5511999999999`)
+  - `templateName` em vez de `template`
+  - `variables` como array em vez de objeto
+  - Sem campo `channel` (apenas WhatsApp)
+
+  Consulte a [documentacao V1](/api-reference/endpoint/messages) para detalhes.
+</Accordion>

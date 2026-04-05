@@ -1,0 +1,234 @@
+---
+title: 'Campanhas'
+description: 'Disparos em massa para 100k+ destinatarios.'
+---
+
+## Quando usar campanhas
+
+| Cenario | Endpoint |
+|---------|----------|
+| Notificacoes individuais (1 por 1) | `POST /v2/messages` |
+| Marketing, newsletters, avisos em massa (100k+) | `POST /v2/campaigns` |
+
+Campanhas sao processadas de forma assincrona. A API responde imediatamente apos validar o saldo e aceitar os contatos.
+
+---
+
+## Criar uma campanha
+
+`POST /v2/campaigns`
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://new-api.ararahq.com/api/v2/campaigns \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Black Friday 2026",
+    "template": "promo_black_friday",
+    "channel": "whatsapp",
+    "contacts": [
+      { "to": "5511999999999", "variables": { "1": "Joao" } },
+      { "to": "5511888888888", "variables": { "1": "Maria" } },
+      { "to": "5511777777777", "variables": { "1": "Carlos" } }
+    ]
+  }'
+```
+
+```javascript Node.js
+const response = await fetch("https://new-api.ararahq.com/api/v2/campaigns", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer ara_live_xxx",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "Black Friday 2026",
+    template: "promo_black_friday",
+    channel: "whatsapp",
+    contacts: [
+      { to: "5511999999999", variables: { "1": "Joao" } },
+      { to: "5511888888888", variables: { "1": "Maria" } },
+      { to: "5511777777777", variables: { "1": "Carlos" } },
+    ],
+  }),
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://new-api.ararahq.com/api/v2/campaigns",
+    headers={
+        "Authorization": "Bearer ara_live_xxx",
+        "Content-Type": "application/json",
+    },
+    json={
+        "name": "Black Friday 2026",
+        "template": "promo_black_friday",
+        "channel": "whatsapp",
+        "contacts": [
+            {"to": "5511999999999", "variables": {"1": "Joao"}},
+            {"to": "5511888888888", "variables": {"1": "Maria"}},
+            {"to": "5511777777777", "variables": {"1": "Carlos"}},
+        ],
+    },
+)
+
+print(response.json())
+```
+
+</CodeGroup>
+
+### Parametros
+
+| Campo | Tipo | Obrigatorio | Descricao |
+|-------|------|-------------|-----------|
+| `name` | string | Sim | Nome identificador da campanha. |
+| `template` | string | Sim | Nome do template pre-aprovado. |
+| `channel` | string | Sim | Canal: `whatsapp` ou `email`. |
+| `contacts` | array | Sim | Lista de destinatarios com variaveis. |
+| `contacts[].to` | string | Sim | Numero de telefone (WhatsApp) ou email. |
+| `contacts[].variables` | object | Nao | Variaveis do template para este contato. |
+| `scheduledAt` | string | Nao | Data/hora de envio agendado (ISO 8601). |
+
+### Response `202 Accepted`
+
+```json
+{
+  "id": "ara_cmp_7b3789fb",
+  "name": "Black Friday 2026",
+  "status": "INGESTING",
+  "totalMessages": 3,
+  "estimatedCost": 1.80,
+  "createdAt": "2026-04-04T14:30:00Z"
+}
+```
+
+### Status da campanha
+
+| Status | Descricao |
+|--------|-----------|
+| `INGESTING` | Contatos sendo salvos e validados. |
+| `PROCESSING` | Mensagens sendo enfileiradas para envio. |
+| `COMPLETED` | Todas as mensagens foram entregues a fila de envio. |
+| `FAILED` | Falha no processamento (ex: saldo insuficiente). |
+
+---
+
+## Listar campanhas
+
+`GET /v2/campaigns`
+
+```bash
+curl "https://new-api.ararahq.com/api/v2/campaigns?page=0&size=20" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+### Response `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "ara_cmp_7b3789fb",
+      "name": "Black Friday 2026",
+      "status": "COMPLETED",
+      "totalMessages": 50000,
+      "estimatedCost": 30000.00,
+      "createdAt": "2026-04-04T14:30:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1
+  }
+}
+```
+
+---
+
+## Consultar campanha com estatisticas
+
+`GET /v2/campaigns/{id}`
+
+```bash
+curl https://new-api.ararahq.com/api/v2/campaigns/ara_cmp_7b3789fb \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+### Response `200 OK`
+
+```json
+{
+  "id": "ara_cmp_7b3789fb",
+  "name": "Black Friday 2026",
+  "template": "promo_black_friday",
+  "channel": "whatsapp",
+  "status": "COMPLETED",
+  "totalMessages": 50000,
+  "estimatedCost": 30000.00,
+  "stats": {
+    "queued": 0,
+    "sent": 48500,
+    "delivered": 47200,
+    "read": 31000,
+    "failed": 1500
+  },
+  "createdAt": "2026-04-04T14:30:00Z",
+  "completedAt": "2026-04-04T15:10:00Z"
+}
+```
+
+---
+
+## Estimar custo
+
+`GET /v2/campaigns/estimate`
+
+Calcule o custo antes de criar a campanha.
+
+```bash
+curl "https://new-api.ararahq.com/api/v2/campaigns/estimate?template=promo_black_friday&channel=whatsapp&totalContacts=50000" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+### Query parameters
+
+| Parametro | Tipo | Obrigatorio | Descricao |
+|-----------|------|-------------|-----------|
+| `template` | string | Sim | Nome do template. |
+| `channel` | string | Sim | Canal: `whatsapp` ou `email`. |
+| `totalContacts` | integer | Sim | Quantidade de destinatarios. |
+
+### Response `200 OK`
+
+```json
+{
+  "template": "promo_black_friday",
+  "channel": "whatsapp",
+  "totalContacts": 50000,
+  "costPerMessage": 0.60,
+  "estimatedCost": 30000.00,
+  "walletBalance": 45000.00,
+  "hasSufficientBalance": true
+}
+```
+
+<Accordion title="V1 Legacy">
+  Na V1, o endpoint e `POST /v1/campaigns` com as seguintes diferencas:
+
+  - `templateName` em vez de `template`
+  - `contacts[].to` usava formato `whatsapp:+55...`
+  - `contacts[].variables` como array em vez de objeto
+  - Sem campo `channel`
+
+  Consulte a [documentacao V1](/api-reference/endpoint/campaigns) para detalhes.
+</Accordion>

@@ -1,0 +1,115 @@
+---
+title: 'API Keys'
+description: 'Crie, liste e revogue chaves de API programaticamente.'
+---
+
+## Criar uma API key
+
+`POST /v2/api-keys`
+
+```bash
+curl -X POST https://new-api.ararahq.com/api/v2/api-keys \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "backend-production",
+    "mode": "LIVE"
+  }'
+```
+
+### Parametros
+
+| Campo | Tipo | Obrigatorio | Descricao |
+|-------|------|-------------|-----------|
+| `name` | string | Sim | Nome descritivo para identificar a chave. |
+| `mode` | string | Sim | Ambiente: `LIVE` (producao) ou `TEST` (sandbox). |
+
+### Response `201 Created`
+
+```json
+{
+  "id": "ara_key_abc123",
+  "name": "backend-production",
+  "key": "ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "mode": "LIVE",
+  "createdAt": "2026-04-04T14:30:00Z"
+}
+```
+
+<Warning>
+  O campo `key` so aparece nesta resposta. Guarde a chave imediatamente. Voce nao podera recupera-la depois.
+</Warning>
+
+---
+
+## Listar API keys
+
+`GET /v2/api-keys`
+
+```bash
+curl https://new-api.ararahq.com/api/v2/api-keys \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+### Response `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "ara_key_abc123",
+      "name": "backend-production",
+      "maskedKey": "ara_live_****xxxx",
+      "mode": "LIVE",
+      "lastUsedAt": "2026-04-04T14:30:00Z",
+      "createdAt": "2026-03-01T10:00:00Z"
+    },
+    {
+      "id": "ara_key_def456",
+      "name": "staging-tests",
+      "maskedKey": "ara_test_****yyyy",
+      "mode": "TEST",
+      "lastUsedAt": "2026-04-03T18:00:00Z",
+      "createdAt": "2026-03-15T12:00:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 0,
+    "size": 20,
+    "totalElements": 2,
+    "totalPages": 1
+  }
+}
+```
+
+As chaves sao exibidas mascaradas (`ara_live_****xxxx`). O valor completo nao pode ser recuperado apos a criacao.
+
+### Campos da resposta
+
+| Campo | Tipo | Descricao |
+|-------|------|-----------|
+| `id` | string | Identificador unico da chave. |
+| `name` | string | Nome descritivo. |
+| `maskedKey` | string | Chave mascarada (primeiros e ultimos caracteres visiveis). |
+| `mode` | string | Ambiente: `LIVE` ou `TEST`. |
+| `lastUsedAt` | string | Ultima vez que a chave foi usada (ISO 8601). |
+| `createdAt` | string | Data de criacao (ISO 8601). |
+
+---
+
+## Revogar uma API key
+
+`DELETE /v2/api-keys/{id}`
+
+```bash
+curl -X DELETE https://new-api.ararahq.com/api/v2/api-keys/ara_key_abc123 \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+### Response `204 No Content`
+
+Sem body. A chave foi revogada e nao pode mais ser usada para autenticar requisicoes.
+
+<Warning>
+  A revogacao e imediata e irreversivel. Requisicoes usando essa chave passarao a receber `401 Unauthorized`.
+</Warning>

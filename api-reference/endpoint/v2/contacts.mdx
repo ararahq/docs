@@ -1,0 +1,220 @@
+---
+title: 'Contatos'
+description: 'Gerencie sua lista de contatos com busca, criacao e batch upsert.'
+---
+
+## Listar contatos
+
+`GET /v2/contacts`
+
+```bash
+curl "https://new-api.ararahq.com/api/v2/contacts?search=joao&page=0&size=20" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+### Query parameters
+
+| Parametro | Tipo | Descricao |
+|-----------|------|-----------|
+| `search` | string | Busca por nome ou telefone. |
+| `tag` | string | Filtrar por tag. |
+| `page` | integer | Pagina (default: `0`). |
+| `size` | integer | Itens por pagina (default: `20`, max: `100`). |
+
+### Response `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "phone": "5511999999999",
+      "name": "Joao Silva",
+      "email": "joao@exemplo.com",
+      "tags": ["cliente-vip"],
+      "metadata": { "plan": "pro" },
+      "createdAt": "2026-03-01T10:00:00Z",
+      "updatedAt": "2026-04-04T14:30:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1
+  }
+}
+```
+
+---
+
+## Buscar contato por telefone
+
+`GET /v2/contacts/{phone}`
+
+```bash
+curl https://new-api.ararahq.com/api/v2/contacts/5511999999999 \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+### Response `200 OK`
+
+```json
+{
+  "phone": "5511999999999",
+  "name": "Joao Silva",
+  "email": "joao@exemplo.com",
+  "tags": ["cliente-vip"],
+  "metadata": { "plan": "pro" },
+  "createdAt": "2026-03-01T10:00:00Z",
+  "updatedAt": "2026-04-04T14:30:00Z"
+}
+```
+
+Se o contato nao existir, retorna `404 Not Found`.
+
+---
+
+## Criar ou atualizar contato
+
+`POST /v2/contacts`
+
+Se o telefone ja existir, os dados sao atualizados (upsert).
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://new-api.ararahq.com/api/v2/contacts \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "5511999999999",
+    "name": "Joao Silva",
+    "email": "joao@exemplo.com",
+    "tags": ["cliente-vip"],
+    "metadata": {
+      "plan": "pro",
+      "source": "landing-page"
+    }
+  }'
+```
+
+```javascript Node.js
+const response = await fetch("https://new-api.ararahq.com/api/v2/contacts", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer ara_live_xxx",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    phone: "5511999999999",
+    name: "Joao Silva",
+    email: "joao@exemplo.com",
+    tags: ["cliente-vip"],
+    metadata: { plan: "pro", source: "landing-page" },
+  }),
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://new-api.ararahq.com/api/v2/contacts",
+    headers={
+        "Authorization": "Bearer ara_live_xxx",
+        "Content-Type": "application/json",
+    },
+    json={
+        "phone": "5511999999999",
+        "name": "Joao Silva",
+        "email": "joao@exemplo.com",
+        "tags": ["cliente-vip"],
+        "metadata": {"plan": "pro", "source": "landing-page"},
+    },
+)
+
+print(response.json())
+```
+
+</CodeGroup>
+
+### Parametros
+
+| Campo | Tipo | Obrigatorio | Descricao |
+|-------|------|-------------|-----------|
+| `phone` | string | Sim | Telefone com DDI (ex: `5511999999999`). Usado como identificador unico. |
+| `name` | string | Nao | Nome do contato. |
+| `email` | string | Nao | Email do contato. |
+| `tags` | array | Nao | Lista de tags (strings). |
+| `metadata` | object | Nao | Dados customizados (chave-valor livre). |
+
+### Response `201 Created`
+
+```json
+{
+  "phone": "5511999999999",
+  "name": "Joao Silva",
+  "email": "joao@exemplo.com",
+  "tags": ["cliente-vip"],
+  "metadata": { "plan": "pro", "source": "landing-page" },
+  "createdAt": "2026-04-04T14:30:00Z",
+  "updatedAt": "2026-04-04T14:30:00Z"
+}
+```
+
+Se o contato ja existia e foi atualizado, retorna `200 OK` com os dados atualizados.
+
+---
+
+## Batch upsert
+
+`POST /v2/contacts/batch`
+
+Crie ou atualize ate 1.000 contatos em uma unica requisicao.
+
+```bash
+curl -X POST https://new-api.ararahq.com/api/v2/contacts/batch \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contacts": [
+      {
+        "phone": "5511999999999",
+        "name": "Joao Silva",
+        "tags": ["importacao-abril"]
+      },
+      {
+        "phone": "5511888888888",
+        "name": "Maria Santos",
+        "tags": ["importacao-abril"]
+      },
+      {
+        "phone": "5511777777777",
+        "name": "Carlos Oliveira",
+        "tags": ["importacao-abril"]
+      }
+    ]
+  }'
+```
+
+### Parametros
+
+| Campo | Tipo | Obrigatorio | Descricao |
+|-------|------|-------------|-----------|
+| `contacts` | array | Sim | Lista de contatos (mesma estrutura do endpoint individual). Maximo 1.000 por requisicao. |
+
+### Response `200 OK`
+
+```json
+{
+  "created": 2,
+  "updated": 1,
+  "errors": 0,
+  "total": 3
+}
+```
+
+Se algum contato falhar na validacao, o campo `errors` indica a quantidade e os demais sao processados normalmente (partial success).

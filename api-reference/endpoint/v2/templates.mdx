@@ -1,0 +1,212 @@
+---
+title: 'Templates'
+description: 'Crie e gerencie templates de mensagem para WhatsApp e Email.'
+---
+
+## Criar um template
+
+`POST /v2/templates`
+
+<Tabs>
+  <Tab title="WhatsApp">
+    ### Request
+
+    ```bash
+    curl -X POST https://new-api.ararahq.com/api/v2/templates \
+      -H "Authorization: Bearer ara_live_xxx" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "pedido_confirmado",
+        "channel": "whatsapp",
+        "category": "UTILITY",
+        "language": "pt_BR",
+        "body": "Ola {{1}}, seu pedido {{2}} foi confirmado.",
+        "samples": {
+          "1": "Maria",
+          "2": "12345"
+        }
+      }'
+    ```
+
+    ### Response `201 Created`
+
+    ```json
+    {
+      "id": "ara_tpl_abc123",
+      "name": "pedido_confirmado",
+      "channel": "whatsapp",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "body": "Ola {{1}}, seu pedido {{2}} foi confirmado.",
+      "providerStatus": "PENDING",
+      "createdAt": "2026-04-04T14:30:00Z"
+    }
+    ```
+  </Tab>
+
+  <Tab title="Email">
+    ### Request
+
+    ```bash
+    curl -X POST https://new-api.ararahq.com/api/v2/templates \
+      -H "Authorization: Bearer ara_live_xxx" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "welcome_email",
+        "channel": "email",
+        "subject": "Bem-vindo, {{1}}!",
+        "body": "<h1>Ola {{1}}</h1><p>Sua conta foi criada com sucesso.</p>",
+        "contentType": "text/html"
+      }'
+    ```
+
+    ### Response `201 Created`
+
+    ```json
+    {
+      "id": "ara_tpl_def456",
+      "name": "welcome_email",
+      "channel": "email",
+      "subject": "Bem-vindo, {{1}}!",
+      "body": "<h1>Ola {{1}}</h1><p>Sua conta foi criada com sucesso.</p>",
+      "contentType": "text/html",
+      "providerStatus": "APPROVED",
+      "createdAt": "2026-04-04T14:30:00Z"
+    }
+    ```
+
+    <Info>
+      Templates de email nao passam por aprovacao da Meta, por isso o status ja retorna como `APPROVED`.
+    </Info>
+  </Tab>
+</Tabs>
+
+### Parametros
+
+| Campo | Tipo | Obrigatorio | Descricao |
+|-------|------|-------------|-----------|
+| `name` | string | Sim | Nome unico do template (snake_case, sem espacos). |
+| `channel` | string | Sim | Canal: `whatsapp` ou `email`. |
+| `category` | string | WhatsApp | Categoria: `UTILITY`, `MARKETING` ou `AUTHENTICATION`. |
+| `language` | string | WhatsApp | Codigo do idioma (ex: `pt_BR`, `en_US`). |
+| `body` | string | Sim | Conteudo do template. WhatsApp: texto com variaveis `{{1}}`. Email: HTML ou texto puro. |
+| `subject` | string | Email | Assunto do email (pode conter variaveis). |
+| `contentType` | string | Nao | Tipo de conteudo do email: `text/html` (default) ou `text/plain`. |
+| `header` | string | Nao | URL de midia para header (WhatsApp apenas). |
+| `headerType` | string | Nao | Tipo de header: `text` ou `media` (WhatsApp apenas). |
+| `buttons` | array | Nao | Botoes interativos (WhatsApp apenas). |
+| `samples` | object | WhatsApp | Valores de exemplo para variaveis (usados na aprovacao da Meta). |
+
+### Tipos de botao (WhatsApp)
+
+| Tipo | Descricao | Limite |
+|------|-----------|--------|
+| `QUICK_REPLY` | Botao de resposta rapida. | Ate 3 botoes. |
+| `URL` | Link externo. | Ate 1. |
+| `PHONE_NUMBER` | Ligacao telefonica. | Ate 1. |
+| `SMART_LINK` | Link encurtado com tracking da Arara. | Ate 1. |
+
+Voce pode usar ate 3 botoes `QUICK_REPLY` **ou** 1 `URL`/`SMART_LINK` + 1 `PHONE_NUMBER`. Nao e permitido misturar tipos.
+
+### Exemplo com botoes
+
+```json
+{
+  "name": "pesquisa_satisfacao",
+  "channel": "whatsapp",
+  "category": "MARKETING",
+  "language": "pt_BR",
+  "body": "O que achou do nosso atendimento?",
+  "buttons": [
+    { "type": "QUICK_REPLY", "text": "Otimo" },
+    { "type": "QUICK_REPLY", "text": "Bom" },
+    { "type": "QUICK_REPLY", "text": "Pode melhorar" }
+  ]
+}
+```
+
+### Exemplo com header de midia
+
+```json
+{
+  "name": "fatura_mensal",
+  "channel": "whatsapp",
+  "category": "UTILITY",
+  "language": "pt_BR",
+  "header": "https://example.com/fatura.pdf",
+  "headerType": "media",
+  "body": "Ola {{1}}, sua fatura de {{2}} esta disponivel.",
+  "samples": { "1": "Joao", "2": "Janeiro" }
+}
+```
+
+---
+
+## Listar templates
+
+`GET /v2/templates`
+
+```bash
+curl "https://new-api.ararahq.com/api/v2/templates?channel=whatsapp&page=0&size=20" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+### Query parameters
+
+| Parametro | Tipo | Descricao |
+|-----------|------|-----------|
+| `channel` | string | Filtrar por canal: `whatsapp` ou `email`. |
+| `name` | string | Filtrar por nome exato. |
+| `page` | integer | Pagina (default: `0`). |
+| `size` | integer | Itens por pagina (default: `20`, max: `100`). |
+
+### Response `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "ara_tpl_abc123",
+      "name": "pedido_confirmado",
+      "channel": "whatsapp",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "providerStatus": "APPROVED",
+      "createdAt": "2026-04-04T14:30:00Z"
+    },
+    {
+      "id": "ara_tpl_def456",
+      "name": "welcome_email",
+      "channel": "email",
+      "providerStatus": "APPROVED",
+      "createdAt": "2026-04-03T10:00:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 0,
+    "size": 20,
+    "totalElements": 2,
+    "totalPages": 1
+  }
+}
+```
+
+### Status do template (WhatsApp)
+
+| Status | Descricao |
+|--------|-----------|
+| `PENDING` | Submetido para aprovacao da Meta. |
+| `APPROVED` | Aprovado e pronto para uso. |
+| `REJECTED` | Rejeitado pela Meta. Consulte `rejectionReason`. |
+| `PAUSED` | Pausado pela Meta (qualidade baixa). |
+
+<Accordion title="V1 Legacy">
+  Na V1, os endpoints sao:
+
+  - `POST /v1/templates` (mesmo formato, sem campo `channel`)
+  - `GET /v1/templates` (sem filtro por `channel`)
+  - `GET /v1/templates/{id}/status` (consulta de status individual)
+  - `DELETE /v1/templates/{id}` (remocao)
+
+  Consulte a [documentacao V1](/api-reference/endpoint/templates) para detalhes.
+</Accordion>
