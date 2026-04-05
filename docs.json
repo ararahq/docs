@@ -16,7 +16,6 @@
     "family": "Fustat"
   },
   "favicon": "/images/favicon.png",
-  "versions": ["v2", "v1"],
   "navigation": {
     "tabs": [
       {
@@ -42,103 +41,118 @@
       },
       {
         "tab": "API Reference",
-        "groups": [
+        "versions": [
           {
-            "group": "Conceitos",
-            "pages": [
-              "api-reference/introduction",
-              "api-reference/authentication"
+            "version": "v2",
+            "tag": "Latest",
+            "default": true,
+            "groups": [
+              {
+                "group": "Conceitos",
+                "pages": [
+                  "api-reference/introduction",
+                  "api-reference/authentication"
+                ]
+              },
+              {
+                "group": "Mensagens",
+                "pages": [
+                  "api-reference/endpoint/v2/messages"
+                ]
+              },
+              {
+                "group": "Templates",
+                "pages": [
+                  "api-reference/endpoint/v2/templates"
+                ]
+              },
+              {
+                "group": "Contatos",
+                "pages": [
+                  "api-reference/endpoint/v2/contacts"
+                ]
+              },
+              {
+                "group": "Campanhas",
+                "pages": [
+                  "api-reference/endpoint/v2/campaigns"
+                ]
+              },
+              {
+                "group": "API Keys",
+                "pages": [
+                  "api-reference/endpoint/v2/api-keys"
+                ]
+              },
+              {
+                "group": "Flows",
+                "pages": [
+                  "api-reference/endpoint/v2/flows"
+                ]
+              },
+              {
+                "group": "Regras de Negocio",
+                "pages": [
+                  "business-rules/template-management",
+                  "business-rules/usage-policies"
+                ]
+              }
             ]
           },
           {
-            "group": "Mensagens",
-            "pages": [
-              "api-reference/endpoint/v2/messages"
-            ],
-            "version": "v2"
-          },
-          {
-            "group": "Templates",
-            "pages": [
-              "api-reference/endpoint/v2/templates"
-            ],
-            "version": "v2"
-          },
-          {
-            "group": "Contatos",
-            "pages": [
-              "api-reference/endpoint/v2/contacts"
-            ],
-            "version": "v2"
-          },
-          {
-            "group": "Campanhas",
-            "pages": [
-              "api-reference/endpoint/v2/campaigns"
-            ],
-            "version": "v2"
-          },
-          {
-            "group": "API Keys",
-            "pages": [
-              "api-reference/endpoint/v2/api-keys"
-            ],
-            "version": "v2"
-          },
-          {
-            "group": "Flows",
-            "pages": [
-              "api-reference/endpoint/v2/flows"
-            ],
-            "version": "v2"
-          },
-          {
-            "group": "Mensagens",
-            "pages": [
-              "api-reference/endpoint/messages"
-            ],
-            "version": "v1"
-          },
-          {
-            "group": "Templates",
-            "pages": [
-              "api-reference/endpoint/templates"
-            ],
-            "version": "v1"
-          },
-          {
-            "group": "Campanhas",
-            "pages": [
-              "api-reference/endpoint/campaigns"
-            ],
-            "version": "v1"
-          },
-          {
-            "group": "Agendamento",
-            "pages": [
-              "api-reference/endpoint/schedule"
-            ],
-            "version": "v1"
-          },
-          {
-            "group": "Webhooks",
-            "pages": [
-              "api-reference/endpoint/webhook"
-            ],
-            "version": "v1"
-          },
-          {
-            "group": "Inbound",
-            "pages": [
-              "api-reference/endpoint/inbound"
-            ],
-            "version": "v1"
-          },
-          {
-            "group": "Regras de Negocio",
-            "pages": [
-              "business-rules/template-management",
-              "business-rules/usage-policies"
+            "version": "v1",
+            "tag": "Legacy",
+            "groups": [
+              {
+                "group": "Conceitos",
+                "pages": [
+                  "api-reference/introduction",
+                  "api-reference/authentication"
+                ]
+              },
+              {
+                "group": "Mensagens",
+                "pages": [
+                  "api-reference/endpoint/messages"
+                ]
+              },
+              {
+                "group": "Templates",
+                "pages": [
+                  "api-reference/endpoint/templates"
+                ]
+              },
+              {
+                "group": "Campanhas",
+                "pages": [
+                  "api-reference/endpoint/campaigns"
+                ]
+              },
+              {
+                "group": "Agendamento",
+                "pages": [
+                  "api-reference/endpoint/schedule"
+                ]
+              },
+              {
+                "group": "Webhooks",
+                "pages": [
+                  "api-reference/endpoint/webhook"
+                ]
+              },
+              {
+                "group": "Inbound",
+                "pages": [
+                  "api-reference/endpoint/inbound"
+                ]
+              },
+              {
+                "group": "Regras de Negocio",
+                "pages": [
+                  "business-rules/template-management",
+                  "business-rules/usage-policies"
+                ]
+              }
             ]
           }
         ]
