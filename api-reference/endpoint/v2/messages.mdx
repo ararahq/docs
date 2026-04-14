@@ -1,185 +1,107 @@
 ---
 title: 'Mensagens'
-description: 'Envie e consulte mensagens via WhatsApp ou Email.'
+description: 'Envie mensagens no WhatsApp e Email com uma unica chamada.'
 ---
 
-## Enviar uma mensagem
+Uma unica API para WhatsApp e email. Envio imediato ou agendado, template ou texto livre.
 
-`POST /v2/messages`
+**Base URL:** `https://new-api.ararahq.com/api/v2`
 
-<Tabs>
-  <Tab title="WhatsApp">
-    ### Request
+---
 
-    <CodeGroup>
+## Envio rapido
 
-    ```bash cURL
-    curl -X POST https://new-api.ararahq.com/api/v2/messages \
-      -H "Authorization: Bearer ara_live_xxx" \
-      -H "Content-Type: application/json" \
-      -d '{
+Cole no terminal, troque `ara_live_xxx` pela sua chave e o numero pelo seu. Pronto.
+
+```bash
+curl -X POST https://new-api.ararahq.com/api/v2/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "5511999999999",
+    "channel": "whatsapp",
+    "template": "hello_world"
+  }'
+```
+
+Resposta (`202 Accepted`):
+
+```json
+{
+  "id": "ara_msg_k9Bf2XqP",
+  "channel": "whatsapp",
+  "status": "PENDING",
+  "to": "5511999999999",
+  "from": "5511988887777",
+  "template": "hello_world",
+  "cost": null,
+  "createdAt": "2026-04-13T18:30:00Z",
+  "deliveredAt": null
+}
+```
+
+Guarde o `id` — e por ele que voce consulta status e custo depois.
+
+---
+
+## Enviar template com variaveis
+
+As variaveis sao um **array** na ordem dos placeholders (`{{1}}`, `{{2}}`, `{{3}}`...).
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://new-api.ararahq.com/api/v2/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "5511999999999",
+    "channel": "whatsapp",
+    "template": "pedido_confirmado",
+    "variables": ["Joao", "12345"]
+  }'
+```
+
+```javascript Node.js
+await fetch("https://new-api.ararahq.com/api/v2/messages", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer ara_live_xxx",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    to: "5511999999999",
+    channel: "whatsapp",
+    template: "pedido_confirmado",
+    variables: ["Joao", "12345"],
+  }),
+});
+```
+
+```python Python
+import requests
+
+requests.post(
+    "https://new-api.ararahq.com/api/v2/messages",
+    headers={"Authorization": "Bearer ara_live_xxx"},
+    json={
         "to": "5511999999999",
         "channel": "whatsapp",
         "template": "pedido_confirmado",
-        "variables": {
-          "1": "Joao",
-          "2": "12345"
-        }
-      }'
-    ```
+        "variables": ["Joao", "12345"],
+    },
+)
+```
 
-    ```javascript Node.js
-    const response = await fetch("https://new-api.ararahq.com/api/v2/messages", {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer ara_live_xxx",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: "5511999999999",
-        channel: "whatsapp",
-        template: "pedido_confirmado",
-        variables: { "1": "Joao", "2": "12345" },
-      }),
-    });
+</CodeGroup>
 
-    const data = await response.json();
-    console.log(data);
-    ```
+Template `Ola {{1}}, seu pedido #{{2}} foi confirmado.` vira `Ola Joao, seu pedido #12345 foi confirmado.`
 
-    ```python Python
-    import requests
+---
 
-    response = requests.post(
-        "https://new-api.ararahq.com/api/v2/messages",
-        headers={
-            "Authorization": "Bearer ara_live_xxx",
-            "Content-Type": "application/json",
-        },
-        json={
-            "to": "5511999999999",
-            "channel": "whatsapp",
-            "template": "pedido_confirmado",
-            "variables": {"1": "Joao", "2": "12345"},
-        },
-    )
+## Responder com texto livre
 
-    print(response.json())
-    ```
-
-    </CodeGroup>
-
-    ### Response `202 Accepted`
-
-    ```json
-    {
-      "id": "ara_msg_k9Bf2XqP",
-      "to": "5511999999999",
-      "channel": "whatsapp",
-      "template": "pedido_confirmado",
-      "status": "QUEUED",
-      "messageType": "TEMPLATE",
-      "createdAt": "2026-04-04T14:30:00Z"
-    }
-    ```
-  </Tab>
-
-  <Tab title="Email">
-    ### Request
-
-    <CodeGroup>
-
-    ```bash cURL
-    curl -X POST https://new-api.ararahq.com/api/v2/messages \
-      -H "Authorization: Bearer ara_live_xxx" \
-      -H "Content-Type: application/json" \
-      -d '{
-        "to": "cliente@exemplo.com",
-        "channel": "email",
-        "template": "welcome_email",
-        "variables": {
-          "1": "Joao"
-        }
-      }'
-    ```
-
-    ```javascript Node.js
-    const response = await fetch("https://new-api.ararahq.com/api/v2/messages", {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer ara_live_xxx",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: "cliente@exemplo.com",
-        channel: "email",
-        template: "welcome_email",
-        variables: { "1": "Joao" },
-      }),
-    });
-
-    const data = await response.json();
-    console.log(data);
-    ```
-
-    ```python Python
-    import requests
-
-    response = requests.post(
-        "https://new-api.ararahq.com/api/v2/messages",
-        headers={
-            "Authorization": "Bearer ara_live_xxx",
-            "Content-Type": "application/json",
-        },
-        json={
-            "to": "cliente@exemplo.com",
-            "channel": "email",
-            "template": "welcome_email",
-            "variables": {"1": "Joao"},
-        },
-    )
-
-    print(response.json())
-    ```
-
-    </CodeGroup>
-
-    ### Response `202 Accepted`
-
-    ```json
-    {
-      "id": "ara_msg_r4Xp7MnQ",
-      "to": "cliente@exemplo.com",
-      "channel": "email",
-      "template": "welcome_email",
-      "status": "QUEUED",
-      "messageType": "TEMPLATE",
-      "createdAt": "2026-04-04T14:30:00Z"
-    }
-    ```
-  </Tab>
-</Tabs>
-
-### Parametros
-
-| Campo | Tipo | Obrigatorio | Descricao |
-|-------|------|-------------|-----------|
-| `to` | string | Sim | Destinatario. WhatsApp: numero com DDI (ex: `5511999999999`). Email: endereco de email. |
-| `channel` | string | Sim | Canal de envio: `whatsapp` ou `email`. |
-| `template` | string | Condicional | Nome do template pre-aprovado. Obrigatorio para mensagens de template. |
-| `body` | string | Condicional | Texto livre. Obrigatorio para mensagens de sessao (WhatsApp, dentro da janela de 24h). |
-| `variables` | object | Nao | Variaveis do template. Chave = posicao (`"1"`, `"2"`), valor = conteudo. |
-| `mediaUrl` | string | Nao | URL publica de midia (imagem, PDF, video) para templates com header de midia. |
-| `scheduledAt` | string | Nao | Data/hora de envio agendado (ISO 8601). Se omitido, envia imediatamente. |
-| `idempotencyKey` | string | Nao | Chave de idempotencia. Tambem pode ser enviada via header `Idempotency-Key`. |
-
-<Info>
-  Voce deve enviar `template` ou `body`, mas nao ambos. Use `template` para iniciar conversas. Use `body` para responder dentro da janela de 24h.
-</Info>
-
-### Mensagem de sessao (texto livre)
-
-Para responder uma mensagem recebida dentro da janela de 24h:
+Dentro da janela de 24h de uma conversa, mande `body` em vez de `template`:
 
 ```bash
 curl -X POST https://new-api.ararahq.com/api/v2/messages \
@@ -192,110 +114,182 @@ curl -X POST https://new-api.ararahq.com/api/v2/messages \
   }'
 ```
 
-Response `202 Accepted`:
+---
+
+## Enviar email
+
+Mesmo endpoint, trocando `channel`:
+
+```bash
+curl -X POST https://new-api.ararahq.com/api/v2/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "cliente@exemplo.com",
+    "channel": "email",
+    "template": "welcome_email",
+    "variables": ["Joao"]
+  }'
+```
+
+---
+
+## Agendar envio
+
+Adicione `scheduled_at` com data/hora ISO 8601 em UTC:
 
 ```json
 {
-  "id": "ara_msg_z7Lp4YwR",
   "to": "5511999999999",
   "channel": "whatsapp",
-  "body": "Ola! Como posso ajudar?",
-  "status": "QUEUED",
-  "messageType": "SESSION",
-  "createdAt": "2026-04-04T14:30:00Z"
+  "template": "lembrete",
+  "variables": ["14h"],
+  "scheduled_at": "2026-04-14T17:00:00Z"
+}
+```
+
+A mensagem fica em `SCHEDULED` ate a hora chegar.
+
+---
+
+## Consultar status
+
+`GET /v2/messages/{id}`
+
+```bash
+curl https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Resposta (`200 OK`):
+
+```json
+{
+  "id": "ara_msg_k9Bf2XqP",
+  "channel": "whatsapp",
+  "status": "DELIVERED",
+  "to": "5511999999999",
+  "from": "5511988887777",
+  "template": "pedido_confirmado",
+  "cost": 0.1600,
+  "createdAt": "2026-04-13T18:30:00Z",
+  "deliveredAt": "2026-04-13T18:30:05Z"
 }
 ```
 
 ---
 
-## Consultar uma mensagem
+## Parametros do POST
 
-`GET /v2/messages/{id}`
+| Campo | Tipo | Obrigatorio | Descricao |
+|-------|------|-------------|-----------|
+| `to` | string | sim | WhatsApp: numero E.164 sem `+` (`5511999999999`). Email: endereco completo. |
+| `channel` | string | sim | `whatsapp` ou `email`. |
+| `template` | string | * | Nome do template pre-aprovado. |
+| `body` | string | * | Texto livre (responder dentro da janela de 24h). |
+| `variables` | string[] | nao | Array ordenado dos valores dos placeholders `{{1}}`, `{{2}}`... Max 50. |
+| `scheduled_at` | string (ISO 8601) | nao | Envio agendado em UTC. |
 
-<CodeGroup>
+<Note>
+  **`template` OU `body`, nunca os dois.** Template inicia conversa, body responde dentro da janela de 24h.
+</Note>
 
-```bash cURL
-curl https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP \
-  -H "Authorization: Bearer ara_live_xxx"
-```
+---
 
-```javascript Node.js
-const response = await fetch(
-  "https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP",
-  {
-    headers: { "Authorization": "Bearer ara_live_xxx" },
-  }
-);
-
-const data = await response.json();
-console.log(data);
-```
-
-```python Python
-import requests
-
-response = requests.get(
-    "https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP",
-    headers={"Authorization": "Bearer ara_live_xxx"},
-)
-
-print(response.json())
-```
-
-</CodeGroup>
-
-### Response `200 OK`
-
-```json
-{
-  "id": "ara_msg_k9Bf2XqP",
-  "to": "5511999999999",
-  "channel": "whatsapp",
-  "template": "pedido_confirmado",
-  "status": "DELIVERED",
-  "messageType": "TEMPLATE",
-  "mode": "LIVE",
-  "createdAt": "2026-04-04T14:30:00Z",
-  "sentAt": "2026-04-04T14:30:02Z",
-  "deliveredAt": "2026-04-04T14:30:05Z"
-}
-```
-
-### Status possiveis
-
-| Status | Descricao |
-|--------|-----------|
-| `QUEUED` | Mensagem aceita e na fila de processamento. |
-| `SENT` | Mensagem enviada ao provider (Meta/email). |
-| `DELIVERED` | Mensagem entregue ao destinatario. |
-| `READ` | Mensagem lida pelo destinatario (apenas WhatsApp). |
-| `FAILED` | Falha no envio. Consulte `failureReason` para detalhes. |
-
-### Campos da resposta
+## Campos da resposta
 
 | Campo | Tipo | Descricao |
 |-------|------|-----------|
-| `id` | string | Identificador unico da mensagem (ex: `ara_msg_...`). |
+| `id` | string | ID unico (`ara_msg_...`). Use em webhooks e consultas. |
+| `channel` | string | `whatsapp` ou `email`. |
+| `status` | string | Status atual (ver tabela abaixo). |
 | `to` | string | Destinatario. |
-| `channel` | string | Canal (`whatsapp` ou `email`). |
-| `template` | string | Nome do template utilizado (se aplicavel). |
-| `body` | string | Texto da mensagem (se aplicavel). |
-| `status` | string | Status atual da mensagem. |
-| `messageType` | string | Tipo: `TEMPLATE` ou `SESSION`. |
-| `mode` | string | Ambiente: `LIVE` ou `TEST`. |
-| `failureReason` | string | Codigo de erro da Arara (apenas quando `status` = `FAILED`). |
-| `createdAt` | string | Data de criacao (ISO 8601). |
-| `sentAt` | string | Data de envio ao provider (ISO 8601). |
-| `deliveredAt` | string | Data de entrega ao destinatario (ISO 8601). |
-| `readAt` | string | Data de leitura (ISO 8601, apenas WhatsApp). |
+| `from` | string | Remetente configurado na sua organizacao. |
+| `template` | string \| null | Nome do template. `null` se for texto livre. |
+| `subject` | string \| null | Assunto do email com variaveis aplicadas. So aparece em `channel=email`. |
+| `cost` | number \| null | Custo em BRL. `null` ate a mensagem ser cobrada. |
+| `createdAt` | string (ISO 8601) | Quando foi criada. |
+| `deliveredAt` | string (ISO 8601) \| null | Quando chegou no destinatario. |
 
-<Accordion title="V1 Legacy">
-  Na V1, o endpoint e `POST /v1/messages` com os seguintes campos:
+---
 
-  - `receiver` em vez de `to` (formato `whatsapp:+5511999999999`)
-  - `templateName` em vez de `template`
-  - `variables` como array em vez de objeto
-  - Sem campo `channel` (apenas WhatsApp)
+## Status
 
-  Consulte a [documentacao V1](/api-reference/endpoint/messages) para detalhes.
-</Accordion>
+```
+PENDING -> PROCESSING -> SENT_TO_PROVIDER -> SENT -> DELIVERED -> READ
+                                                             `-> FAILED
+SCHEDULED --^                                                 CANCELED
+```
+
+| Status | Significado |
+|--------|-------------|
+| `PENDING` | Criada, aguardando processamento. |
+| `SCHEDULED` | Agendada, aguardando o horario. |
+| `PROCESSING` | Worker pegou a mensagem. |
+| `SENT_TO_PROVIDER` | Entregue ao provider (Meta/email). |
+| `SENT` | Provider confirmou o envio. |
+| `DELIVERED` | Chegou no destinatario. |
+| `READ` | Foi lida (so WhatsApp). |
+| `FAILED` | Falhou definitivamente. |
+| `CANCELED` | Cancelada antes do envio. |
+
+Para saber em tempo real, use [webhooks](/api-reference/events) em vez de polling.
+
+---
+
+## Idempotencia
+
+Para garantir que um retry nao duplique mensagem, envie o header `Idempotency-Key`:
+
+```bash
+-H "Idempotency-Key: 7f8a1c2d-4e5f-6789-abcd-ef0123456789"
+```
+
+Requisicoes com a mesma chave retornam a resposta original sem criar nova mensagem.
+
+---
+
+## Erros
+
+| HTTP | Quando |
+|------|--------|
+| `400` | Payload invalido, canal nao suportado, ou sem `template`/`body`. |
+| `401` | Chave invalida ou ausente. |
+| `402` | Saldo insuficiente. |
+| `404` | Mensagem nao encontrada (no GET). |
+| `422` | Template inexistente ou numero de variaveis errado. |
+| `429` | Rate limit. Aplique backoff exponencial. |
+
+Formato padrao:
+
+```json
+{
+  "error": {
+    "code": "INVALID_CHANNEL",
+    "message": "Canal 'sms' nao e suportado. Canais validos: whatsapp, email",
+    "details": {}
+  }
+}
+```
+
+---
+
+## Migrando da V1
+
+<Warning>
+  **V1 esta deprecada** (sunset **09/2026**). Use V2 para integracoes novas.
+</Warning>
+
+| | V1 | V2 |
+|---|---|---|
+| Destinatario | `receiver: "whatsapp:+5511999999999"` | `to: "5511999999999"` + `channel` |
+| Template | `templateName` | `template` |
+| Variaveis | `templateVariables: [...]` | `variables: [...]` |
+| Canais | So WhatsApp | WhatsApp **e** Email |
+| Agendamento | `scheduledAt` | `scheduled_at` |
+
+---
+
+## Ainda nao disponivel em V2
+
+- **`mediaUrl`** — templates com imagem/PDF/video no header. Use V1 enquanto isso.

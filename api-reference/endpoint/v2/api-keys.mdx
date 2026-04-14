@@ -3,6 +3,16 @@ title: 'API Keys'
 description: 'Crie, liste e revogue chaves de API programaticamente.'
 ---
 
+Gerencie as chaves que suas aplicacoes usam para autenticar na API.
+
+**Base URL:** `https://new-api.ararahq.com/api/v2`
+
+<Warning>
+  Toda chave e exibida **uma unica vez**, no momento da criacao. A Arara nao armazena o valor completo — se voce perder, cria uma nova e revoga a antiga.
+</Warning>
+
+---
+
 ## Criar uma API key
 
 `POST /v2/api-keys`
@@ -11,105 +21,107 @@ description: 'Crie, liste e revogue chaves de API programaticamente.'
 curl -X POST https://new-api.ararahq.com/api/v2/api-keys \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "backend-production",
-    "mode": "LIVE"
-  }'
+  -d '{ "mode": "LIVE" }'
 ```
 
 ### Parametros
 
 | Campo | Tipo | Obrigatorio | Descricao |
 |-------|------|-------------|-----------|
-| `name` | string | Sim | Nome descritivo para identificar a chave. |
-| `mode` | string | Sim | Ambiente: `LIVE` (producao) ou `TEST` (sandbox). |
+| `mode` | string | nao | `LIVE` (producao) ou `TEST` (sandbox). Default `LIVE`. |
 
-### Response `201 Created`
+Resposta (`201 Created`):
 
 ```json
 {
-  "id": "ara_key_abc123",
-  "name": "backend-production",
+  "id": "7f8a1c2d-4e5f-6789-abcd-ef0123456789",
   "key": "ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
   "mode": "LIVE",
-  "createdAt": "2026-04-04T14:30:00Z"
+  "createdAt": "2026-04-13T18:30:00Z"
 }
 ```
 
-<Warning>
-  O campo `key` so aparece nesta resposta. Guarde a chave imediatamente. Voce nao podera recupera-la depois.
-</Warning>
+| Campo | Descricao |
+|-------|-----------|
+| `id` | UUID da chave. Use pra revogar depois. |
+| `key` | **Valor completo.** Aparece apenas aqui. Copie e guarde com seguranca. |
+| `mode` | `LIVE` ou `TEST`. |
+| `createdAt` | Data de criacao. |
 
 ---
 
-## Listar API keys
+## Listar chaves ativas
 
 `GET /v2/api-keys`
 
+Retorna um array simples com todas as chaves ativas (nao revogadas) da organizacao.
+
 ```bash
-curl https://new-api.ararahq.com/api/v2/api-keys \
+curl "https://new-api.ararahq.com/api/v2/api-keys?mode=LIVE" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-### Response `200 OK`
+### Query params
+
+| Param | Tipo | Descricao |
+|-------|------|-----------|
+| `mode` | string | Opcional. Filtra por `LIVE` ou `TEST`. Omitir retorna ambos. |
+
+Resposta (`200 OK`):
 
 ```json
-{
-  "data": [
-    {
-      "id": "ara_key_abc123",
-      "name": "backend-production",
-      "maskedKey": "ara_live_****xxxx",
-      "mode": "LIVE",
-      "lastUsedAt": "2026-04-04T14:30:00Z",
-      "createdAt": "2026-03-01T10:00:00Z"
-    },
-    {
-      "id": "ara_key_def456",
-      "name": "staging-tests",
-      "maskedKey": "ara_test_****yyyy",
-      "mode": "TEST",
-      "lastUsedAt": "2026-04-03T18:00:00Z",
-      "createdAt": "2026-03-15T12:00:00Z"
-    }
-  ],
-  "pagination": {
-    "page": 0,
-    "size": 20,
-    "totalElements": 2,
-    "totalPages": 1
+[
+  {
+    "id": "7f8a1c2d-4e5f-6789-abcd-ef0123456789",
+    "lastFour": "a3f9",
+    "mode": "LIVE",
+    "lastUsedAt": "2026-04-13T18:25:00Z",
+    "createdAt": "2026-03-01T10:00:00Z"
+  },
+  {
+    "id": "8a2b3c4d-5e6f-7890-abcd-ef1234567890",
+    "lastFour": "b7e2",
+    "mode": "TEST",
+    "lastUsedAt": null,
+    "createdAt": "2026-03-15T12:00:00Z"
   }
-}
+]
 ```
 
-As chaves sao exibidas mascaradas (`ara_live_****xxxx`). O valor completo nao pode ser recuperado apos a criacao.
-
-### Campos da resposta
+### Campos
 
 | Campo | Tipo | Descricao |
 |-------|------|-----------|
-| `id` | string | Identificador unico da chave. |
-| `name` | string | Nome descritivo. |
-| `maskedKey` | string | Chave mascarada (primeiros e ultimos caracteres visiveis). |
-| `mode` | string | Ambiente: `LIVE` ou `TEST`. |
-| `lastUsedAt` | string | Ultima vez que a chave foi usada (ISO 8601). |
-| `createdAt` | string | Data de criacao (ISO 8601). |
+| `id` | UUID | Identificador da chave. |
+| `lastFour` | string | Ultimos 4 caracteres da chave (para identificar sem expor o valor). |
+| `mode` | string | `LIVE` ou `TEST`. |
+| `lastUsedAt` | string \| null | Quando foi usada pela ultima vez. `null` se nunca foi usada. |
+| `createdAt` | string | Data de criacao. |
 
 ---
 
-## Revogar uma API key
+## Revogar uma chave
 
 `DELETE /v2/api-keys/{id}`
 
 ```bash
-curl -X DELETE https://new-api.ararahq.com/api/v2/api-keys/ara_key_abc123 \
+curl -X DELETE https://new-api.ararahq.com/api/v2/api-keys/7f8a1c2d-4e5f-6789-abcd-ef0123456789 \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-### Response `204 No Content`
-
-Sem body. A chave foi revogada e nao pode mais ser usada para autenticar requisicoes.
+Resposta (`204 No Content`) — sem body.
 
 <Warning>
-  A revogacao e imediata e irreversivel. Requisicoes usando essa chave passarao a receber `401 Unauthorized`.
+  Revogacao e **imediata e irreversivel**. Qualquer requisicao usando essa chave passa a retornar `401 Unauthorized` instantaneamente.
 </Warning>
+
+---
+
+## Erros
+
+| HTTP | Quando |
+|------|--------|
+| `400` | `mode` fora de `LIVE`/`TEST`. |
+| `401` | Chave de autenticacao ausente ou invalida. |
+| `403` | Tentativa de revogar chave de outra organizacao. |
+| `404` | Chave nao encontrada (no DELETE). |
