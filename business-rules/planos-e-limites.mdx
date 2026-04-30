@@ -1,0 +1,95 @@
+---
+title: 'Planos e Limites de Uso'
+description: 'Entenda como o plano FREE funciona, os limites de mensagens e o comportamento da API quando a cota é atingida.'
+---
+
+## Plano FREE
+
+Ao criar uma conta na Arara, você recebe automaticamente o **plano FREE** — sem cartão de crédito, sem configuração manual. A assinatura é ativada no momento do cadastro.
+
+O plano FREE dá acesso ao Console e à API em **modo LIVE** com o seguinte limite:
+
+| Recurso | Limite |
+|---------|--------|
+| Mensagens outbound (LIVE) | **50 por dia** |
+| Sandbox (TEST mode) | Ilimitado |
+| Renovação da cota | Diária (meia-noite, horário de Brasília) |
+
+<Info>
+  O limite se aplica apenas ao modo de produção (LIVE). Em modo Sandbox você pode testar sem restrições.
+</Info>
+
+## Comportamento da API ao atingir o limite
+
+Quando a cota diária é esgotada, a API retorna **HTTP 402** em qualquer chamada de envio de mensagem:
+
+```json
+{
+  "error": {
+    "code": "QUOTA_EXCEEDED",
+    "message": "Cota diária de mensagens esgotada. Faça upgrade para continuar enviando.",
+    "details": {
+      "upgrade_url": "https://www.ararahq.com/pricing"
+    }
+  }
+}
+```
+
+Os envios são **retomados automaticamente** no início do próximo dia — nenhuma ação é necessária da sua parte.
+
+<Warning>
+  Mensagens que falham por `QUOTA_EXCEEDED` **consomem a cota** antes de retornar o erro. Isso garante atomicidade: a contagem é registrada no momento da tentativa, não da entrega.
+</Warning>
+
+## Consultando a cota em tempo real
+
+Use o endpoint abaixo para verificar o consumo atual da sua organização:
+
+```bash
+GET /v1/organizations/me/quota
+Authorization: Bearer ara_live_xxx
+```
+
+**Resposta:**
+
+```json
+{
+  "plan": "FREE",
+  "outbound_today": 38,
+  "outbound_limit": 50,
+  "percentage_used": 76.0
+}
+```
+
+| Campo | Descrição |
+|-------|-----------|
+| `plan` | Tipo de plano da organização |
+| `outbound_today` | Mensagens enviadas no dia atual |
+| `outbound_limit` | Limite diário do plano (`null` em planos pagos) |
+| `percentage_used` | Percentual de uso (`null` em planos pagos) |
+
+## Alertas no Console
+
+O Console exibe um banner automático com base no `percentage_used`:
+
+- **80–99%** — aviso âmbar: "X% do limite diário usado"
+- **100%** — alerta vermelho: envios pausados até amanhã ou upgrade
+
+## Fazendo upgrade
+
+Para remover o limite e desbloquear funcionalidades como Campanhas, Webhooks e API Keys, acesse a página de planos:
+
+<Card title="Ver planos e preços" icon="arrow-up-right" href="https://www.ararahq.com/pricing">
+  Compare os planos e escolha o que melhor atende ao seu volume.
+</Card>
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Enviar mensagens" icon="paper-plane" href="/api-reference/endpoint/v2/messages">
+    Documentação completa do endpoint de envio.
+  </Card>
+  <Card title="Políticas de uso" icon="shield-check" href="/business-rules/usage-policies">
+    Opt-in, critérios de qualidade e banimento.
+  </Card>
+</CardGroup>

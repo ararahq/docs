@@ -68,6 +68,7 @@
               {
                 "group": "Regras de negócio",
                 "pages": [
+                  "business-rules/planos-e-limites",
                   "business-rules/template-management",
                   "business-rules/usage-policies"
                 ]
@@ -99,6 +100,7 @@
               {
                 "group": "Regras de negócio",
                 "pages": [
+                  "business-rules/planos-e-limites",
                   "business-rules/template-management",
                   "business-rules/usage-policies"
                 ]
