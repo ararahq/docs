@@ -21,27 +21,32 @@ arara listen --forward-to http://localhost:3000/api/webhooks
 
 ## Instalação
 
+**One-liner** — detecta OS + arquitetura, baixa o binário do GitHub Releases, valida checksum SHA-256 e instala em `/usr/local/bin` (ou `~/.local/bin` se não tiver sudo):
+
+```bash
+curl -fsSL https://get.ararahq.com/install-cli | sh
+```
+
+Alternativas:
+
 <CardGroup cols={2}>
-  <Card title="macOS / Linux (Homebrew)" icon="apple">
+  <Card title="PowerShell (Windows)" icon="windows">
+    ```powershell
+    iwr -useb https://get.ararahq.com/install-cli.ps1 | iex
+    ```
+  </Card>
+  <Card title="Homebrew (macOS / Linux)" icon="apple">
     ```bash
     brew install ararahq/tap/arara
     ```
   </Card>
-  <Card title="Curl install (qualquer Unix)" icon="terminal">
-    ```bash
-    curl -fsSL https://get.ararahq.com | sh
-    ```
-  </Card>
   <Card title="Go install" icon="golang">
     ```bash
-    go install github.com/ararahq/arara-cli/cmd/arara@latest
+    go install github.com/ararahq/cli/cmd/arara@latest
     ```
   </Card>
-  <Card title="npm wrapper" icon="npm">
-    ```bash
-    npm install -g ararahq-cli
-    ```
-    *baixa o binário Go correspondente no postinstall*
+  <Card title="Download direto" icon="github">
+    [github.com/ararahq/cli/releases](https://github.com/ararahq/cli/releases) — tar.gz/zip por OS+arch + checksums.txt.
   </Card>
 </CardGroup>
 
@@ -49,7 +54,7 @@ Confere a versão:
 
 ```bash
 arara --version
-# arara 0.2.0 (2026-05-12)
+# arara version 0.1.0
 ```
 
 ## Login
@@ -67,6 +72,40 @@ arara profile add cliente-x
 arara profile switch cliente-x
 arara profile list
 ```
+
+## Modo LIVE vs TEST
+
+Por default, depois do `arara login` o profile fica em **TEST** — `send` simula entrega, `campaigns` simula custo, nada chega no cliente real.
+
+Pra mandar mensagens reais, promove pra **LIVE**:
+
+```bash
+arara mode live
+```
+
+A CLI cria uma API key LIVE server-side e guarda no keyring do SO. **O valor da chave nunca aparece na tela nem fica no shell history.**
+
+Pra voltar:
+
+```bash
+arara mode test
+arara login        # restaura sessão OAuth
+```
+
+Confere o modo a qualquer momento:
+
+```bash
+arara mode
+# Profile default -- LIVE
+```
+
+<Warning>
+  Em LIVE, **todo `send` cobra do saldo da wallet** e entrega de verdade. Em TEST, custo zero, entrega simulada.
+</Warning>
+
+<Note>
+  Pra criar chave LIVE a conta precisa estar `ACTIVE` (onboarding completo). Se vier `ACCOUNT_NOT_ACTIVATED`, complete o wizard em [ararahq.com/dashboard](https://ararahq.com/dashboard).
+</Note>
 
 ## Comandos principais
 
@@ -179,6 +218,7 @@ UUID local, batches de até 50 events em 5min, zero PII.
 | Comando | Função |
 |---|---|
 | `arara whoami` | Quem está logado, em qual org, qual modo da chave. |
+| `arara mode [live\|test]` | Mostra ou troca o modo do profile sem expor chave. Ver [Modo LIVE vs TEST](#modo-live-vs-test). |
 | `arara doctor` | Diagnóstico: token válido, rede ok, latência, versão atualizada. |
 | `arara status` | Status público da Arara (igual `status.ararahq.com`). |
 | `arara campaigns list/get` | Lista e detalhe de campanhas. |
