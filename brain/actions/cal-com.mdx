@@ -1,0 +1,108 @@
+---
+title: 'Cal.com'
+description: 'Deixe o agente AI da Arara consultar agenda, agendar reunião e enviar confirmação direto no WhatsApp. Sem o cliente sair do chat.'
+---
+
+A Action **Cal.com** liga sua agenda ao WhatsApp. O cliente pergunta "qual horário tem amanhã?", o agente consulta o Cal.com, propõe slots, agenda na hora e manda confirmação — tudo na mesma conversa.
+
+<Note>
+  Você precisa de uma conta [Cal.com](https://cal.com) (free ou paga) com pelo menos um event type configurado.
+</Note>
+
+## Quando o agente usa
+
+- Cliente pede pra marcar reunião, consulta, retorno
+- Cliente pergunta disponibilidade ("tem horário quinta?")
+- Cliente pede pra remarcar ou cancelar
+- Fluxo pós-venda onde a próxima ação esperada é uma reunião (onboarding, kickoff)
+
+## Setup
+
+<Steps>
+  <Step title="Pega API key no Cal.com">
+    Cal.com → **Settings → Developer → API Keys** → **+ Add**. Copia o token (não volta a aparecer).
+  </Step>
+  <Step title="Descobre o ID do seu event type">
+    `GET https://api.cal.com/v2/event-types` retorna a lista. Anota o `id` do tipo que vai pro WhatsApp (ex: "Consulta de 30min").
+  </Step>
+  <Step title="Habilita na Arara">
+    ```bash
+    curl -X PATCH https://api.ararahq.com/api/v1/brain/actions/cal-com \
+      -H "Authorization: Bearer ara_live_xxx" \
+      -d '{
+        "enabled": true,
+        "config": {
+          "apiKey": "cal_live_xxx",
+          "eventTypeId": 12345,
+          "timeZone": "America/Sao_Paulo",
+          "bufferMinutes": 15
+        }
+      }'
+    ```
+  </Step>
+</Steps>
+
+## Fluxo completo
+
+```
+Cliente:   "Quero marcar uma consulta pra essa semana"
+  ↓
+Agente:    [chama Cal.com → busca slots dos próximos 7 dias]
+  ↓
+Agente:    "Tenho esses horários:
+            • Terça 14h
+            • Quarta 10h ou 16h
+            • Sexta 11h
+            Qual prefere?"
+  ↓
+Cliente:   "Quarta 10h"
+  ↓
+Agente:    [chama Cal.com → cria booking]
+  ↓
+Agente:    "Confirmado: quarta às 10h. Você vai receber o link da reunião
+            5 minutos antes. Posso ajudar com mais alguma coisa?"
+```
+
+## Customização
+
+Você define no setup:
+
+| Campo | O que faz |
+|---|---|
+| `eventTypeId` | Qual tipo de evento abrir. Se você tem múltiplos (consulta 30min, retorno 1h), use o que faz sentido pro fluxo padrão. |
+| `timeZone` | Fuso usado pra mostrar horários ao cliente. Default: `America/Sao_Paulo`. |
+| `bufferMinutes` | Espaço entre slots oferecidos (anti-overlap quando seu calendário não dá conta de back-to-back). |
+| `maxSlotsToShow` | Quantos slots oferecer por vez. Default 5. |
+
+## Múltiplos event types
+
+Se você quer que o agente escolha entre "Consulta 30min" e "Avaliação 1h" baseado no contexto, configure duas Actions com slugs diferentes (ex: `cal-com-short`, `cal-com-long`) ou trate via knowledge base do Brain ensinando quando usar cada uma.
+
+## Cancelamento e remarcação
+
+A Arara expõe via Action o cancel/reschedule do Cal.com:
+
+```
+Cliente:   "Preciso remarcar a de quarta"
+  ↓
+Agente:    [chama Cal.com → busca booking ativo do número]
+  ↓
+Agente:    "Vejo seu agendamento de quarta 10h. Quer remarcar pra quando?"
+```
+
+A vinculação número → booking é feita pelo email/telefone do cliente conhecido na conversa.
+
+## Limitações
+
+- **1 conta Cal.com**: por organização Arara. Time grande precisa fazer round-robin no Cal.com side (que ele já faz nativo).
+- **Sem Stripe Connect via Cal.com**: se o evento tem cobrança, o agente confirma o slot mas o pagamento sai por [Stripe Action](/brain/actions/stripe) separada.
+- **Calendários conectados ao Cal.com**: contagem de disponibilidade depende do que o Cal.com vê. Se sua agenda do Google não tá sincronizada lá, vai sobrescrever.
+
+<CardGroup cols={2}>
+  <Card title="Receita: Marcar consulta" icon="calendar-check" href="/recipes/inbox-support">
+    Fluxo completo de inbox + agenda.
+  </Card>
+  <Card title="Brain config" icon="sliders" href="/brain">
+    Ajustar prompt, tom e prerequisites.
+  </Card>
+</CardGroup>

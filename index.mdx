@@ -1,120 +1,516 @@
 ---
-title: "Bem-vindo à Documentação da Arara"
-mode: "custom"
+title: 'Documentação da Arara'
+description: 'A API de WhatsApp Business pra desenvolvedores brasileiros. Pricing em BRL, suporte BR, SDKs com paridade real, CLI nativa, MCP pra agentes IA.'
+keywords: ['whatsapp api', 'arara', 'cpaas', 'brasil', 'api oficial meta', 'business api']
+mode: 'custom'
 ---
 
-<div style={{ 
-    position: "relative",
-    textAlign: "center", 
-    padding: "80px 20px",
-    backgroundImage: "url('/images/arara-hero-bg-simple.png')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    borderBottom: "1px solid rgba(255,255,255,0.08)"
-}}
->
-  {" "}
-  <h1 style={{ fontSize: "40px", fontWeight: "600", marginBottom: "16px", color: "#fff" }}>
-      Bem-vindo à API da Arara
-  </h1>
+{/* ──────────────────────────  HERO  ────────────────────────── */}
 
- <p
+<div
   style={{
-    maxWidth: "800px",
-    margin: "0 auto",
-    opacity: 0.8,
-    fontSize: "18px",
-    fontWeight: "300",
+    position: 'relative',
+    overflow: 'hidden',
+    padding: '120px 24px 80px',
+    backgroundImage: `
+      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(28,153,167,0.32), transparent 70%),
+      linear-gradient(180deg, #0e1111 0%, #081212 100%)
+    `,
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
   }}
 >
-  Integre o WhatsApp em sua aplicação com a simplicidade que você sempre quis.
-  <br />
-  Infraestrutura robusta, escalável e segura para se comunicar em segundos.
-</p>
+  {/* Arara em vôo flutuando atrás do conteúdo (lado direito, sutil) */}
+  <img
+    src="/images/arara-flight.png"
+    alt=""
+    aria-hidden="true"
+    style={{
+      position: 'absolute',
+      right: '-80px',
+      top: '50%',
+      transform: 'translateY(-45%)',
+      width: 'min(620px, 55vw)',
+      opacity: 0.32,
+      pointerEvents: 'none',
+      filter: 'drop-shadow(0 20px 60px rgba(28,153,167,0.35))',
+    }}
+  />
+
+  {/* Noise/grain overlay */}
+  <div
+    style={{
+      position: 'absolute',
+      inset: 0,
+      opacity: 0.12,
+      mixBlendMode: 'overlay',
+      pointerEvents: 'none',
+      backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' seed='5'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>")`,
+    }}
+  />
+
+  <div style={{ maxWidth: '880px', margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+    <p style={{ fontSize: '14px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5fbcc7', marginBottom: '24px', fontWeight: 500 }}>
+      API de WhatsApp Business · Brasil
+    </p>
+    <h1 style={{ fontSize: 'clamp(40px, 6vw, 64px)', fontWeight: 600, lineHeight: 1.05, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
+      A API de WhatsApp que devs brasileiros queriam.
+    </h1>
+    <p style={{ marginTop: '24px', fontSize: '18px', lineHeight: 1.6, color: 'rgba(255,255,255,0.7)', maxWidth: '640px', marginLeft: 'auto', marginRight: 'auto' }}>
+      Resend pra WhatsApp. API oficial Meta. SDKs em Node, Python, PHP, Java. CLI nativa.
+      MCP com 84 ferramentas pra agentes IA. Pricing em BRL.
+    </p>
+    <div style={{ marginTop: '40px', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+      <a
+        href="/quickstart"
+        style={{
+          padding: '12px 24px',
+          background: '#1c99a7',
+          color: '#fff',
+          borderRadius: '8px',
+          fontWeight: 500,
+          fontSize: '15px',
+          textDecoration: 'none',
+          border: '1px solid #1c99a7',
+        }}
+      >
+        Comece em 5 minutos →
+      </a>
+      <a
+        href="/api-reference/introduction"
+        style={{
+          padding: '12px 24px',
+          background: 'rgba(255,255,255,0.04)',
+          color: '#fff',
+          borderRadius: '8px',
+          fontWeight: 500,
+          fontSize: '15px',
+          textDecoration: 'none',
+          border: '1px solid rgba(255,255,255,0.12)',
+        }}
+      >
+        Ver API Reference
+      </a>
+    </div>
+  </div>
 </div>
 
-<div style={{ 
-  padding: "60px 20px",
-  maxWidth: "1100px",
-  margin: "0 auto"
-}}>
-  <div style={{ 
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-    gap: "24px",
-    marginBottom: "32px"
-  }}>
-    <Card icon="rocket" title="Primeiros Passos" href="/quickstart">
-      Aprenda como fazer sua primeira chamada à API e começar a disparar mensagens.
-    </Card>
+{/* ──────────────────────────  SNIPPET TABS  ────────────────────────── */}
 
-    <Card icon="box" title="Templates" href="/business-rules/template-management">
-      Crie experiências ricas com botões de ação, variáveis e fluxos inteligentes.
-    </Card>
+<div style={{ maxWidth: '1100px', margin: '-40px auto 0', padding: '0 24px', position: 'relative' }}>
+  <div
+    style={{
+      background: '#0e1111',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '12px',
+      padding: '8px',
+      boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+    }}
+  >
 
-    <Card icon="key" title="Chaves de API" href="/api-reference/authentication">
-      Consulte como gerar e gerenciar suas credenciais com segurança. 
-    </Card>
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer ara_test_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5511999999999",
+    "templateName": "hello_world",
+    "templateVariables": ["seu_nome"]
+  }'
+```
 
-    <Card icon="bell" title="Webhooks" href="/api-reference/endpoint/webhook">
-      Receba notificações de eventos em tempo real para automação.
-    </Card>
+```typescript Node.js
+import { NodeSDK } from '@ararahq/sdk';
 
-    <Card icon="code" title="SDKs Oficiais" href="/sdks">
-      Explore as bibliotecas oficiais para Node.js, PHP, Python e Java.
-    </Card>
+const sdk = new NodeSDK({
+  apiKey: process.env.ARARA_API_KEY!,
+  baseUrl: 'https://api.ararahq.com/api',
+});
 
-    <Card icon="clock-rotate-left" title="Changelog" href="/changelog">
-      Veja as últimas alterações e melhorias na nossa plataforma.
-    </Card>
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'hello_world',
+  templateVariables: ['seu_nome'],
+});
+```
 
-    <Card icon="terminal" title="Endpoints API" href="/api-reference/endpoint/messages">
-      Documentação completa de todos os recursos da API.
-    </Card>
+```python Python
+from arara_api_sdk import AraraClient
+from arara_api_sdk.models.message import SendMessageRequest
 
-    <Card icon="diagram-project" title="Arquitetura" href="/architecture/overview">
-      Entenda como a Arara funciona por baixo do capô.
-    </Card>
+with AraraClient(api_key="ara_test_xxx") as client:
+    client.messages.send(SendMessageRequest(
+        receiver="whatsapp:+5511999999999",
+        template_name="hello_world",
+        template_variables=["seu_nome"],
+    ))
+```
 
-    <Card icon="robot" title="IA e Automação" href="/ai-agents">
-      Integre fluxos de inteligência artificial com o WhatsApp.
-    </Card>
+```php PHP
+use Arara\Arara;
+use Arara\Config;
+
+$sdk = new Arara(new Config(apiKey: 'ara_test_xxx'));
+
+$sdk->messages->send(
+    receiver: 'whatsapp:+5511999999999',
+    templateName: 'hello_world',
+    variables: ['seu_nome'],
+);
+```
+
+```java Java
+Arara arara = Arara.builder().apiKey("ara_test_xxx").build();
+
+arara.getMessages().send(SendMessageRequest.builder()
+    .receiver("whatsapp:+5511999999999")
+    .templateName("hello_world")
+    .templateVariables(List.of("seu_nome"))
+    .build());
+```
+</CodeGroup>
 
   </div>
 </div>
 
-<div style={{ 
-  padding: "60px 20px",
-  maxWidth: "1100px",
-  margin: "0 auto"
-}}>
-  <h2 style={{ 
-    fontSize: "28px", 
-    fontWeight: "600", 
-    marginBottom: "32px",
-    color: "#fff"
-  }}>
-    Suporte & Comunidade
+{/* ──────────────────────────  STATS BAR  ────────────────────────── */}
+
+<div style={{ maxWidth: '1100px', margin: '64px auto 0', padding: '0 24px' }}>
+  <div
+    style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+      gap: '24px',
+      padding: '32px',
+      background: 'rgba(28,153,167,0.04)',
+      border: '1px solid rgba(28,153,167,0.16)',
+      borderRadius: '12px',
+    }}
+  >
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>84+</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Ferramentas MCP</div>
+    </div>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>5</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>SDKs oficiais</div>
+    </div>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>100%</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Open source MIT</div>
+    </div>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>BSP</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Homologada Meta</div>
+    </div>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>R$</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Pricing em BRL</div>
+    </div>
+  </div>
+</div>
+
+{/* ──────────────────────────  INTEGRA EM TUDO  ────────────────────────── */}
+
+<div style={{ maxWidth: '1100px', margin: '80px auto 0', padding: '0 24px' }}>
+  <p style={{ fontSize: '13px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginBottom: '32px' }}>
+    Conecta no que você já usa
+  </p>
+  <div
+    style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '16px',
+      justifyContent: 'center',
+      alignItems: 'center',
+    }}
+  >
+    {[
+      'Shopify', 'WooCommerce', 'Next.js', 'Laravel',
+      'AbacatePay', 'Cal.com', 'Stripe', 'n8n',
+      'Claude', 'Cursor', 'Windsurf', 'ChatGPT',
+    ].map((name) => (
+      <div
+        key={name}
+        style={{
+          padding: '10px 18px',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '8px',
+          color: 'rgba(255,255,255,0.7)',
+          fontSize: '14px',
+          fontWeight: 500,
+        }}
+      >
+        {name}
+      </div>
+    ))}
+  </div>
+</div>
+
+{/* ──────────────────────────  O QUE DIFERENCIA  ────────────────────────── */}
+
+<div style={{ maxWidth: '1100px', margin: '100px auto 0', padding: '0 24px' }}>
+  <h2 style={{ fontSize: '28px', fontWeight: 600, color: '#fff', marginBottom: '32px' }}>
+    O que diferencia
   </h2>
 
-  <div style={{ 
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "24px"
-  }}>
-
-    <Card icon="headset" title="Suporte Técnico" href="mailto:suporte@ararahq.com">
-      Fale com nosso time de especialistas para ajuda na integração.
+  <CardGroup cols={2}>
+    <Card title="API oficial Meta, sem risco de banimento" icon="shield-check">
+      Operamos como BSP homologada pela Meta. Z-API e Baileys vão quebrar — você não. Ver [Migrar](/migrate/z-api).
     </Card>
-
-    <Card icon="linkedin" title="LinkedIn" href="https://linkedin.com/company/ararahq">
-      Acompanhe as novidades e tendências do mercado.
+    <Card title="Pricing em BRL transparente" icon="coins">
+      Sem dólar, sem câmbio surpresa. UTILITY a R$ 0,12, MARKETING a R$ 0,40. Ver [Pricing](/concepts/pricing).
     </Card>
-
-    <Card icon="github" title="GitHub" href="https://github.com/ararahq">
-      Contribua com nossos projetos e SDKs open source.
+    <Card title="SDKs com paridade real" icon="code">
+      Node, Python, PHP, Java. Snippets validados contra o código, não copy-cola de marketing.
     </Card>
+    <Card title="CLI single-binary em Go" icon="terminal">
+      `arara send`, `arara listen`, `arara api`. Brew, curl, npm. Ver [CLI](/cli).
+    </Card>
+    <Card title="MCP pra agentes IA" icon="server">
+      84 ferramentas via Model Context Protocol. Claude, Cursor, Windsurf, ChatGPT. Ver [MCP](/mcp).
+    </Card>
+    <Card title="Brain hospedado" icon="brain">
+      Agente IA que atende, executa Pix, agenda no Cal.com, lista produto Shopify. Ver [Brain](/brain).
+    </Card>
+  </CardGroup>
+</div>
+
+{/* ──────────────────────────  COMPARATIVO  ────────────────────────── */}
+
+<div style={{ maxWidth: '1100px', margin: '100px auto 0', padding: '0 24px' }}>
+  <h2 style={{ fontSize: '28px', fontWeight: 600, color: '#fff', marginBottom: '12px' }}>
+    Por que sair do Twilio (ou do Z-API)
+  </h2>
+  <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: '32px' }}>
+    Custo cai 30-50%, fatura em BRL, suporte em PT-BR, ferramentas que o Twilio não tem.
+  </p>
+
+  <div
+    style={{
+      overflow: 'hidden',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '12px',
+      background: 'rgba(255,255,255,0.02)',
+    }}
+  >
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+      <thead>
+        <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+          <th style={{ padding: '16px', textAlign: 'left', color: 'rgba(255,255,255,0.6)', fontWeight: 500, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}></th>
+          <th style={{ padding: '16px', textAlign: 'left', color: 'rgba(255,255,255,0.6)', fontWeight: 500, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Twilio</th>
+          <th style={{ padding: '16px', textAlign: 'left', color: 'rgba(255,255,255,0.6)', fontWeight: 500, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Z-API / Baileys</th>
+          <th style={{ padding: '16px', textAlign: 'left', color: '#5fbcc7', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Arara</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>Pricing</td>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.5)' }}>USD + markup ~50%</td>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.5)' }}>"Grátis" + ban</td>
+          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>BRL transparente</td>
+        </tr>
+        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>BSP oficial Meta</td>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.5)' }}>Sim</td>
+          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
+          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>Sim</td>
+        </tr>
+        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>Suporte</td>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.5)' }}>Inglês, fuso US</td>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.5)' }}>Você é o suporte</td>
+          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>PT-BR, fuso BR</td>
+        </tr>
+        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>MCP pra agentes IA</td>
+          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
+          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
+          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>84 tools nativas</td>
+        </tr>
+        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>Brain (AI) nativo</td>
+          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
+          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
+          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>Sim, R$ 250/mês add-on</td>
+        </tr>
+        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>Recovery PIX automático</td>
+          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
+          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
+          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>AbacatePay integrado</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style={{ marginTop: '16px', textAlign: 'center' }}>
+    <a href="/migrate/twilio" style={{ color: '#5fbcc7', fontSize: '14px', textDecoration: 'none', borderBottom: '1px solid rgba(95,188,199,0.3)' }}>
+      Ver roteiro completo de migração →
+    </a>
   </div>
 </div>
 
+{/* ──────────────────────────  O QUE VOCÊ PODE FAZER  ────────────────────────── */}
+
+<div style={{ maxWidth: '1100px', margin: '100px auto 0', padding: '0 24px' }}>
+  <h2 style={{ fontSize: '28px', fontWeight: 600, color: '#fff', marginBottom: '32px' }}>
+    O que você pode fazer
+  </h2>
+
+  <CardGroup cols={3}>
+    <Card title="Enviar mensagem" icon="paper-plane" href="/api-reference/endpoint/v2/messages">
+      Template HSM ou texto livre na janela 24h. Lote de até 1000 numa chamada.
+    </Card>
+    <Card title="Criar templates" icon="file-lines" href="/api-reference/endpoint/v2/templates">
+      Submeta pra aprovação Meta. UTILITY, MARKETING, AUTHENTICATION. Mídia, botões, carrossel.
+    </Card>
+    <Card title="Disparar campanhas" icon="bullhorn" href="/api-reference/endpoint/v2/campaigns">
+      Broadcast segmentado com A/B test nativo, estimativa de custo e tracking.
+    </Card>
+    <Card title="Receber webhooks" icon="bell" href="/webhooks">
+      Eventos em tempo real com HMAC, retry exponencial e dedupe.
+    </Card>
+    <Card title="Smart Links" icon="link" href="/smart-links">
+      URLs curtas com atribuição first-party. Sobrevive a ITP e Brave Shield.
+    </Card>
+    <Card title="Recuperação automática" icon="rotate-right" href="/recovery">
+      AbacatePay leak detection, reabordagem inteligente, +R$ 40-90K/mês recuperados em e-commerce médio.
+    </Card>
+  </CardGroup>
+</div>
+
+{/* ──────────────────────────  PRIMEIROS PASSOS  ────────────────────────── */}
+
+<div style={{ maxWidth: '1100px', margin: '100px auto 0', padding: '0 24px' }}>
+  <h2 style={{ fontSize: '28px', fontWeight: 600, color: '#fff', marginBottom: '32px' }}>
+    Primeiros passos
+  </h2>
+
+  <CardGroup cols={3}>
+    <Card title="Quickstart" icon="rocket" href="/quickstart">
+      Do zero ao primeiro envio em 5 minutos. Modo TEST gratuito.
+    </Card>
+    <Card title="Conceitos WhatsApp" icon="lightbulb" href="/concepts/whatsapp">
+      Janela 24h, templates HSM, qualidade do número, pricing.
+    </Card>
+    <Card title="Autenticação" icon="key" href="/api-reference/authentication">
+      API key Bearer ou Firebase JWT. Modo LIVE vs TEST.
+    </Card>
+    <Card title="Receitas práticas" icon="book-open" href="/recipes">
+      Carrinho abandonado, OTP, Black Friday, suporte 24/7.
+    </Card>
+    <Card title="Migrar do Twilio" icon="arrow-right-arrow-left" href="/migrate/twilio">
+      Roteiro completo. Mantém número, mantém templates, custo cai 30-50%.
+    </Card>
+    <Card title="Compliance LGPD" icon="scale-balanced" href="/concepts/compliance">
+      Opt-in, opt-out, ANATEL, Meta policy. Sem multa, sem ban.
+    </Card>
+  </CardGroup>
+</div>
+
+{/* ──────────────────────────  FERRAMENTAS  ────────────────────────── */}
+
+<div style={{ maxWidth: '1100px', margin: '100px auto 0', padding: '0 24px' }}>
+  <h2 style={{ fontSize: '28px', fontWeight: 600, color: '#fff', marginBottom: '32px' }}>
+    Ferramentas
+  </h2>
+
+  <CardGroup cols={4}>
+    <Card title="Dashboard" icon="gauge" href="https://ararahq.com/dashboard">
+      GUI pra templates, métricas, números.
+    </Card>
+    <Card title="CLI" icon="terminal" href="/cli">
+      Ops day-2 do terminal.
+    </Card>
+    <Card title="MCP" icon="robot" href="/mcp">
+      84 tools pra agentes IA.
+    </Card>
+    <Card title="Postman" icon="rectangle-terminal" href="https://github.com/ararahq/arara-postman">
+      Collection oficial.
+    </Card>
+  </CardGroup>
+</div>
+
+{/* ──────────────────────────  FOOTER  ────────────────────────── */}
+
+<div
+  style={{
+    marginTop: '120px',
+    borderTop: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.02)',
+  }}
+>
+  <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '64px 24px 32px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '48px', marginBottom: '48px' }}>
+
+      <div>
+        <h4 style={{ fontSize: '13px', color: '#fff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>Produto</h4>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <li><a href="/quickstart" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Quickstart</a></li>
+          <li><a href="/api-reference/introduction" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>API Reference</a></li>
+          <li><a href="/sdks" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>SDKs</a></li>
+          <li><a href="/cli" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>CLI</a></li>
+          <li><a href="/mcp" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>MCP Server</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 style={{ fontSize: '13px', color: '#fff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>Conceitos</h4>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <li><a href="/concepts/whatsapp" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Como funciona</a></li>
+          <li><a href="/concepts/templates" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Templates HSM</a></li>
+          <li><a href="/concepts/24h-window" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Janela de 24h</a></li>
+          <li><a href="/concepts/pricing" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Pricing</a></li>
+          <li><a href="/concepts/compliance" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>LGPD</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 style={{ fontSize: '13px', color: '#fff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>Recursos</h4>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <li><a href="/recipes" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Receitas</a></li>
+          <li><a href="/migrate/twilio" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Migrar do Twilio</a></li>
+          <li><a href="/brain" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Brain (AI)</a></li>
+          <li><a href="/changelog" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Changelog</a></li>
+          <li><a href="/roadmap" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Roadmap</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 style={{ fontSize: '13px', color: '#fff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>Empresa</h4>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <li><a href="https://ararahq.com" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Site</a></li>
+          <li><a href="https://ararahq.com/dashboard" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Dashboard</a></li>
+          <li><a href="https://github.com/ararahq" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>GitHub</a></li>
+          <li><a href="https://linkedin.com/company/ararahq" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>LinkedIn</a></li>
+          <li><a href="mailto:suporte@ararahq.com" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Suporte</a></li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '16px',
+        paddingTop: '32px',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+        <a href="/status" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'rgba(255,255,255,0.6)', fontSize: '13px', textDecoration: 'none' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 8px rgba(22,163,74,0.6)' }} />
+          Todos os sistemas operacionais
+        </a>
+      </div>
+      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', margin: 0 }}>
+        © 2026 Arara — API de WhatsApp Business · CNPJ a preencher
+      </p>
+    </div>
+  </div>
+</div>

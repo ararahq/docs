@@ -1,122 +1,225 @@
 ---
 title: 'Quickstart'
-description: 'Envie sua primeira mensagem via WhatsApp em 3 passos.'
+description: 'Do zero ao primeiro envio em 5 minutos. cURL, Node, Python, PHP e Java lado a lado, validados contra a API real. Inclui modo TEST gratuito antes de ir pra produção.'
+keywords: ['quickstart', 'primeira mensagem', 'getting started', 'hello world', 'whatsapp']
 ---
 
-Integre a Arara e envie sua primeira mensagem em menos de 2 minutos.
+Você vai mandar sua primeira mensagem WhatsApp em **5 minutos**. Use o modo **TEST** primeiro (gratuito, sem cobrança, sem aprovação Meta) e depois passa pra produção.
 
-## 1. Obtenha sua API Key
+<Note>
+  Pra entender **antes** os conceitos por trás (janela 24h, templates HSM, pricing): leia [Como funciona a WhatsApp Business API](/concepts/whatsapp). 10 minutos que economizam dias.
+</Note>
 
-Acesse o [Dashboard](https://www.ararahq.com/dashboard) e copie sua chave de API. Ela tem o formato:
+## 1. Crie sua conta e pegue a API key (1 min)
 
-```
-ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Acesse o [Dashboard](https://ararahq.com/dashboard) e crie conta com Google ou email. No primeiro login a Arara gera:
+
+- 1 chave `ara_test_*` (modo TEST — gratuita, ilimitada, simula envios)
+- 1 chave `ara_live_*` (modo LIVE — produção, consome créditos)
+
+A chave **completa só aparece uma vez**. Copie e guarde em variável de ambiente:
+
+```bash
+export ARARA_API_KEY=ara_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 <Warning>
-  A chave e exibida apenas uma vez no primeiro login. Guarde-a em um local seguro.
+  Nunca commite a key. Nunca exponha no frontend. Use env var, Vercel/Netlify secrets, AWS Secrets Manager.
 </Warning>
 
-## 2. Envie sua primeira mensagem
+## 2. Mande a primeira mensagem (3 min)
+
+Em modo TEST, **qualquer número é válido** — a Arara simula o envio. Use seu próprio número pra ver na prática:
 
 <CodeGroup>
-
 ```bash cURL
-curl -X POST https://new-api.ararahq.com/api/v2/messages \
-  -H "Authorization: Bearer ara_live_xxx" \
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "to": "5511999999999",
-    "channel": "whatsapp",
-    "template": "hello_world_v2"
+    "receiver": "whatsapp:+5511999999999",
+    "templateName": "hello_world",
+    "templateVariables": ["seu_nome"]
   }'
 ```
 
-```javascript Node.js
-const response = await fetch("https://new-api.ararahq.com/api/v2/messages", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer ara_live_xxx",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    to: "5511999999999",
-    channel: "whatsapp",
-    template: "hello_world_v2",
-  }),
+```typescript Node.js
+// npm install @ararahq/sdk
+import { NodeSDK } from '@ararahq/sdk';
+
+const sdk = new NodeSDK({
+  apiKey: process.env.ARARA_API_KEY!,
+  baseUrl: 'https://api.ararahq.com/api',
 });
 
-const data = await response.json();
-console.log(data);
+const response = await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'hello_world',
+  templateVariables: ['seu_nome'],
+});
+
+console.log(response.id, response.status);
 ```
 
 ```python Python
-import requests
+# pip install ararahq-sdk
+import os
+from arara_api_sdk import AraraClient
+from arara_api_sdk.models.message import SendMessageRequest
 
-response = requests.post(
-    "https://new-api.ararahq.com/api/v2/messages",
-    headers={
-        "Authorization": "Bearer ara_live_xxx",
-        "Content-Type": "application/json",
-    },
-    json={
-        "to": "5511999999999",
-        "channel": "whatsapp",
-        "template": "hello_world_v2",
-    },
-)
+with AraraClient(api_key=os.environ["ARARA_API_KEY"]) as client:
+    response = client.messages.send(SendMessageRequest(
+        receiver="whatsapp:+5511999999999",
+        template_name="hello_world",
+        template_variables=["seu_nome"],
+    ))
 
-print(response.json())
+print(response.id, response.status)
 ```
 
+```php PHP
+// composer require ararahq/sdk
+use Arara\Arara;
+use Arara\Config;
+
+$sdk = new Arara(new Config(apiKey: getenv('ARARA_API_KEY')));
+
+$response = $sdk->messages->send(
+    receiver: 'whatsapp:+5511999999999',
+    templateName: 'hello_world',
+    variables: ['seu_nome'],
+);
+
+echo "{$response->id} {$response->status}";
+```
+
+```java Java
+// implementation("com.ararahq:arara-java-sdk:1.8.0")
+import com.ararahq.arara.sdk.Arara;
+import com.ararahq.arara.sdk.models.SendMessageRequest;
+import java.util.List;
+
+Arara arara = Arara.builder()
+    .apiKey(System.getenv("ARARA_API_KEY"))
+    .build();
+
+var response = arara.getMessages().send(
+    SendMessageRequest.builder()
+        .receiver("whatsapp:+5511999999999")
+        .templateName("hello_world")
+        .templateVariables(List.of("seu_nome"))
+        .build()
+);
+
+System.out.println(response.getId() + " " + response.getStatus());
+```
+
+```go Go
+// go install (SDK Go em breve — usando net/http direto)
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "os"
+)
+
+func main() {
+    body, _ := json.Marshal(map[string]any{
+        "receiver":          "whatsapp:+5511999999999",
+        "templateName":      "hello_world",
+        "templateVariables": []string{"seu_nome"},
+    })
+    req, _ := http.NewRequest("POST",
+        "https://api.ararahq.com/api/v1/messages",
+        bytes.NewReader(body))
+    req.Header.Set("Authorization", "Bearer "+os.Getenv("ARARA_API_KEY"))
+    req.Header.Set("Content-Type", "application/json")
+    resp, _ := http.DefaultClient.Do(req)
+    defer resp.Body.Close()
+    fmt.Println(resp.Status)
+}
+```
 </CodeGroup>
 
-## 3. Verifique a resposta
-
-Se tudo deu certo, voce recebe `202 Accepted`:
+Response esperada (`202 Accepted`):
 
 ```json
 {
   "id": "ara_msg_k9Bf2XqP",
-  "to": "5511999999999",
-  "channel": "whatsapp",
-  "template": "hello_world_v2",
-  "status": "QUEUED",
-  "createdAt": "2026-04-04T14:30:00Z"
+  "status": "queued",
+  "mode": "TEST",
+  "sender": "whatsapp:+551144440000",
+  "receiver": "whatsapp:+5511999999999"
 }
 ```
 
-O campo `status` comeca como `QUEUED` e evolui para `SENT`, `DELIVERED` ou `READ` conforme o WhatsApp processa. Use o `id` para consultar o status a qualquer momento:
+`status` começa em `queued`, vai pra `sent`, `delivered` (e `read` quando cliente abre).
+
+## 3. Consultar status (1 min)
 
 ```bash
-curl https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP \
-  -H "Authorization: Bearer ara_live_xxx"
+curl https://api.ararahq.com/api/v1/messages/ara_msg_k9Bf2XqP \
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
-<Accordion title="Migrando da V1?">
-  A V1 continua funcionando em `https://api.ararahq.com/api/v1`. As principais mudancas na V2:
+```json
+{
+  "id": "ara_msg_k9Bf2XqP",
+  "status": "delivered",
+  "mode": "TEST",
+  "sender": "whatsapp:+551144440000",
+  "receiver": "whatsapp:+5511999999999"
+}
+```
 
-  - O campo `receiver` agora e `to` (sem o prefixo `whatsapp:+`)
-  - O campo `templateName` agora e `template`
-  - Novo campo obrigatorio `channel` (`whatsapp` ou `email`)
-  - Base URL: `https://new-api.ararahq.com/api`
+Em produção (`ara_live_*`), prefira receber via [webhook](/webhooks) em vez de polling.
 
-  Consulte a [referencia da API V1](/api-reference/endpoint/messages) para a documentacao legada.
-</Accordion>
-
-## Proximos passos
+## E agora?
 
 <CardGroup cols={2}>
-  <Card title="Referencia da API" icon="book" href="/api-reference/introduction">
-    Base URL, autenticacao, paginacao e erros.
+  <Card title="Como funciona a API" icon="lightbulb" href="/concepts/whatsapp">
+    Janela 24h, templates HSM, qualidade do número.
   </Card>
-  <Card title="Mensagens" icon="paper-plane" href="/api-reference/endpoint/v2/messages">
-    Todos os parametros de envio e consulta.
+  <Card title="Primeiro template real" icon="file-lines" href="/concepts/templates">
+    `hello_world` é nosso template demo. Cria os seus.
   </Card>
-  <Card title="Templates" icon="bezier-curve" href="/api-reference/endpoint/v2/templates">
-    Crie e gerencie templates via API.
+  <Card title="Receber webhooks" icon="bell" href="/webhooks">
+    Status, inbound, retry com HMAC.
   </Card>
-  <Card title="Campanhas" icon="bolt" href="/api-reference/endpoint/v2/campaigns">
-    Disparos em massa para 100k+ contatos.
+  <Card title="Receitas práticas" icon="book-open" href="/recipes">
+    Carrinho abandonado, OTP, BF, suporte 24/7.
   </Card>
 </CardGroup>
+
+## Modo TEST → modo LIVE
+
+Antes de ir pra produção:
+
+<Steps>
+  <Step title="Crie template real">
+    `hello_world` é só pra teste. Crie seus templates em [Templates HSM](/concepts/templates). Aprovação Meta: 1-72h.
+  </Step>
+  <Step title="Configure webhook">
+    Receba status (`sent`, `delivered`, `read`, `failed`) em tempo real. Ver [Webhooks](/webhooks).
+  </Step>
+  <Step title="Troca pra chave LIVE">
+    Substitua `ara_test_*` por `ara_live_*` na env var. Tudo igual no código.
+  </Step>
+  <Step title="Liga auto-recarga">
+    Saldo de créditos zerado interrompe envios. Ver [Pricing](/concepts/pricing) e [auto-recharge](/recovery).
+  </Step>
+</Steps>
+
+## Erros comuns
+
+| Sintoma | Causa provável | Fix |
+|---|---|---|
+| `401 INVALID_API_KEY` | Chave errada ou modo trocado (test vs live) | Cheque `ARARA_API_KEY` |
+| `404 TEMPLATE_NOT_FOUND` | Template não existe ou não aprovado | Use `hello_world` em test, ou crie um seu |
+| `422 OUTSIDE_SESSION_WINDOW` | Tentou texto livre sem cliente ter respondido em 24h | Use template HSM. Ver [Janela 24h](/concepts/24h-window) |
+| `402 INSUFFICIENT_CREDITS` | Modo LIVE sem saldo | Recarrega via dashboard ou [auto-recharge](/recovery) |
+
+Lista canônica em [Erros](/erros).

@@ -1,0 +1,144 @@
+---
+title: 'Política de templates'
+description: 'Templates aprovados pela Meta seguem regras estritas — sobre conteúdo, formato e categoria. Esta página lista as regras, o que NÃO usar, e o lint local que a Arara roda automaticamente antes de submeter pra Meta.'
+---
+
+Template do WhatsApp Business é um contrato. A Meta aprova **uma vez**, você dispara **N vezes** sem checagem por mensagem — em troca, você concorda em não usar pra spam, fraude ou comunicação fora do escopo aprovado.
+
+Esta página é o **guia prático** de o que vai aprovar de primeira, o que vai cair, e como evitar retrabalho.
+
+## As 3 categorias e quando usar cada
+
+<CardGroup cols={3}>
+  <Card title="UTILITY" icon="bell">
+    Notificação sobre algo que **o cliente esperava**: pedido confirmado, código entregue, lembrete de consulta, OTP, status de pagamento.
+    
+    **Custo: ~R$ 0,12/msg**
+  </Card>
+  <Card title="MARKETING" icon="megaphone">
+    Promoção, oferta, lançamento, recuperação de carrinho. Cliente precisou ter consentido em receber marketing especificamente.
+    
+    **Custo: ~R$ 0,40/msg**
+  </Card>
+  <Card title="AUTHENTICATION" icon="key">
+    Apenas códigos de verificação (OTP/2FA). Formato restrito: precisa ter botão "Copiar código". Sem texto adicional.
+    
+    **Custo: ~R$ 0,12/msg**
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Marketing disfarçado de UTILITY é o motivo nº 1 de banimento.** Meta classifica retroativamente. Você manda "Sua oferta especial está esperando!" como UTILITY → Meta detecta → multa, reclassifica e tier do número cai.
+</Warning>
+
+## O que NÃO usar no corpo do template
+
+| Padrão | Por que rejeita |
+|---|---|
+| ALL CAPS em mais de 30% do texto | Spam-like |
+| Mais de 1 emoji por linha | Spam-like |
+| URLs encurtadas (bit.ly, tinyurl) | Phishing-like |
+| Promessa de retorno garantido / "100% certeza" | Fraude |
+| Termos de saúde sensíveis ("cura", "milagre", "remédio milagroso") | Compliance |
+| Sorteios/loteria sem licença | Compliance |
+| Cobrança ameaçadora ("vai pro SPC", "ação judicial") | Conduta abusiva |
+| Pedido de senha, CPF, cartão | Fraude/phishing |
+| "URGENTE", "ÚLTIMA CHANCE", "AGORA" em maiúsculas | Spam-like |
+| Mais de 3 variáveis numéricas seguidas | Difícil de revisar |
+
+## Variáveis — o que pode
+
+Cada `{{n}}` é uma variável posicional substituída em tempo de envio. Regras:
+
+- **Apenas variáveis no início ou no fim** geram alerta de "spam likelihood". Distribua no meio também.
+- **Nunca** uma variável adjacente a outra: `{{1}} {{2}}` em sequência é rejeição quase certa.
+- **Tamanho mínimo de texto fixo** entre variáveis: 2-3 palavras.
+- **Variáveis com valores muito curtos** (1-2 caracteres) viram suspeitos. Se você passa `"X"`, o template parece spam.
+
+Exemplo ruim:
+
+```
+{{1}} {{2}} {{3}}
+```
+
+Exemplo bom:
+
+```
+Olá {{1}}, seu pedido {{2}} foi confirmado. Previsão de entrega: {{3}}.
+```
+
+## Header de mídia
+
+Você pode adicionar imagem/vídeo/PDF como header. Regras:
+
+- Imagem: PNG/JPEG, max 5 MB, ratio 1.91:1 ou 1:1
+- Vídeo: MP4 H.264, max 16 MB, max 16s
+- PDF: max 100 MB, max 100 páginas
+
+A mídia vai como **primeiro elemento** do array `templateVariables` no envio (a URL pública), não como campo separado. Ver [Mensagens](/api-reference/endpoint/v2/messages).
+
+## Botões
+
+Templates podem ter até 3 botões:
+
+| Tipo | Descrição |
+|---|---|
+| `QUICK_REPLY` | Resposta rápida pré-definida. Cliente clica e a mensagem volta como texto. Ótimo pra triagem. |
+| `URL` | Abre URL externa. Pode incluir variável (`https://meusite.com/{{1}}`). |
+| `PHONE_NUMBER` | Liga pra número fixo (não pode ser variável). |
+| `SMART_LINK` | Variante Arara: URL curta com tracking first-party. Ver [Smart Links](/smart-links). |
+| `COPY_CODE` | Copia código pra clipboard. Obrigatório em templates AUTHENTICATION. |
+
+## Categoria errada — o que acontece
+
+Você submete como UTILITY um template que a Meta classifica como MARKETING:
+
+1. Aprovação inicial passa (Meta não pega de cara)
+2. Após 50-200 envios, sistema Meta detecta padrão promocional
+3. Template **reclassificado retroativamente** pra MARKETING
+4. Cobrança recalculada na sua próxima fatura (mais caro)
+5. Quality score do número leva impacto pesado
+
+Pra evitar: **na dúvida, escolha MARKETING**. Custo maior, mas sem surpresa.
+
+## Templates pausados
+
+Mesmo aprovados, templates podem ser **pausados** se:
+
+- Taxa de bloqueio > 2% nos últimos 7 dias
+- Reclamação direta no WhatsApp
+- Mudança de política Meta
+
+```bash
+curl https://api.ararahq.com/api/v1/templates?status=PAUSED \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Pra reativar, você precisa modificar o corpo e ressubmeter. Cópia exata vai dar pause de novo.
+
+## Idiomas
+
+Cada template é amarrado a **um par categoria + idioma**. Pra disparar pro mesmo cliente em PT e EN, crie dois templates separados.
+
+Idiomas suportados pela Meta para BR: `pt_BR`, `en_US`, `es_ES`.
+
+## Tempo de aprovação
+
+| Categoria | Tempo médio |
+|---|---|
+| UTILITY | 1-4h |
+| AUTHENTICATION | 1-2h |
+| MARKETING | 12-72h |
+
+Sextas-feiras à noite e feriados a Meta atrasa. Não submeta template crítico na véspera de campanha.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="API: Templates" icon="file-lines" href="/api-reference/endpoint/v2/templates">
+    Endpoints completos de CRUD.
+  </Card>
+  <Card title="Marketing no WhatsApp" icon="bullhorn" href="/marketing">
+    Como usar templates em campanha.
+  </Card>
+</CardGroup>

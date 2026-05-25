@@ -1,71 +1,74 @@
 ---
 title: 'API Keys'
-description: 'Crie, liste e revogue chaves de API programaticamente.'
+description: 'Crie, liste, rotacione e revogue chaves de API programaticamente. Auditoria de uso, IP allowlist (Business+), modos LIVE e TEST.'
+keywords: ['api keys', 'chaves', 'auth', 'rotate', 'revoke', 'audit', 'ip allowlist']
 ---
 
-Gerencie as chaves que suas aplicacoes usam para autenticar na API.
+Gerencie as chaves que suas aplicações usam pra autenticar na API.
 
-**Base URL:** `https://new-api.ararahq.com/api/v2`
+**Base URL:** `https://api.ararahq.com/api`
 
 <Warning>
-  Toda chave e exibida **uma unica vez**, no momento da criacao. A Arara nao armazena o valor completo — se voce perder, cria uma nova e revoga a antiga.
+  A chave plain text é exibida **uma única vez**, no momento da criação (campo `plainTextKey`). A Arara não armazena o valor completo — se perder, crie uma nova e revogue a antiga.
 </Warning>
-
----
 
 ## Criar uma API key
 
-`POST /v2/api-keys`
+`POST /v1/api-keys`
 
 ```bash
-curl -X POST https://new-api.ararahq.com/api/v2/api-keys \
+curl -X POST "https://api.ararahq.com/api/v1/api-keys?mode=LIVE" \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
-  -d '{ "mode": "LIVE" }'
+  -d '{
+    "name": "backend-produção",
+    "scope": "ADMIN"
+  }'
 ```
 
-### Parametros
+<Note>
+  `mode` vai como **query param**, não no body. Aceita `LIVE` (default) ou `TEST`.
+</Note>
 
-| Campo | Tipo | Obrigatorio | Descricao |
-|-------|------|-------------|-----------|
-| `mode` | string | nao | `LIVE` (producao) ou `TEST` (sandbox). Default `LIVE`. |
+### Body
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `name` | string | sim | Nome humano (ex: "Site WordPress"). Vazio é rejeitado. |
+| `scope` | string | não | `ADMIN` (default), ou outros escopos da sua org. |
+| `expiresAt` | string (ISO 8601) | não | Data de expiração. Omitir = nunca expira. |
+| `ipAllowlist` | string | não | IPs autorizados (string CSV). **Requer plano Business+**. |
+
+### Query params
+
+| Param | Tipo | Default | Descrição |
+|---|---|---|---|
+| `mode` | string | `LIVE` | `LIVE` ou `TEST` |
 
 Resposta (`201 Created`):
 
 ```json
 {
-  "id": "7f8a1c2d-4e5f-6789-abcd-ef0123456789",
-  "key": "ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-  "mode": "LIVE",
-  "createdAt": "2026-04-13T18:30:00Z"
+  "plainTextKey": "ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }
 ```
 
-| Campo | Descricao |
-|-------|-----------|
-| `id` | UUID da chave. Use pra revogar depois. |
-| `key` | **Valor completo.** Aparece apenas aqui. Copie e guarde com seguranca. |
-| `mode` | `LIVE` ou `TEST`. |
-| `createdAt` | Data de criacao. |
+A response é **minimal por design** — só o valor plain text da chave nova. Pra metadados (id, prefix, criado em, etc), faça `GET /v1/api-keys` depois.
 
----
+<Warning>
+  Conta ainda em onboarding (`accountStatus: TESTING`) não pode criar chave **LIVE** — retorna `ACCOUNT_NOT_ACTIVATED`. Pode criar TEST.
+</Warning>
 
 ## Listar chaves ativas
 
-`GET /v2/api-keys`
+`GET /v1/api-keys`
 
-Retorna um array simples com todas as chaves ativas (nao revogadas) da organizacao.
+Retorna **array direto** com todas as chaves ativas (não-revogadas) do user autenticado.
 
 ```bash
-curl "https://new-api.ararahq.com/api/v2/api-keys?mode=LIVE" \
+curl https://api.ararahq.com/api/v1/api-keys \
   -H "Authorization: Bearer ara_live_xxx"
 ```
-
-### Query params
-
-| Param | Tipo | Descricao |
-|-------|------|-----------|
-| `mode` | string | Opcional. Filtra por `LIVE` ou `TEST`. Omitir retorna ambos. |
 
 Resposta (`200 OK`):
 
@@ -73,55 +76,183 @@ Resposta (`200 OK`):
 [
   {
     "id": "7f8a1c2d-4e5f-6789-abcd-ef0123456789",
+    "name": "backend-produção",
+    "prefix": "ara_live",
     "lastFour": "a3f9",
     "mode": "LIVE",
-    "lastUsedAt": "2026-04-13T18:25:00Z",
-    "createdAt": "2026-03-01T10:00:00Z"
-  },
-  {
-    "id": "8a2b3c4d-5e6f-7890-abcd-ef1234567890",
-    "lastFour": "b7e2",
-    "mode": "TEST",
-    "lastUsedAt": null,
-    "createdAt": "2026-03-15T12:00:00Z"
+    "scope": "ADMIN",
+    "createdAt": "2026-03-01T10:00:00Z",
+    "lastUsedAt": "2026-05-18T14:25:00Z",
+    "expiresAt": null,
+    "expired": false,
+    "ipAllowlist": null,
+    "rotatedFromId": null
   }
 ]
 ```
 
 ### Campos
 
-| Campo | Tipo | Descricao |
-|-------|------|-----------|
-| `id` | UUID | Identificador da chave. |
-| `lastFour` | string | Ultimos 4 caracteres da chave (para identificar sem expor o valor). |
-| `mode` | string | `LIVE` ou `TEST`. |
-| `lastUsedAt` | string \| null | Quando foi usada pela ultima vez. `null` se nunca foi usada. |
-| `createdAt` | string | Data de criacao. |
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | UUID | Identificador interno da chave |
+| `name` | string | Nome humano (`"Sem nome"` se não definido) |
+| `prefix` | string | Prefixo (`ara_live` ou `ara_test`) |
+| `lastFour` | string | Últimos 4 caracteres da chave (não-secreto) |
+| `mode` | string | `LIVE` ou `TEST` |
+| `scope` | string | Escopo de permissões |
+| `createdAt` | ISO 8601 | Quando foi criada |
+| `lastUsedAt` | ISO 8601 \| null | Último uso. `null` se nunca usada |
+| `expiresAt` | ISO 8601 \| null | Quando expira. `null` se sem expiração |
+| `expired` | boolean | `true` se `expiresAt` já passou |
+| `ipAllowlist` | string \| null | IPs autorizados, se configurado |
+| `rotatedFromId` | UUID \| null | ID da chave original se foi rotacionada |
 
----
+## Atualizar chave
 
-## Revogar uma chave
-
-`DELETE /v2/api-keys/{id}`
+`PATCH /v1/api-keys/{id}`
 
 ```bash
-curl -X DELETE https://new-api.ararahq.com/api/v2/api-keys/7f8a1c2d-4e5f-6789-abcd-ef0123456789 \
+curl -X PATCH https://api.ararahq.com/api/v1/api-keys/7f8a1c2d-4e5f-6789-abcd-ef0123456789 \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "name": "novo-nome",
+    "ipAllowlist": "52.10.0.0/16"
+  }'
+```
+
+Body aceita os mesmos campos do POST, mais:
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `clearExpiration` | boolean | `true` remove `expiresAt` |
+| `clearIpAllowlist` | boolean | `true` remove `ipAllowlist` |
+
+Resposta: **`204 No Content`** sem body.
+
+## Rotacionar chave
+
+`POST /v1/api-keys/{id}/rotate`
+
+Cria chave nova com mesmas permissões e marca a anterior pra expirar em 24h.
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/api-keys/{id}/rotate \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Resposta (`204 No Content`) — sem body.
+Resposta (`200 OK`) traz a nova chave (campo `plainTextKey`) e o ID da chave que foi rotacionada.
 
-<Warning>
-  Revogacao e **imediata e irreversivel**. Qualquer requisicao usando essa chave passa a retornar `401 Unauthorized` instantaneamente.
-</Warning>
+Útil pra rotação periódica (PCI, SOC2) ou quando suspeita de vazamento.
 
----
+## Revogar chave
+
+`DELETE /v1/api-keys/{id}`
+
+```bash
+curl -X DELETE https://api.ararahq.com/api/v1/api-keys/7f8a1c2d-4e5f-6789-abcd-ef0123456789 \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Resposta: **`204 No Content`** sem body.
+
+Próxima requisição com a chave revogada retorna `401`.
+
+## Estatísticas de uso
+
+`GET /v1/api-keys/{id}/stats`
+
+```bash
+curl https://api.ararahq.com/api/v1/api-keys/{id}/stats \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Resposta:
+
+```json
+{
+  "totalLast7d": 1240,
+  "totalLast30d": 5840,
+  "successLast30d": 5712,
+  "successRateLast30d": 0.978
+}
+```
+
+| Campo | Descrição |
+|---|---|
+| `totalLast7d` | Total de requests nos últimos 7 dias |
+| `totalLast30d` | Total de requests nos últimos 30 dias |
+| `successLast30d` | Quantos retornaram 2xx |
+| `successRateLast30d` | Taxa de sucesso (0..1) ou `null` se zero requests |
+
+## Histórico de eventos
+
+`GET /v1/api-keys/{id}/events`
+
+Retorna eventos de auditoria da chave (criação, rotação, revogação, mudança de IP allowlist).
+
+```bash
+curl https://api.ararahq.com/api/v1/api-keys/{id}/events \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Resposta:
+
+```json
+[
+  {
+    "id": "abc...",
+    "type": "CREATED",
+    "actorUserId": "user-uuid",
+    "metadata": "{\"name\":\"backend-produção\"}",
+    "createdAt": "2026-03-01T10:00:00Z"
+  }
+]
+```
+
+`metadata` vem como **string JSON** (você dá `JSON.parse` no cliente).
+
+## IP allowlist (Business+)
+
+Plano Business+ permite restringir IPs autorizados pra cada chave. Aceita IP único ou CIDR:
+
+```bash
+curl -X PATCH https://api.ararahq.com/api/v1/api-keys/{id} \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{ "ipAllowlist": "52.10.0.0/16" }'
+```
+
+Chamada de IP fora da lista retorna `401`.
+
+<Note>
+  Hoje `ipAllowlist` é uma **string única** (pode ser CSV se vários IPs). Não é array.
+</Note>
 
 ## Erros
 
 | HTTP | Quando |
-|------|--------|
-| `400` | `mode` fora de `LIVE`/`TEST`. |
-| `401` | Chave de autenticacao ausente ou invalida. |
-| `403` | Tentativa de revogar chave de outra organizacao. |
-| `404` | Chave nao encontrada (no DELETE). |
+|---|---|
+| `400` | `name` vazio ou `mode` inválido |
+| `401` | Chave inválida ou ausente |
+| `403` | Conta em TESTING tentando criar LIVE (`ACCOUNT_NOT_ACTIVATED`); ou IP allowlist sem plano Business+ |
+| `404` | Chave não existe ou não pertence ao user |
+
+## Segurança
+
+- Nunca exponha a chave em código frontend, repositório público ou log
+- Use variáveis de ambiente (`ARARA_API_KEY`)
+- Crie chaves separadas por ambiente (dev, staging, prod)
+- Rotacione periodicamente (90 dias é razoável)
+- IP allowlist quando possível (Business+)
+- Revogue imediato quando dev sai do time
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Autenticação detalhada" icon="key" href="/api-reference/authentication">
+    API key vs Firebase JWT, modos, segurança.
+  </Card>
+  <Card title="Sessão e Usuário" icon="user" href="/api-reference/endpoint/v2/auth">
+    Login Firebase pro dashboard.
+  </Card>
+</CardGroup>

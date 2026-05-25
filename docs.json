@@ -1,147 +1,227 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Arara Documentation",
+  "name": "Arara — API de WhatsApp Business",
   "openapi": "openapi.yaml",
   "colors": {
-    "primary": "#FF6B35",
-    "light": "#FF6B35",
-    "dark": "#FF6B35"
+    "primary": "#1c99a7",
+    "light": "#5fbcc7",
+    "dark": "#205f6a"
   },
   "appearance": {
     "default": "dark",
     "strict": true
   },
   "fonts": {
-    "family": "Fustat"
+    "family": "Geist"
   },
-  "favicon": "/images/favicon.png",
+  "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
-      {
-        "tab": "Bem-vindo",
-        "groups": [
-          {
-            "group": "Introducao",
-            "pages": ["index"]
-          }
-        ]
-      },
       {
         "tab": "Comece aqui",
         "groups": [
           {
-            "group": "Configuracao Inicial",
+            "group": "Início",
             "pages": [
-              "quickstart",
-              "erros"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API Reference",
-        "versions": [
-          {
-            "version": "v2",
-            "tag": "Latest",
-            "default": true,
-            "groups": [
-              {
-                "group": "Visão geral",
-                "pages": [
-                  "api-reference/introduction",
-                  "api-reference/authentication"
-                ]
-              },
-              {
-                "group": "Endpoints",
-                "pages": [
-                  "api-reference/endpoint/v2/messages",
-                  "api-reference/endpoint/v2/templates",
-                  "api-reference/endpoint/v2/contacts",
-                  "api-reference/endpoint/v2/campaigns",
-                  "api-reference/endpoint/v2/api-keys",
-                  "api-reference/endpoint/v2/flows"
-                ]
-              },
-              {
-                "group": "Regras de negócio",
-                "pages": [
-                  "business-rules/planos-e-limites",
-                  "business-rules/template-management",
-                  "business-rules/usage-policies"
-                ]
-              }
+              "index",
+              "quickstart"
             ]
           },
           {
-            "version": "v1",
-            "tag": "Legacy",
-            "groups": [
-              {
-                "group": "Visão geral",
-                "pages": [
-                  "api-reference/introduction",
-                  "api-reference/authentication"
-                ]
-              },
-              {
-                "group": "Endpoints",
-                "pages": [
-                  "api-reference/endpoint/messages",
-                  "api-reference/endpoint/templates",
-                  "api-reference/endpoint/campaigns",
-                  "api-reference/endpoint/schedule",
-                  "api-reference/endpoint/webhook",
-                  "api-reference/endpoint/inbound"
-                ]
-              },
-              {
-                "group": "Regras de negócio",
-                "pages": [
-                  "business-rules/planos-e-limites",
-                  "business-rules/template-management",
-                  "business-rules/usage-policies"
-                ]
-              }
+            "group": "Conceitos WhatsApp",
+            "pages": [
+              "concepts/whatsapp",
+              "concepts/templates",
+              "concepts/24h-window",
+              "concepts/number-quality",
+              "concepts/pricing",
+              "concepts/compliance"
+            ]
+          },
+          {
+            "group": "Templates",
+            "pages": [
+              "templates/policy"
+            ]
+          },
+          {
+            "group": "Números",
+            "pages": [
+              "numbers"
+            ]
+          },
+          {
+            "group": "Migrar de",
+            "pages": [
+              "migrate/twilio",
+              "migrate/z-api",
+              "migrate/baileys",
+              "migrate/take-blip"
             ]
           }
         ]
       },
       {
-        "tab": "SDKs",
+        "tab": "API",
         "groups": [
           {
-            "group": "Oficiais",
-            "pages": ["sdks"]
+            "group": "Visão geral",
+            "pages": [
+              "api-reference/introduction",
+              "api-reference/authentication",
+              "erros"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api-reference/endpoint/v2/auth",
+              "api-reference/endpoint/v2/messages",
+              "api-reference/endpoint/v2/templates",
+              "api-reference/endpoint/v2/contacts",
+              "api-reference/endpoint/v2/campaigns",
+              "api-reference/endpoint/v2/api-keys",
+              "api-reference/endpoint/v2/flows"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "webhooks",
+              "webhooks/events",
+              "api-reference/events/partner-events"
+            ]
+          },
+          {
+            "group": "Regras de negócio",
+            "pages": [
+              "business-rules/planos-e-limites",
+              "business-rules/template-management",
+              "business-rules/usage-policies"
+            ]
           }
         ]
       },
       {
-        "tab": "Cookbooks",
+        "tab": "SDKs e Ferramentas",
         "groups": [
           {
-            "group": "Receitas",
+            "group": "SDKs",
+            "pages": [
+              "sdks",
+              "sdks/node",
+              "sdks/python",
+              "sdks/php",
+              "sdks/java",
+              "sdks/go"
+            ]
+          },
+          {
+            "group": "CLI",
+            "pages": [
+              "cli"
+            ]
+          },
+          {
+            "group": "Agentes de IA",
+            "pages": [
+              "agents",
+              "mcp"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Receitas",
+        "groups": [
+          {
+            "group": "Visão geral",
+            "pages": [
+              "recipes"
+            ]
+          },
+          {
+            "group": "Cookbooks",
             "pages": [
               "cookbooks/auth-2fa",
-              "cookbooks/marketing-smartlinks"
+              "cookbooks/marketing-smartlinks",
+              "recipes/abandoned-cart",
+              "recipes/order-confirmation",
+              "recipes/black-friday",
+              "recipes/inbox-support",
+              "recipes/multi-org"
+            ]
+          },
+          {
+            "group": "Integrações",
+            "pages": [
+              "integracoes",
+              "integracoes/laravel",
+              "integracoes/nextjs",
+              "integracoes/shopify"
+            ]
+          },
+          {
+            "group": "Marketing",
+            "pages": [
+              "marketing"
             ]
           }
         ]
       },
       {
-        "tab": "Ecossistema",
+        "tab": "Recursos",
         "groups": [
           {
-            "group": "IA",
-            "pages": ["ai-agents"]
+            "group": "Smart Links",
+            "pages": [
+              "smart-links",
+              "smart-links/attribution"
+            ]
+          },
+          {
+            "group": "Brain (IA)",
+            "pages": [
+              "brain",
+              "actions",
+              "brain/actions/abacate-pix",
+              "brain/actions/cal-com",
+              "brain/actions/catalog",
+              "brain/actions/stripe"
+            ]
+          },
+          {
+            "group": "Recuperação",
+            "pages": [
+              "recovery"
+            ]
           }
         ]
       },
       {
         "tab": "Changelog",
-        "pages": ["changelog"]
+        "pages": [
+          "changelog",
+          "roadmap"
+        ]
+      },
+      {
+        "tab": "Sobre",
+        "groups": [
+          {
+            "group": "Operação",
+            "pages": [
+              "status"
+            ]
+          },
+          {
+            "group": "Comunidade",
+            "pages": [
+              "contributing"
+            ]
+          }
+        ]
       }
     ],
     "global": {
@@ -153,15 +233,65 @@
         },
         {
           "anchor": "Landing Page",
-          "href": "https://www.ararahq.com",
+          "href": "https://ararahq.com",
           "icon": "browser"
         }
       ]
     }
   },
+  "redirects": [
+    {
+      "source": "/api",
+      "destination": "/api-reference/introduction"
+    },
+    {
+      "source": "/api-reference/api-tokens",
+      "destination": "/api-reference/endpoint/v2/api-keys"
+    },
+    {
+      "source": "/sdks/typescript",
+      "destination": "/sdks/node"
+    },
+    {
+      "source": "/ai-agents",
+      "destination": "/mcp"
+    },
+    {
+      "source": "/api-reference/endpoint/messages",
+      "destination": "/api-reference/endpoint/v2/messages"
+    },
+    {
+      "source": "/api-reference/endpoint/templates",
+      "destination": "/api-reference/endpoint/v2/templates"
+    },
+    {
+      "source": "/api-reference/endpoint/campaigns",
+      "destination": "/api-reference/endpoint/v2/campaigns"
+    },
+    {
+      "source": "/api-reference/endpoint/inbound",
+      "destination": "/webhooks/events"
+    },
+    {
+      "source": "/api-reference/endpoint/schedule",
+      "destination": "/api-reference/endpoint/v2/messages"
+    },
+    {
+      "source": "/api-reference/endpoint/webhook",
+      "destination": "/webhooks"
+    },
+    {
+      "source": "/recipes/marketing",
+      "destination": "/marketing"
+    },
+    {
+      "source": "/concepts/webhooks",
+      "destination": "/webhooks"
+    }
+  ],
   "logo": {
-    "light": "/logo/logo-black-transparente.png",
-    "dark": "/logo/logo-white-transparente.png"
+    "light": "/logo/arara-horizontal-light.svg",
+    "dark": "/logo/arara-horizontal-dark.svg"
   },
   "navbar": {
     "links": [
@@ -170,14 +300,14 @@
         "href": "https://docs.ararahq.com/llms.txt"
       },
       {
-        "label": "Repositorio",
+        "label": "Repositório",
         "href": "https://github.com/ararahq"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://www.ararahq.com/dashboard"
+      "href": "https://ararahq.com/dashboard"
     }
   },
   "footer": {

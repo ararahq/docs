@@ -1,0 +1,255 @@
+---
+title: 'SDK Java / Kotlin'
+description: 'SDK Java oficial da Arara — Java 17+, Lombok-powered builders, integração nativa com Spring Boot, compatível com Kotlin sem ajustes.'
+---
+
+```kotlin
+// build.gradle.kts
+implementation("com.ararahq:arara-java-sdk:1.8.0")
+```
+
+```xml
+<!-- pom.xml -->
+<dependency>
+  <groupId>com.ararahq</groupId>
+  <artifactId>arara-java-sdk</artifactId>
+  <version>1.8.0</version>
+</dependency>
+```
+
+[![Maven](https://img.shields.io/maven-central/v/com.ararahq/arara-java-sdk)](https://central.sonatype.com/artifact/com.ararahq/arara-java-sdk)
+
+Java 17+ requerido. Compatível com Kotlin sem ajustes. Funciona em Spring Boot 3+, Quarkus, vanilla Java.
+
+## Instalação e setup
+
+```java
+import com.ararahq.arara.sdk.Arara;
+
+Arara arara = Arara.builder()
+    .apiKey("ara_live_xxx")
+    .baseUrl("https://api.ararahq.com/api")
+    .build();
+```
+
+Em Kotlin (mesma API, sintaxe enxuta):
+
+```kotlin
+val arara = Arara.builder()
+    .apiKey("ara_live_xxx")
+    .baseUrl("https://api.ararahq.com/api")
+    .build()
+```
+
+## Recursos disponíveis
+
+| Recurso | Acesso (Java getter) | Status |
+|---|---|---|
+| Messages | `arara.getMessages()` | Estável |
+| Templates | `arara.getTemplates()` | Estável |
+| Users | `arara.getUsers()` | Estável |
+| Campaigns | `arara.getCampaigns()` | Estável |
+| Organizations | — | Em breve |
+| API Keys | — | Em breve |
+| Brain | — | Em breve |
+
+Pra paridade total, ver [Qual SDK escolher?](/sdks).
+
+## Enviar mensagem
+
+```java
+import com.ararahq.arara.sdk.models.SendMessageRequest;
+import com.ararahq.arara.sdk.models.MessageResponse;
+
+import java.util.List;
+
+MessageResponse response = arara.getMessages().send(
+    SendMessageRequest.builder()
+        .receiver("whatsapp:+5511999999999")
+        .templateName("confirmacao_pedido")
+        .templateVariables(List.of(
+            "https://meusite.com/nota/123.pdf", // header (mídia opcional)
+            "João",                              // {{1}}
+            "ARA-12345"                          // {{2}}
+        ))
+        .build()
+);
+
+System.out.println(response.getId());     // ara_msg_xxx
+System.out.println(response.getStatus()); // queued
+```
+
+**Mensagem de sessão (texto livre, dentro de janela 24h):**
+
+```java
+MessageResponse response = arara.getMessages().send(
+    SendMessageRequest.builder()
+        .receiver("whatsapp:+5511999999999")
+        .body("Oi! Vi sua dúvida e respondo já já.")
+        .build()
+);
+```
+
+## Consultar status
+
+```java
+MessageResponse msg = arara.getMessages().get("ara_msg_xxx");
+System.out.println(msg.getStatus()); // sent | delivered | read | failed
+```
+
+## Templates
+
+```java
+import com.ararahq.arara.sdk.models.CreateTemplateRequest;
+
+// Listar
+List<TemplateResponse> templates = arara.getTemplates().list();
+
+// Criar
+TemplateResponse t = arara.getTemplates().create(
+    CreateTemplateRequest.builder()
+        .name("promo_natal")
+        .category("MARKETING")
+        .language("pt_BR")
+        .body("Oi {{1}}, oferta de Natal: {{2}}% off até {{3}}.")
+        .samples(List.of("João", "30", "sexta"))
+        .build()
+);
+
+// Status
+TemplateStatusResponse status = arara.getTemplates().getStatus("promo_natal");
+System.out.println(status.getStatus()); // PENDING | APPROVED | REJECTED | PAUSED
+```
+
+## Campanhas
+
+```java
+import com.ararahq.arara.sdk.models.CampaignRequest;
+import com.ararahq.arara.sdk.models.CampaignContactRequest;
+
+CampaignRequest req = CampaignRequest.builder()
+    .name("blackfriday-2026")
+    .templateName("bf_oferta_geral")
+    .contacts(List.of(
+        CampaignContactRequest.builder()
+            .phone("+5511999999999")
+            .variables(Map.of("name", "João", "discount", "30"))
+            .build(),
+        CampaignContactRequest.builder()
+            .phone("+5511888888888")
+            .variables(Map.of("name", "Maria", "discount", "25"))
+            .build()
+    ))
+    .build();
+
+CampaignResponse campaign = arara.getCampaigns().create(req);
+
+// Detalhes
+CampaignDetailResponse detail = arara.getCampaigns().get(campaign.getId());
+```
+
+## Idempotency
+
+```java
+import java.util.UUID;
+
+arara.getMessages().send(
+    SendMessageRequest.builder()
+        .receiver("...")
+        .templateName("...")
+        .templateVariables(List.of("..."))
+        .build(),
+    UUID.randomUUID().toString()  // idempotency key
+);
+```
+
+Chave dedupada por 24h.
+
+## Erros
+
+```java
+import com.ararahq.arara.sdk.exceptions.AraraException;
+import com.ararahq.arara.sdk.exceptions.AraraRateLimitException;
+
+try {
+    arara.getMessages().send(...);
+} catch (AraraRateLimitException e) {
+    Thread.sleep(e.getRetryAfter() * 1000L);
+} catch (AraraException e) {
+    System.err.println(e.getCode() + ": " + e.getMessage());
+    System.err.println("HTTP " + e.getStatusCode());
+}
+```
+
+## Spring Boot
+
+Setup como Bean:
+
+```java
+@Configuration
+public class AraraConfig {
+
+    @Value("${arara.api-key}")
+    private String apiKey;
+
+    @Value("${arara.base-url}")
+    private String baseUrl;
+
+    @Bean
+    public Arara arara() {
+        return Arara.builder()
+            .apiKey(apiKey)
+            .baseUrl(baseUrl)
+            .build();
+    }
+}
+```
+
+E injeta onde precisar:
+
+```java
+@Service
+public class OrderService {
+
+    private final Arara arara;
+
+    public OrderService(Arara arara) {
+        this.arara = arara;
+    }
+
+    public void confirm(Order order) {
+        arara.getMessages().send(
+            SendMessageRequest.builder()
+                .receiver("whatsapp:" + order.getCustomerPhone())
+                .templateName("confirmacao_pedido")
+                .templateVariables(List.of(order.getCustomerName(), order.getCode()))
+                .build()
+        );
+    }
+}
+```
+
+## Kotlin coroutines
+
+O SDK Java não tem versão `suspend` nativa, mas funciona perfeitamente com `kotlinx.coroutines` envelopando:
+
+```kotlin
+suspend fun sendAsync(req: SendMessageRequest): MessageResponse = withContext(Dispatchers.IO) {
+    arara.messages.send(req)
+}
+```
+
+## Source
+
+GitHub: [github.com/ararahq/arara-java-sdk](https://github.com/ararahq/arara-java-sdk) · MIT
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Endpoints REST por baixo do SDK.
+  </Card>
+  <Card title="MCP Server" icon="server" href="/mcp">
+    Conecte agentes AI ao mesmo backend.
+  </Card>
+</CardGroup>

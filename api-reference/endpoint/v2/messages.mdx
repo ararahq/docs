@@ -1,26 +1,173 @@
 ---
 title: 'Mensagens'
-description: 'Envie mensagens no WhatsApp e Email com uma unica chamada.'
+description: 'Envio de mensagens WhatsApp via API: template aprovado, texto livre na janela 24h, mídia, lote de até 1000, agendamento. Endpoint mais usado da Arara.'
+keywords: ['mensagens', 'send message', 'whatsapp', 'template', 'batch']
 ---
 
-Uma unica API para WhatsApp e email. Envio imediato ou agendado, template ou texto livre.
+O endpoint mais usado. Aceita template HSM (qualquer hora) ou texto livre (dentro da janela 24h). Suporta lote de até 1000 mensagens, agendamento, mídia, mensagem interativa e localização.
 
-**Base URL:** `https://new-api.ararahq.com/api/v2`
+**Base URL:** `https://api.ararahq.com/api`
 
 ---
 
-## Envio rapido
+## Enviar mensagem
 
-Cole no terminal, troque `ara_live_xxx` pela sua chave e o numero pelo seu. Pronto.
+`POST /v1/messages`
 
-```bash
-curl -X POST https://new-api.ararahq.com/api/v2/messages \
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.ararahq.com/api/v1/messages \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "to": "5511999999999",
-    "channel": "whatsapp",
-    "template": "hello_world"
+    "receiver": "whatsapp:+5511999999999",
+    "templateName": "pedido_confirmado",
+    "templateVariables": ["João", "ARA-12345"]
+  }'
+```
+
+```typescript Node.js
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'pedido_confirmado',
+  templateVariables: ['João', 'ARA-12345'],
+});
+```
+
+```python Python
+client.messages.send(SendMessageRequest(
+    receiver="whatsapp:+5511999999999",
+    template_name="pedido_confirmado",
+    template_variables=["João", "ARA-12345"],
+))
+```
+
+```php PHP
+$sdk->messages->send(
+    receiver: 'whatsapp:+5511999999999',
+    templateName: 'pedido_confirmado',
+    variables: ['João', 'ARA-12345'],
+);
+```
+
+```java Java
+arara.getMessages().send(SendMessageRequest.builder()
+    .receiver("whatsapp:+5511999999999")
+    .templateName("pedido_confirmado")
+    .templateVariables(List.of("João", "ARA-12345"))
+    .build());
+```
+</CodeGroup>
+
+Resposta (`202 Accepted`):
+
+```json
+{
+  "id": "ara_msg_k9Bf2XqP",
+  "status": "queued",
+  "mode": "LIVE",
+  "sender": "whatsapp:+5511888888888",
+  "receiver": "whatsapp:+5511999999999",
+  "cost": null
+}
+```
+
+`cost` vem `null` no envio inicial e é populado depois que a Meta confirma a entrega e a fatura é calculada. Use o `id` pra consultar status atualizado ou casar com eventos de webhook.
+
+## Texto livre (janela 24h)
+
+Cliente respondeu nas últimas 24h? Você pode mandar texto livre em vez de template:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "receiver": "whatsapp:+5511999999999",
+    "body": "Já vou te responder, só preciso checar uma coisa."
+  }'
+```
+
+Antes de mandar, **valida a janela**:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/conversations/window-status \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{ "phones": ["+5511999999999"] }'
+```
+
+Se `status: CLOSED`, manda template em vez de body. Detalhes em [Janela 24h](/concepts/24h-window).
+
+## Template com mídia (header)
+
+URL da mídia vai como **primeiro elemento** de `templateVariables`:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "receiver": "whatsapp:+5511999999999",
+    "templateName": "fatura_disponivel",
+    "templateVariables": [
+      "https://meusite.com/fatura.pdf",
+      "João",
+      "Janeiro"
+    ]
+  }'
+```
+
+Suportado: imagem (JPEG/PNG, max 5MB), vídeo (MP4 H.264, max 16MB, max 16s), PDF (max 100MB, max 100 páginas).
+
+## Mensagem agendada
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "receiver": "whatsapp:+5511999999999",
+    "templateName": "lembrete_consulta",
+    "templateVariables": ["amanhã às 14h"],
+    "scheduled_at": "2026-05-19T14:00:00-03:00"
+  }'
+```
+
+Mensagem fica em `status: scheduled` até o horário.
+
+## Mensagem interativa (janela aberta)
+
+Botões de resposta rápida ou listas selecionáveis dentro da janela 24h:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -d '{
+    "receiver": "whatsapp:+5511999999999",
+    "interactive": {
+      "type": "button",
+      "body": "Qual a sua dúvida?",
+      "buttons": [
+        { "id": "rastreio", "title": "Rastrear pedido" },
+        { "id": "troca", "title": "Trocar produto" },
+        { "id": "humano", "title": "Falar com humano" }
+      ]
+    }
+  }'
+```
+
+Quando cliente clica, vem como webhook `message.received` com `type: button` e o `id` clicado.
+
+## Lote — até 1000 mensagens
+
+`POST /v1/messages/batch`
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages/batch \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Idempotency-Key: batch-pedidos-20260518" \
+  -d '{
+    "templateName": "pedido_confirmado",
+    "messages": [
+      { "receiver": "whatsapp:+5511999999999", "templateVariables": ["João", "ARA-1"] },
+      { "receiver": "whatsapp:+5511888888888", "templateVariables": ["Maria", "ARA-2"] }
+    ]
   }'
 ```
 
@@ -28,136 +175,38 @@ Resposta (`202 Accepted`):
 
 ```json
 {
-  "id": "ara_msg_k9Bf2XqP",
-  "channel": "whatsapp",
-  "status": "PENDING",
-  "to": "5511999999999",
-  "from": "5511988887777",
-  "template": "hello_world",
-  "cost": null,
-  "createdAt": "2026-04-13T18:30:00Z",
-  "deliveredAt": null
-}
-```
-
-Guarde o `id` — e por ele que voce consulta status e custo depois.
-
----
-
-## Enviar template com variaveis
-
-As variaveis sao um **array** na ordem dos placeholders (`{{1}}`, `{{2}}`, `{{3}}`...).
-
-<CodeGroup>
-
-```bash cURL
-curl -X POST https://new-api.ararahq.com/api/v2/messages \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to": "5511999999999",
-    "channel": "whatsapp",
-    "template": "pedido_confirmado",
-    "variables": ["Joao", "12345"]
-  }'
-```
-
-```javascript Node.js
-await fetch("https://new-api.ararahq.com/api/v2/messages", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer ara_live_xxx",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    to: "5511999999999",
-    channel: "whatsapp",
-    template: "pedido_confirmado",
-    variables: ["Joao", "12345"],
-  }),
-});
-```
-
-```python Python
-import requests
-
-requests.post(
-    "https://new-api.ararahq.com/api/v2/messages",
-    headers={"Authorization": "Bearer ara_live_xxx"},
-    json={
-        "to": "5511999999999",
-        "channel": "whatsapp",
-        "template": "pedido_confirmado",
-        "variables": ["Joao", "12345"],
+  "batchId": "ara_batch_xyz",
+  "templateName": "pedido_confirmado",
+  "total": 2,
+  "accepted": 2,
+  "totalCost": 0.24,
+  "messages": [
+    {
+      "id": "ara_msg_a",
+      "receiver": "whatsapp:+5511999999999",
+      "status": "queued",
+      "cost": 0.12
     },
-)
-```
-
-</CodeGroup>
-
-Template `Ola {{1}}, seu pedido #{{2}} foi confirmado.` vira `Ola Joao, seu pedido #12345 foi confirmado.`
-
----
-
-## Responder com texto livre
-
-Dentro da janela de 24h de uma conversa, mande `body` em vez de `template`:
-
-```bash
-curl -X POST https://new-api.ararahq.com/api/v2/messages \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to": "5511999999999",
-    "channel": "whatsapp",
-    "body": "Ola! Como posso ajudar?"
-  }'
-```
-
----
-
-## Enviar email
-
-Mesmo endpoint, trocando `channel`:
-
-```bash
-curl -X POST https://new-api.ararahq.com/api/v2/messages \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to": "cliente@exemplo.com",
-    "channel": "email",
-    "template": "welcome_email",
-    "variables": ["Joao"]
-  }'
-```
-
----
-
-## Agendar envio
-
-Adicione `scheduled_at` com data/hora ISO 8601 em UTC:
-
-```json
-{
-  "to": "5511999999999",
-  "channel": "whatsapp",
-  "template": "lembrete",
-  "variables": ["14h"],
-  "scheduled_at": "2026-04-14T17:00:00Z"
+    {
+      "id": "ara_msg_b",
+      "receiver": "whatsapp:+5511888888888",
+      "status": "queued",
+      "cost": 0.12
+    }
+  ]
 }
 ```
 
-A mensagem fica em `SCHEDULED` ate a hora chegar.
+Diferença pra `POST /v1/messages` individual: você manda o `templateName` **uma vez** no envelope, cada mensagem só precisa do `receiver` e `templateVariables`.
 
----
+Pra > 1000 destinatários, use [Campanhas](/api-reference/endpoint/v2/campaigns).
 
 ## Consultar status
 
-`GET /v2/messages/{id}`
+`GET /v1/messages/{id}`
 
 ```bash
-curl https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP \
+curl https://api.ararahq.com/api/v1/messages/ara_msg_k9Bf2XqP \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -166,130 +215,78 @@ Resposta (`200 OK`):
 ```json
 {
   "id": "ara_msg_k9Bf2XqP",
-  "channel": "whatsapp",
-  "status": "DELIVERED",
-  "to": "5511999999999",
-  "from": "5511988887777",
-  "template": "pedido_confirmado",
-  "cost": 0.1600,
-  "createdAt": "2026-04-13T18:30:00Z",
-  "deliveredAt": "2026-04-13T18:30:05Z"
+  "status": "delivered",
+  "mode": "LIVE",
+  "sender": "whatsapp:+5511888888888",
+  "receiver": "whatsapp:+5511999999999",
+  "cost": 0.12
 }
 ```
 
----
+Em produção, **prefira webhook** (`message.status`) em vez de polling. Ver [Eventos](/webhooks/events).
 
-## Parametros do POST
+## Parâmetros do POST
 
-| Campo | Tipo | Obrigatorio | Descricao |
-|-------|------|-------------|-----------|
-| `to` | string | sim | WhatsApp: numero E.164 sem `+` (`5511999999999`). Email: endereco completo. |
-| `channel` | string | sim | `whatsapp` ou `email`. |
-| `template` | string | * | Nome do template pre-aprovado. |
-| `body` | string | * | Texto livre (responder dentro da janela de 24h). |
-| `variables` | string[] | nao | Array ordenado dos valores dos placeholders `{{1}}`, `{{2}}`... Max 50. |
-| `scheduled_at` | string (ISO 8601) | nao | Envio agendado em UTC. |
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `receiver` | string | sim | E.164 com prefixo `whatsapp:` (`whatsapp:+5511999999999`) |
+| `templateName` | string | * | Nome do template aprovado pela Meta |
+| `templateVariables` | string[] | não | Array posicional. 1º elemento = mídia se template tem header |
+| `body` | string | * | Texto livre — apenas dentro da janela 24h |
+| `interactive` | object | * | Mensagem com botões/lista — apenas dentro da janela 24h |
+| `location` | object | * | Localização — apenas dentro da janela 24h |
+| `reaction` | object | * | Reação a mensagem prévia (emoji) |
+| `replyTo` | string | não | ID de mensagem original pra citar (reply) |
+| `scheduled_at` | string (ISO 8601) | não | Agendamento futuro |
+| `mode` | string | não | `LIVE` ou `TEST`. Default: modo da chave |
 
-<Note>
-  **`template` OU `body`, nunca os dois.** Template inicia conversa, body responde dentro da janela de 24h.
-</Note>
-
----
-
-## Campos da resposta
-
-| Campo | Tipo | Descricao |
-|-------|------|-----------|
-| `id` | string | ID unico (`ara_msg_...`). Use em webhooks e consultas. |
-| `channel` | string | `whatsapp` ou `email`. |
-| `status` | string | Status atual (ver tabela abaixo). |
-| `to` | string | Destinatario. |
-| `from` | string | Remetente configurado na sua organizacao. |
-| `template` | string \| null | Nome do template. `null` se for texto livre. |
-| `subject` | string \| null | Assunto do email com variaveis aplicadas. So aparece em `channel=email`. |
-| `cost` | number \| null | Custo em BRL. `null` ate a mensagem ser cobrada. |
-| `createdAt` | string (ISO 8601) | Quando foi criada. |
-| `deliveredAt` | string (ISO 8601) \| null | Quando chegou no destinatario. |
-
----
+`*` — exatamente um entre `templateName`, `body`, `interactive`, `location`, `reaction`.
 
 ## Status
 
-```
-PENDING -> PROCESSING -> SENT_TO_PROVIDER -> SENT -> DELIVERED -> READ
-                                                             `-> FAILED
-SCHEDULED --^                                                 CANCELED
-```
-
 | Status | Significado |
-|--------|-------------|
-| `PENDING` | Criada, aguardando processamento. |
-| `SCHEDULED` | Agendada, aguardando o horario. |
-| `PROCESSING` | Worker pegou a mensagem. |
-| `SENT_TO_PROVIDER` | Entregue ao provider (Meta/email). |
-| `SENT` | Provider confirmou o envio. |
-| `DELIVERED` | Chegou no destinatario. |
-| `READ` | Foi lida (so WhatsApp). |
-| `FAILED` | Falhou definitivamente. |
-| `CANCELED` | Cancelada antes do envio. |
-
-Para saber em tempo real, use [webhooks](/api-reference/events) em vez de polling.
-
----
-
-## Idempotencia
-
-Para garantir que um retry nao duplique mensagem, envie o header `Idempotency-Key`:
-
-```bash
--H "Idempotency-Key: 7f8a1c2d-4e5f-6789-abcd-ef0123456789"
-```
-
-Requisicoes com a mesma chave retornam a resposta original sem criar nova mensagem.
-
----
+|---|---|
+| `queued` | Criada, aguardando worker |
+| `scheduled` | Agendada, aguardando horário |
+| `processing` | Worker pegou |
+| `sent` | Provider confirmou envio |
+| `delivered` | Chegou no destinatário (2 ticks cinza) |
+| `read` | Cliente leu (2 ticks azuis) |
+| `failed` | Falhou definitivamente |
+| `canceled` | Cancelada antes do envio |
 
 ## Erros
 
-| HTTP | Quando |
-|------|--------|
-| `400` | Payload invalido, canal nao suportado, ou sem `template`/`body`. |
-| `401` | Chave invalida ou ausente. |
-| `402` | Saldo insuficiente. |
-| `404` | Mensagem nao encontrada (no GET). |
-| `422` | Template inexistente ou numero de variaveis errado. |
-| `429` | Rate limit. Aplique backoff exponencial. |
+| HTTP | Código | Quando |
+|---|---|---|
+| `400` | `MISSING_REQUIRED_FIELD` | `receiver` ausente |
+| `400` | `INVALID_PHONE_NUMBER` | Formato E.164 inválido |
+| `401` | `INVALID_API_KEY` | Chave inválida/revogada |
+| `402` | `INSUFFICIENT_CREDITS` | Saldo insuficiente |
+| `404` | `TEMPLATE_NOT_FOUND` | Template não existe na sua org |
+| `422` | `TEMPLATE_NOT_APPROVED` | Template ainda em revisão Meta |
+| `422` | `OUTSIDE_SESSION_WINDOW` | Tentou body fora da janela 24h |
+| `422` | `INVALID_TEMPLATE_VARIABLES` | Número de variáveis não bate |
+| `422` | `NUMBER_BLOCKED` | Destinatário em opt-out |
+| `429` | `RATE_LIMIT_EXCEEDED` | > 100 req/s |
 
-Formato padrao:
+## Idempotência
 
-```json
-{
-  "error": {
-    "code": "INVALID_CHANNEL",
-    "message": "Canal 'sms' nao e suportado. Canais validos: whatsapp, email",
-    "details": {}
-  }
-}
+POST aceita header `Idempotency-Key`:
+
+```bash
+-H "Idempotency-Key: order-confirm-abc123"
 ```
 
----
+Mesma chave + mesmo body em 24h retorna a resposta original. Recomendado em **qualquer caller de produção**.
 
-## Migrando da V1
+## Próximos passos
 
-<Warning>
-  **V1 esta deprecada** (sunset **09/2026**). Use V2 para integracoes novas.
-</Warning>
-
-| | V1 | V2 |
-|---|---|---|
-| Destinatario | `receiver: "whatsapp:+5511999999999"` | `to: "5511999999999"` + `channel` |
-| Template | `templateName` | `template` |
-| Variaveis | `templateVariables: [...]` | `variables: [...]` |
-| Canais | So WhatsApp | WhatsApp **e** Email |
-| Agendamento | `scheduledAt` | `scheduled_at` |
-
----
-
-## Ainda nao disponivel em V2
-
-- **`mediaUrl`** — templates com imagem/PDF/video no header. Use V1 enquanto isso.
+<CardGroup cols={2}>
+  <Card title="Templates" icon="file-lines" href="/api-reference/endpoint/v2/templates">
+    Criar e gerenciar templates aprovados.
+  </Card>
+  <Card title="Webhooks de status" icon="bell" href="/webhooks/events">
+    Receber `delivered`/`read`/`failed` em tempo real.
+  </Card>
+</CardGroup>

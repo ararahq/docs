@@ -1,0 +1,126 @@
+---
+title: 'Marketing no WhatsApp'
+description: 'Como rodar marketing no WhatsApp sem queimar número, sem cair em spam e sem brigar com a Meta. Templates aprovados, segmentação por comportamento, A/B test nativo e atribuição first-party.'
+keywords: ['marketing whatsapp', 'campanha', 'a/b test', 'segmentação', 'opt-in', 'broadcast', 'crm']
+---
+
+WhatsApp não é email. Você não pode disparar pra base inteira, não pode comprar lista, não pode soar genérico. Mas quando feito direito, tem **taxa de abertura ~98%** e **CTR 5-10x maior que SMS** — é o canal de marketing mais quente que existe no Brasil.
+
+Esta página resume o que importa saber pra rodar marketing no WhatsApp sem furada.
+
+## As 3 regras que você não pode quebrar
+
+<Steps>
+  <Step title="Opt-in real, não opt-in fake">
+    Cliente precisa ter consentido explicitamente em receber mensagens da sua marca. Pegar número no checkout não conta. Pop-up "aceito receber WhatsApp" no carrinho conta. Ver [Compliance](/concepts/compliance) e [Política de templates](/templates/policy).
+  </Step>
+  <Step title="Template aprovado, sempre">
+    Fora da janela 24h (cliente não interagiu nas últimas 24h), você só pode enviar **template aprovado pela Meta**. Texto livre vai bloquear conta. Ver [Templates HSM](/concepts/templates).
+  </Step>
+  <Step title="Categoria certa">
+    Templates de **MARKETING** custam mais (R$ 0,07 a R$ 0,18 por entrega, depende do tier), pesam mais na qualidade do número e podem ser pausados pela Meta se a taxa de resposta negativa subir. Templates de **UTILITY** (notificação real: pedido confirmado, código entregue) custam metade e não afetam qualidade. Use UTILITY sempre que couber.
+  </Step>
+</Steps>
+
+## Pricing pra marketing — quanto custa de verdade
+
+| Tier do número | Custo por template MARKETING entregue | Custo Arara | Custo total |
+|---|---|---|---|
+| Tier 250 (novo) | US$ 0,0590 | + 30% margem | **R$ 0,40** |
+| Tier 1K | US$ 0,0590 | + 30% margem | **R$ 0,40** |
+| Tier 10K | US$ 0,0590 | + 30% margem | **R$ 0,40** |
+| Tier 100K+ | US$ 0,0590 | + 30% margem | **R$ 0,40** |
+
+<Note>
+  Meta cobra **por mensagem entregue** desde meados de 2025. O modelo antigo de "janela de conversação" foi descontinuado. Falhas (template rejeitado, número inválido) **não custam**. Pricing convertido em BRL com câmbio do dia da fatura.
+</Note>
+
+Comparativo: SMS BR custa R$ 0,12-0,15 por envio (entregue ou não) com **CTR ~1%**. WhatsApp custa 3x mais por envio mas converte **8-10x mais** — CAC efetivo bem menor.
+
+## Workflow recomendado
+
+```
+1. Segmenta no seu CRM/DW         → exporta CSV
+2. Carrega contatos na Arara       → POST /v1/contacts/batch
+3. Cria template MARKETING         → submete pra aprovação Meta (24-72h)
+4. Cria campanha com A/B test      → POST /v1/campaigns + POST /v1/campaigns/{id}/ab-test
+5. Dispara                         → janela de 24h pra resposta
+6. Triagem das respostas           → Brain classifica por URGENT/QUESTION/POSITIVE/COMPLAINT
+7. Atribuição                      → Smart Links rastreia conversão
+```
+
+Cada passo tem doc dedicada:
+
+<CardGroup cols={2}>
+  <Card title="Templates" icon="file-lines" href="/concepts/templates">
+    Como criar, categorizar e fazer aprovar.
+  </Card>
+  <Card title="Campanhas" icon="bullhorn" href="/api-reference/endpoint/v2/campaigns">
+    API de disparo segmentado.
+  </Card>
+  <Card title="A/B test" icon="vial" href="/recipes/black-friday#ab-test">
+    Variar copy, métrica, autopilot.
+  </Card>
+  <Card title="Smart Links" icon="link" href="/smart-links">
+    Link curto + atribuição.
+  </Card>
+</CardGroup>
+
+## Segmentação que funciona no WhatsApp
+
+WhatsApp não é canal de massa. Cada disparo onde a maioria não quer ouvir → taxa de "Stop" sobe → tier do número cai → custos sobem → entregabilidade cai. Espiral negativa.
+
+Segmentações que historicamente funcionam:
+
+- **Comportamento**: clientes que compraram nos últimos 30d, ou que adicionaram ao carrinho mas não fecharam.
+- **Hora certa**: 10h-12h e 18h-20h convertem melhor. Não dispare antes das 9h nem depois das 21h (proibido pelo CDC).
+- **Localização**: oferta de loja física dispara só pra DDDs da região.
+- **LTV**: VIPs recebem mensagem do humano. Cohort genérica recebe template.
+
+A Arara expõe esses filtros no `POST /v1/contacts/batch` (cada contato aceita `attributes` flexíveis tipo `{"segment": "vip", "city": "SP"}`), e na criação de campanha você seleciona quem entra fora da Arara — por exemplo, exporta cohort do seu CRM e passa a lista pro endpoint `POST /v1/campaigns` com os contatos relevantes.
+
+## A/B test nativo
+
+Você sobe duas variantes de template, define a métrica (entregue, lido, clicado, convertido) e a Arara dispara pra uma amostra (20% default), espera a janela de decisão (4h default) e promove a vencedora pro resto.
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/campaigns/{campaign_id}/ab-test \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "variantATemplateName": "blackfriday_v1",
+    "variantBTemplateName": "blackfriday_v2",
+    "metric": "CLICKED",
+    "samplePct": 20,
+    "splitPct": 50,
+    "decisionWindowMinutes": 240,
+    "autopilot": true
+  }'
+```
+
+Ver [Receita Black Friday](/recipes/black-friday#ab-test) pro fluxo completo.
+
+## Atribuição sem ITP
+
+Smart Links da Arara são short URLs servidos do nosso domínio. Cada clique rastreia origem (template ID, campaign ID, número do cliente), redireciona pro destino real e dispara um evento de conversão se você setar o pixel.
+
+Vantagem sobre UTM puro: o número de telefone vira chave de atribuição. Você sabe quem clicou (não só "alguém de iPhone clicou no link").
+
+Ver [Smart Links Attribution](/smart-links/attribution) pro setup do pixel.
+
+## Quando NÃO usar marketing no WhatsApp
+
+- Comunicação massa-mercado genérica (use SMS ou push notification — mais barato e cliente espera por isso).
+- Oferta de baixo ticket (R$ 19/mês). Custo por mensagem come a margem.
+- Reativação de base inativa há > 6 meses sem opt-in recente. Risco de spam alto.
+- Cobrança de inadimplência. Use UTILITY (notificação de fatura) ou ligação. Meta penaliza pesado mensagem de cobrança em MARKETING.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Receita: Black Friday" icon="tag" href="/recipes/black-friday">
+    Campanha completa com A/B test e triagem.
+  </Card>
+  <Card title="Política de templates" icon="scale-balanced" href="/templates/policy">
+    Que palavras evitar, que categoria escolher.
+  </Card>
+</CardGroup>

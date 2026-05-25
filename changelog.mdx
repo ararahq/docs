@@ -1,31 +1,144 @@
 ---
-title: "Changelog"
-description: "Acompanhe as últimas atualizações e novidades da Arara."
+title: 'Changelog'
+description: 'Mudanças notáveis na API, SDKs, CLI e MCP. SemVer adotado em todos os SDKs. Breaking changes anunciadas com 6 meses de antecedência.'
+keywords: ['changelog', 'releases', 'versão', 'updates', 'breaking changes']
 ---
 
-## Março 2024 - V2 Launch 🚀
+Histórico de mudanças significativas. Adotamos [SemVer](https://semver.org/lang/pt-BR/) em todos os SDKs. Para roadmap futuro, ver [Roadmap](/roadmap).
 
-A Arara está de cara nova! Lançamos hoje a nossa versão 2 com foco total na experiência do desenvolvedor.
+<Note>
+  **Política de breaking changes**: anunciadas com **≥ 6 meses de antecedência** via email, banner no dashboard e tag `deprecated` no SDK. Endpoints removidos só após período de sunset.
+</Note>
 
-### Novidades
+## Maio 2026
 
-- **Templates Ricos**: Suporte completo para botões CTA, Quick Replies e Headers dinâmicos.
-- **Mídia e Anexos**: Envie imagens, vídeos e documentos com facilidade via API.
-- **E.164 Automatizado**: Normalização inteligente de números de telefone.
-- **Nova Documentação**: Estrutura inspirada nas melhores práticas de DX do mercado.
-- **Smart Links**: Rastreamento de cliques em tempo real agora integrado nos templates.
+### Plataforma
+- **Policy violations dedupe**: webhook `policy.violation` agora envia uma vez por chave (não duplica em sweeper rerun)
+- **Business profile management**: novos endpoints `/v1/organizations/me/business-profile` (GET/PATCH/sync) — controla nome exibido, vertical, descrição, foto, horário, websites
+- **A/B test pra campanhas**: `POST /v1/campaigns/{id}/ab-test` com autopilot, sample %, decision window, métrica configurável (DELIVERED/READ/CLICKED/CONVERTED)
+- **Warming recommendations**: `GET /v1/organizations/me/numbers/warming` retorna recomendação de send rate por número baseada em quality
+- **LGPD self-serve**: novos endpoints `/v1/profile/export` (exporta todos seus dados) e `/v1/profile/delete-account` (eliminação com confirmação exata)
 
-### Melhorias
+### MCP
+- **v3.0.0** — Rewrite completo. **84 tools** (de 19), 7 resources, 5 prompts. OAuth Device Flow integrado. WhatsApp-native.
 
-- Performance de entrega de mensagens melhorada em 40%.
-- Dashboard redesenhado para facilitar a gestão de campanhas.
-- Novos SDKs para Node.js e PHP.
+### CLI
+- **v0.2.0** — `arara init`, `arara api`, `arara listen --capture`, `arara listen --forward-to`, `arara profile`, `arara org`, `arara telemetry`, `arara upgrade --install`
+- OAuth Device Flow validado end-to-end
+- jq embarcado (`--jq <expr>`) — filtra JSON sem dep externa
+
+### Dashboard
+- Auto-recharge configurável: threshold + valor de recarga
+- Brain monthly conversation cap em 1.500 (PRO) / sem cap (Enterprise)
+- Onboarding gate: novos usuários começam em `TESTING` (não `ACTIVE`)
 
 ---
 
-## Fevereiro 2024
+## Abril 2026
 
-### Lançamentos
+### Plataforma
+- **CLI webhook listener (RFC 0003)**: capture mode pra dev local sem ngrok
+- **Multi-org via M2M**: usuário pode pertencer a múltiplas organizações; `GET /auth/me/organizations` lista todas
+- **Stream SSE real**: `/v1/stream` com per-org publisher
+- **Brain hard activation gate**: bloqueia ativar Brain com pré-requisitos pendentes (sem número dedicado, sem business profile)
+- **Brain usage cap**: 1.500 conversas/mês no PRO. Endpoint `GET /v1/brain/usage` pra acompanhar
+- **Account status endpoint**: `GET /v1/account/status` retorna se conta está em onboarding, ativa, suspensa
+- **Onboarding `ACCOUNT_NOT_ACTIVATED` guard**: tentativa de enviar mensagem antes de ativar retorna erro estruturado
 
-- Versão Beta da API de Campanha.
-- Integração experimental com agentes de IA.
+### Backend
+- Fix campanha contando variáveis do template — agora baseado em `structureJson` Meta, não regex local
+- Fix transacional em SQS worker: `markFailed` não rethrow dentro de `@Transactional` (evitava commit do estado)
+- Orphan PENDING sweeper: mensagens órfãs em status `processing` por > 5min são recolocadas na fila
+
+### Pricing
+- **Sync FREE plan com /precos**: marketing R$ 0,70 (era 0,72), utility/auth R$ 0,30 (era 0,24)
+- **FREE plan**: removido cap de 500 msg/mês — wallet pré-paga é o limite natural
+- **Starter plan**: inbox habilitado, 2 seats inclusos
+- **Brain add-on**: R$ 250/mês (incluído no Enterprise)
+- **Seat extras**: R$ 79/seat (BUSINESS+)
+
+---
+
+## Março 2026
+
+### Plataforma
+- **Welcome bonus 30%**: assinatura ou primeira recarga PIX ganha bônus equivalente a 30% do plano
+- **Stripe embedded checkout**: substituí hosted page por embedded (menos abandono)
+- **Smart Links com atribuição 1st-party**: substitui UTM clássico, sobrevive a ITP/Brave Shield
+- **Brain Actions**: AbacatePay (Pix), Cal.com, Catalog, Stripe — agente IA executa, não só responde
+- **Brain eval suite**: defina casos, rode contra Brain, mede pass rate
+
+### Backend
+- **Brain semantic cache** — respostas similares cacheadas (corta custo OpenAI)
+- **Brain RAG hybrid BM25 + vector** — recall melhor em queries com termos raros
+- **Brain audit trail** — log estruturado de toda decisão Brain (handoff, action call, citation)
+- **Lead qualifier multi-dim**: score por intent, budget, urgency, fit
+
+---
+
+## Fevereiro 2026
+
+### Plataforma
+- **WhatsApp self-serve onboarding**: cliente conecta número Meta Business sem precisar suporte
+- **Contatos como recurso 1st-class**: `/v1/contacts` com batch upsert + busca paginada + `attributes` flexível por contato
+- **Per-customer memory no Brain**: agente lembra de cada cliente (LTV, tier, mood)
+
+### SDKs
+- Node SDK v1.7 → 1.8: tipos pra webhook events (`AraraWebhookEvent`)
+- Python SDK v1.7 → 1.8: campaigns + brain + payments resources
+- PHP SDK v1.7 → 1.8: named arguments PHP 8.2+
+
+---
+
+## Janeiro 2026
+
+### Plataforma
+- **Brain copilot mode**: Brain sugere resposta, humano aprova (vs autopilot)
+- **Brain per-customer memory** — RAG focado em histórico de cada cliente
+- **Lead qualifier**: score automático (HOT/WARM/COLD) por conversação
+
+### Backend
+- **Phone lookups cache** — reduz call Meta pra validar número
+- **API key security pack**: IP allowlist (BUSINESS+), rotation, revoke, audit log
+- **Webhook delivery detail**: retry log expandido (timing, status code, response body)
+- **Team management**: convites, roles (OWNER/MEMBER), seats
+
+---
+
+## 2025
+
+Histórico antes de 2026 mantido [no GitHub releases](https://github.com/ararahq) de cada SDK.
+
+Highlights:
+- Lançamento da Arara — Dec/2025
+- API REST v1 disponibilizada
+- SDKs Node, Python, PHP, Java em beta
+- Integração com AbacatePay (Pix nativo BR)
+- Tech Provider Meta aprovado
+
+---
+
+## Política de deprecation
+
+Endpoint ou campo marcado como `deprecated`:
+
+1. **Mês 0**: anuncio no changelog + email pros clientes que usam + tag `deprecated` no OpenAPI
+2. **Mês 0-6**: continua funcionando, log warning
+3. **Mês 6**: remoção
+
+Hoje marcados como deprecated:
+
+| Campo / Endpoint | Substituto | Remoção |
+|---|---|---|
+| `SendMessageRequest.mediaUrl` | `templateVariables[0]` (URL como primeiro elemento) | Q4 2026 |
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Roadmap" icon="map" href="/roadmap">
+    O que está sendo construído.
+  </Card>
+  <Card title="GitHub releases" icon="github" href="https://github.com/ararahq">
+    Detalhe técnico por SDK.
+  </Card>
+</CardGroup>

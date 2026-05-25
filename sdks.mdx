@@ -1,164 +1,186 @@
 ---
-title: 'SDKs e Bibliotecas'
-description: 'Bibliotecas oficiais para integrar a Arara em sua linguagem favorita.'
+title: 'SDKs e ferramentas'
+description: 'Bibliotecas oficiais Node, Python, PHP, Java para integrar a Arara — todas open source, com retry automático, tipagem nativa e exemplos validados contra o código real. CLI single-binary em Go. MCP com 84 ferramentas pra agentes IA.'
+keywords: ['sdks', 'bibliotecas', 'node', 'python', 'php', 'java', 'go', 'cli', 'mcp']
 ---
 
+A Arara mantém **4 SDKs oficiais** + CLI single-binary + MCP server. Todos open source, MIT, no [GitHub](https://github.com/ararahq). Snippets nesta página são gerados/validados contra o código real — copia e cola funciona.
 
-Para acelerar sua integração, fornecemos SDKs oficiais **100% Open Source**. Nossos SDKs seguem padrões de **Clean Code** e oferecem suporte nativo a tipos.
+## SDKs
 
 <CardGroup cols={2}>
-  <Card title="Node.js / TypeScript" icon="node">
+  <Card title="Node.js / TypeScript" icon="node" href="/sdks/node">
     ```bash
     npm install @ararahq/sdk
     ```
+    Estável. Cobre messages, templates, users, organizations, api-keys.
   </Card>
-  <Card title="PHP / Laravel" icon="php">
+  <Card title="Python" icon="python" href="/sdks/python">
+    ```bash
+    pip install ararahq-sdk
+    ```
+    Mais completo. Inclui campaigns, brain, payments além do core.
+  </Card>
+  <Card title="PHP / Laravel" icon="php" href="/sdks/php">
     ```bash
     composer require ararahq/sdk
     ```
+    Estável. Laravel-ready. Cobre core.
   </Card>
-  <Card title="Python" icon="python">
-    ```bash
-    pip install ararahq-sdk==1.8.0
-    ```
-  </Card>
-  <Card title="Java / Kotlin" icon="java">
+  <Card title="Java / Kotlin" icon="java" href="/sdks/java">
     ```kotlin
     implementation("com.ararahq:arara-java-sdk:1.8.0")
     ```
+    Estável. Spring Boot-ready. Cobre messages, templates, campaigns, users.
+  </Card>
+  <Card title="Go" icon="golang" href="/sdks/go">
+    Em breve. Por enquanto use [CLI](/cli) ou REST direto.
+  </Card>
+  <Card title="Ruby / Elixir / Rust" icon="circle-question">
+    Sem SDK oficial. Use REST com lib HTTP padrão. Snippets em [API Reference](/api-reference/introduction).
   </Card>
 </CardGroup>
 
----
+## Paridade entre SDKs
 
-## Código Aberto & Soberania
+Honestidade: nem todos os SDKs têm cobertura igual. Estado atual:
 
-Todos os nossos SDKs são distribuídos sob a licença **MIT** e estão disponíveis no nosso [GitHub](https://github.com/ararahq). Acreditamos que a infraestrutura de mensagens deve ser transparente e extensível.
+| Recurso | Node | Python | PHP | Java |
+|---|---|---|---|---|
+| Messages | ✅ | ✅ | ✅ | ✅ |
+| Templates | ✅ | ✅ | ✅ | ✅ |
+| Users | ✅ | ✅ | ✅ | ✅ |
+| Organizations | ✅ | ✅ | ✅ | — |
+| API Keys | ✅ | — | — | — |
+| Campaigns | — | ✅ | — | ✅ |
+| Brain (IA) | — | ✅ | — | — |
+| Payments (Pix) | — | ✅ | — | — |
 
----
+Pra recurso fora do SDK, use REST direto via método de escape:
 
-## Por Que Usar Nossos SDKs?
+```typescript
+// Node SDK não tem .campaigns ainda — use REST direto
+await sdk.api.post('/v1/campaigns', { name: '...', templateName: '...', contacts: [...] });
+```
 
-Nossos SDKs não são apenas "wrappers" de API. Eles incluem:
+Paridade total no roadmap pra Q3 2026.
 
-1.  **Retentativas Automáticas**: Lógica de *Exponential Backoff* embutida para lidar com instabilidades.
-2.  **Validação Local**: Verificamos o formato dos números e nomes dos templates antes do request.
-3.  **Tipagem Forte**: Autocomplete completo no seu editor (VS Code, IntelliJ) para todos os payloads.
-4.  **Universal Webhooks**: Tipagem nativa para processar eventos de status e mensagens recebidas.
+## Ferramentas
 
----
+<CardGroup cols={2}>
+  <Card title="CLI" icon="terminal" href="/cli">
+    `arara send`, `arara listen`, `arara api`. Single binary Go. Brew, curl, npm. Hooks e `.arara/`.
+  </Card>
+  <Card title="MCP Server" icon="server" href="/mcp">
+    84 ferramentas via Model Context Protocol. Claude, Cursor, Windsurf, ChatGPT.
+  </Card>
+  <Card title="Postman Collection" icon="rectangle-terminal" href="https://github.com/ararahq/arara-postman">
+    Collection oficial. Importa e testa todos endpoints sem código.
+  </Card>
+  <Card title="VS Code Theme" icon="palette" href="https://github.com/ararahq/arara-vscode-theme">
+    Theme dark e light com paleta teal da marca.
+  </Card>
+</CardGroup>
 
-## Configurando a Base URL (V2)
+## Por que usar nossos SDKs
 
-<Note>
-  Se voce esta utilizando a **V2 da AraraHQ**, configure a base URL ao instanciar o SDK:
+Os SDKs não são wrappers fininhos da API. Cada um inclui:
 
-  ```typescript Node.js
-  const sdk = new NodeSDK({
-    apiKey: 'sk_live_...',
-    baseUrl: 'https://new-api.ararahq.com/api'
-  });
-  ```
+- **Retry com backoff exponencial** pra 429 e 5xx
+- **Validação local** de número (E.164), template name, schema
+- **Tipos nativos** pra todos os request/response (TypeScript, Pydantic, Lombok)
+- **Tipos pra webhook** (`AraraWebhookEvent` discriminated union)
+- **Idempotency-Key** integrado
+- **Headers de auth** automáticos
+- **Honra `Retry-After`** em 429
 
-  ```python Python
-  from arara_api_sdk import AraraClient
+## Exemplo lado a lado
 
-  client = AraraClient(
-      api_key="sk_live_...",
-      base_url="https://new-api.ararahq.com/api"
-  )
-  ```
-
-  Voce tambem pode definir a variavel de ambiente `ARARA_BASE_URL=https://new-api.ararahq.com/api` em vez de passar no construtor.
-</Note>
-
----
-
-## Exemplo de Uso Multi-Linguagem
-
-Escolha sua stack e veja como é simples enviar uma mensagem com mídia e variáveis.
+Mesma operação (enviar template com header de mídia + 2 variáveis):
 
 <CodeGroup>
 ```typescript Node.js
 import { NodeSDK } from '@ararahq/sdk';
 
-const sdk = new NodeSDK({ apiKey: 'sk_live_...' });
-
-const response = await sdk.messages.send({
-  receiver: 'whatsapp:+5511999998888',
-  templateName: 'fatura_disponivel',
-  variables: ['João', 'Janeiro'],
-  media_url: 'https://ararahq.com/l/FtFmja'
+const sdk = new NodeSDK({
+  apiKey: process.env.ARARA_API_KEY!,
+  baseUrl: 'https://api.ararahq.com/api',
 });
-```
 
-```php PHP
-use Arara\Sdk\Arara;
-
-$arara = new Arara('sk_live_...');
-
-$response = $arara->messages()->send([
-    'receiver' => 'whatsapp:+5511999998888',
-    'templateName' => 'fatura_disponivel',
-    'variables' => ['João', 'Janeiro'],
-    'media_url' => 'https://ararahq.com/l/FtFmja'
-]);
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'fatura_disponivel',
+  templateVariables: [
+    'https://meusite.com/fatura.pdf', // header (mídia)
+    'João',                            // {{1}}
+    'Janeiro'                          // {{2}}
+  ],
+});
 ```
 
 ```python Python
 from arara_api_sdk import AraraClient
+from arara_api_sdk.models.message import SendMessageRequest
 
-with AraraClient(api_key="sk_live_...") as client:
-    response = client.messages.send({
-        "receiver": "whatsapp:+5511999998888",
-        "templateName": "fatura_disponivel",
-        "variables": ["João", "Janeiro"],
-        "media_url": "https://ararahq.com/l/FtFmja"
-    })
+with AraraClient(api_key="ara_live_xxx") as client:
+    client.messages.send(SendMessageRequest(
+        receiver="whatsapp:+5511999999999",
+        template_name="fatura_disponivel",
+        template_variables=[
+            "https://meusite.com/fatura.pdf",
+            "João",
+            "Janeiro",
+        ],
+    ))
+```
+
+```php PHP
+use Arara\Arara;
+use Arara\Config;
+
+$sdk = new Arara(new Config(apiKey: 'ara_live_xxx'));
+
+$sdk->messages->send(
+    receiver: 'whatsapp:+5511999999999',
+    templateName: 'fatura_disponivel',
+    variables: [
+        'https://meusite.com/fatura.pdf',
+        'João',
+        'Janeiro',
+    ],
+);
 ```
 
 ```java Java
-Arara arara = Arara.builder().apiKey("sk_live_...").build();
+import com.ararahq.arara.sdk.Arara;
+import com.ararahq.arara.sdk.models.SendMessageRequest;
+import java.util.List;
 
-MessageResponse response = arara.getMessages().send(
+Arara arara = Arara.builder().apiKey("ara_live_xxx").build();
+
+arara.getMessages().send(
     SendMessageRequest.builder()
-        .receiver("whatsapp:+5511999998888")
+        .receiver("whatsapp:+5511999999999")
         .templateName("fatura_disponivel")
-        .templateVariables(List.of("João", "Janeiro"))
-        .mediaUrl("https://ararahq.com/l/FtFmja")
+        .templateVariables(List.of(
+            "https://meusite.com/fatura.pdf",
+            "João",
+            "Janeiro"
+        ))
         .build()
 );
 ```
 </CodeGroup>
 
----
+**Padrão de mídia**: URL da mídia (imagem/vídeo/PDF) vai como **primeiro elemento** do array `templateVariables`. Posições seguintes preenchem `{{1}}`, `{{2}}`... do corpo do template.
 
-## Ferramentas
-
-<CardGroup cols={2}>
-  <Card title="Postman Collection" icon="rectangle-terminal" href="https://github.com/ararahq/arara-postman">
-    Importe a collection oficial e teste todos os endpoints sem escrever código.
-  </Card>
-  <Card title="MCP Server" icon="robot" href="https://github.com/ararahq/ararahq-mcp">
-    Conecte a Arara ao Claude, Cursor e outros agentes de IA.
-  </Card>
-  <Card title="VS Code Theme" icon="palette" href="https://github.com/ararahq/arara-vscode-theme">
-    Theme dark e light com as cores da Arara.
-  </Card>
-  <Card title="CLI" icon="terminal" href="https://github.com/ararahq/arara-cli">
-    Envie mensagens, gerencie templates e campanhas direto do terminal.
-  </Card>
-</CardGroup>
-
----
-
-## Próximos Passos
+## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Cookbooks" icon="book-open" href="/cookbooks/auth-2fa">
-    Veja exemplos práticos de implementação.
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Primeiro envio em 5 minutos.
   </Card>
-  <Card title="Escudo de Erros" icon="shield" href="/erros">
-    Entenda como tratar falhas com o SDK.
+  <Card title="Receitas práticas" icon="book-open" href="/recipes">
+    Carrinho abandonado, OTP, BF, suporte 24/7.
   </Card>
 </CardGroup>

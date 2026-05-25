@@ -1,0 +1,188 @@
+---
+title: 'Qualidade do número'
+description: 'Quality score, tiers (TIER_250 → TIER_100K+), warming progressivo, diagnóstico quando cai, e como manter o número verde. Tudo o que afeta sua taxa de entrega e quanto você pode mandar por dia.'
+keywords: ['quality score', 'tier', 'warming', 'banimento', 'green', 'red', 'meta']
+---
+
+Cada número conectado à WhatsApp Business API tem um **quality score** atualizado pela Meta a cada 24h. Esse score determina:
+
+- Quantas mensagens você pode mandar por dia (250 → 1K → 10K → 100K+)
+- Quão proeminente o número aparece no app do cliente
+- Se Meta vai pausar ou banir
+
+É **o ativo mais frágil** da sua operação. Esta página explica como funciona e como manter.
+
+## Os 4 quality states
+
+| Cor | Significado | Limite de envios/24h |
+|---|---|---|
+| 🟢 **GREEN** | Cliente quer receber. Bloqueio < 0,5%. | Limite do tier atual |
+| 🟡 **YELLOW** | Bloqueio moderado (0,5-1,5%). Vigilância ativa. | Limite do tier atual |
+| 🔴 **RED** | Bloqueio alto (>1,5%). Risco de pausa. | Reduzido |
+| ⚫ **FLAGGED** | Banido temporariamente. | 0 |
+
+Quality é o **estado de saúde** do número. Tier é o **limite operacional**.
+
+## Os 5 tiers
+
+| Tier | Limite/24h | Como sobe |
+|---|---|---|
+| **TIER_250** | 250 conversações iniciadas | Novo número começa aqui |
+| **TIER_1K** | 1.000 | 7 dias com quality verde + volume crescente |
+| **TIER_10K** | 10.000 | Mais 7 dias verde + volume crescente |
+| **TIER_100K** | 100.000 | Mais 7 dias verde + volume crescente |
+| **TIER_UNLIMITED** | Ilimitado | Geralmente reservado pra contas enterprise grandes |
+
+Subir 1 tier exige **dobrar o volume diário** mantendo quality verde por 7 dias seguidos. Pular tier não é possível — só sequencial.
+
+## O que afeta o score
+
+A Meta atualiza baseado em sinais agregados:
+
+| Sinal | Peso | Como evitar |
+|---|---|---|
+| **Block** (cliente clicou "Block") | Alto | Opt-in real, conteúdo relevante |
+| **Spam report** | Crítico | Tom apropriado, sem urgência forçada |
+| **Taxa de leitura** | Médio | Horário certo (10-12h, 18-20h), template bom |
+| **Stop receiving messages** (botão Meta) | Alto | Respeite frequência |
+| **Reply rate** | Médio (positivo) | Conteúdo conversacional |
+
+## Consultar quality
+
+```bash
+curl https://api.ararahq.com/api/v1/organizations/me/numbers \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Retorna pra cada número:
+
+```json
+{
+  "id": "ara_num_abc",
+  "phone": "+5511999999999",
+  "tier": "TIER_10K",
+  "quality": "GREEN",
+  "verification": "BUSINESS_VERIFIED",
+  "messagingLimit": "TIER_10K",
+  "lastQualityCheck": "2026-05-18T10:00:00Z",
+  "metrics": {
+    "blockRate7d": 0.0021,
+    "deliveryRate7d": 0.987,
+    "readRate7d": 0.823,
+    "spamReportRate7d": 0.0003
+  }
+}
+```
+
+Acompanhe tier e quality pelo dashboard ou pelo endpoint acima. Hoje não há webhook dedicado de mudança de quality — pra automação, faça polling diário no `GET /v1/numbers/{id}`.
+
+## Warming — subir tier sem queimar
+
+Subir de tier exige **volume crescente**, mas crescer rápido demais derruba quality. Equilíbrio.
+
+A Arara expõe recomendação baseada em quality atual:
+
+```bash
+curl https://api.ararahq.com/api/v1/organizations/me/numbers/warming \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Retorna:
+
+```json
+[
+  {
+    "numberId": "ara_num_abc",
+    "currentTier": "TIER_1K",
+    "recommendedSendRate24h": 800,
+    "daysToNextTier": 3,
+    "rationale": "Quality GREEN há 5 dias, bloqueio 0.2%. Pode subir gradualmente."
+  }
+]
+```
+
+Programe seu dispatcher pra respeitar `recommendedSendRate24h`. Em produção, vale segurar mesmo que tenha capacidade.
+
+<Note>
+  Pra **Black Friday e datas críticas**: comece o warming 2-3 semanas antes. Não dá pra subir de TIER_250 pra TIER_10K no dia.
+</Note>
+
+## Quando o número cai de tier
+
+Tier descendo é sinal vermelho. Os 3 motivos mais comuns:
+
+### 1. Disparo agressivo de marketing
+
+Cenário: você acabou de criar template MARKETING aprovado, dispara pra 5.000 contatos da base. Bloqueio sobe pra 3%. Tier cai pra YELLOW em 24h.
+
+**Fix**: pausa marketing por **7 dias**, dispara só UTILITY (notificações reais). Quality sobe.
+
+### 2. Template mal redigido
+
+Cenário: template com tom muito agressivo, CAPS, "URGENTE", "ÚLTIMA CHANCE". Conversão é boa, mas taxa de bloqueio também.
+
+**Fix**: rodar [lint local](/templates/policy) antes de submeter. Tom conversacional converte tanto e bloqueia menos.
+
+### 3. Falta de opt-in
+
+Cenário: você importou base do CRM sem consentimento explícito pra WhatsApp. Cliente recebe sem esperar e bloqueia.
+
+**Fix**: re-engajar com email primeiro ("vamos começar a falar com você no WhatsApp também — ok?"). Quem responder vai pro contato WhatsApp ativo.
+
+## Diagnóstico
+
+Dashboard → **Números → {número} → Diagnóstico** mostra:
+
+- Curva de quality dos últimos 30 dias
+- Cohort de mensagens com mais bloqueio (qual template, qual horário)
+- Comparação com benchmark da indústria
+- Sugestões automáticas
+
+Via API:
+
+```bash
+curl https://api.ararahq.com/api/v1/organizations/me/numbers/{id}/diagnostic \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+## Múltiplos números — estratégia
+
+Operação grande pode rodar **5-20 números** pra:
+
+- Distribuir carga (proteção contra ban de um afetar todos)
+- Segmentar por uso (1 número só pra marketing, 1 só pra atendimento)
+- Cobertura por região (DDD local melhora trust)
+
+Configuração no dashboard em **Números → Estratégia**:
+
+- **Round-robin**: distribui sequencialmente
+- **Por região**: DDD do destinatário define qual número usa
+- **Por uso**: marketing usa pool X, atendimento usa Y
+
+A Arara distribui automaticamente. Dashboard agregado mostra performance combinada.
+
+## Como pedir um número novo
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/organizations/me/numbers/request \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "areaCode": "11",
+    "displayName": "Minha Marca",
+    "reason": "Lançamento de campanha BF26",
+    "expectedVolumePerMonth": 50000
+  }'
+```
+
+Nossa operação processa em 2-5 dias úteis. Verificação Meta (Business Verified) leva mais 3-7 dias.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Templates" icon="file-lines" href="/concepts/templates">
+    Como não derrubar o quality com template ruim.
+  </Card>
+  <Card title="Pricing por tier" icon="dollar-sign" href="/concepts/pricing">
+    Tier não muda preço, mas muda volume.
+  </Card>
+</CardGroup>

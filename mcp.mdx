@@ -1,0 +1,209 @@
+---
+title: 'MCP Server'
+description: '84 ferramentas via Model Context Protocol. Conecte Claude Desktop, Cursor, Windsurf, ChatGPT (Custom GPT) ou qualquer agente AI à infraestrutura da Arara em 5 minutos.'
+keywords: ['mcp', 'model context protocol', 'claude desktop', 'cursor', 'windsurf', 'chatgpt', 'agentes ai', 'tools']
+---
+
+O servidor MCP da Arara expõe **84 ferramentas** que cobrem toda a superfície da API — mensagens, templates, campanhas, conversas, Brain, AbacatePay, recovery. Qualquer agente AI que fale MCP pluga e usa.
+
+<Note>
+  **MCP (Model Context Protocol)** é o protocolo aberto da Anthropic pra conectar LLMs a ferramentas externas. Hoje suportado por Claude Desktop, Cursor, Windsurf, ChatGPT (Custom GPT via SSE), e SDKs em Python/TypeScript.
+</Note>
+
+## Modos de conexão
+
+<CardGroup cols={2}>
+  <Card title="SSE (recomendado)" icon="cloud">
+    Você não roda nada localmente. Sua API key vai no header. Funciona em qualquer cliente que aceite SSE: Claude Desktop, Cursor, Windsurf, ChatGPT.
+    
+    URL: `https://mcp.ararahq.com/sse`
+  </Card>
+  <Card title="stdio (local)" icon="terminal">
+    Você roda o servidor MCP como subprocesso na sua máquina via `npx`. Bom pra dev local, pra agentes Python/TS custom, ou quando você quer interceptar/auditar antes de cada chamada.
+    
+    Comando: `npx ararahq-mcp`
+  </Card>
+</CardGroup>
+
+## Configurar Claude Desktop
+
+Edita `claude_desktop_config.json` (Settings → Developer → Edit Config):
+
+```json
+{
+  "mcpServers": {
+    "ararahq": {
+      "url": "https://mcp.ararahq.com/sse",
+      "headers": {
+        "X-Arara-Key": "ara_live_xxx"
+      }
+    }
+  }
+}
+```
+
+Reinicia o Claude. Verifica que apareceu o ícone de plug, e que as ferramentas estão listadas.
+
+## Configurar Cursor
+
+`Settings → Models → MCP Servers → Add Server`:
+
+| Campo | Valor |
+|---|---|
+| Name | AraraHQ |
+| Type | SSE |
+| URL | `https://mcp.ararahq.com/sse` |
+| Header `X-Arara-Key` | `ara_live_xxx` |
+
+## Configurar Windsurf
+
+Edita `.windsurf/mcp.json` na raiz do projeto:
+
+```json
+{
+  "servers": {
+    "ararahq": {
+      "url": "https://mcp.ararahq.com/sse",
+      "headers": {
+        "X-Arara-Key": "ara_live_xxx"
+      }
+    }
+  }
+}
+```
+
+## Modo stdio (local)
+
+```json
+{
+  "mcpServers": {
+    "ararahq": {
+      "command": "npx",
+      "args": ["-y", "ararahq-mcp"],
+      "env": {
+        "ARARA_API_KEY": "ara_live_xxx",
+        "ARARA_BASE_URL": "https://api.ararahq.com/api"
+      }
+    }
+  }
+}
+```
+
+Requer Node 18+. O `-y` aceita a instalação do `npx` sem prompt.
+
+## Ferramentas disponíveis (84)
+
+<Note>
+  Lista completa e canônica fica no [README do `ararahq-mcp`](https://github.com/ararahq/ararahq-mcp#tools) — atualizada a cada release. Agrupamento abaixo é representativo.
+</Note>
+
+### Conta e autenticação
+
+`login`, `logout`, `whoami`, `get_organization_info`, `list_api_keys`, `create_api_key`, `rotate_api_key`, `revoke_api_key`
+
+### Mensagens
+
+`send_message`, `send_template_to_many`, `get_message_status`, `list_messages`
+
+### Templates
+
+`list_templates`, `create_template`, `get_template_status`, `get_template_analytics`, `delete_template`, `list_paused_templates`
+
+### Campanhas
+
+`create_campaign`, `list_campaigns`, `get_campaign`, `estimate_campaign_cost`, `cancel_campaign`, `create_ab_test`, `get_ab_test`, `force_ab_test_winner`
+
+### Conversas (inbox)
+
+`list_conversations`, `get_conversation_messages`, `reply_in_conversation`, `check_window_status`, `bulk_window_check`, `get_lead_stats`
+
+### Contatos
+
+`list_contacts`, `get_contact`, `upsert_contacts`, `get_contact_stats`
+
+### Números
+
+`list_numbers`, `get_number_health`, `request_new_number`, `list_number_requests`, `sync_number_with_meta`, `update_number`, `get_warming_plan`
+
+### Smart Links
+
+`create_smart_link`, `list_smart_links`, `update_smart_link`, `get_smart_link_stats`
+
+### Brain (AI)
+
+`brain_interact`, `brain_suggest_reply`, `get_brain_config`, `get_brain_metrics`, `add_brain_knowledge`, `list_brain_knowledge`, `update_brain_knowledge`, `delete_brain_knowledge`, `ingest_url_to_brain`
+
+### Revenue Recovery (AbacatePay)
+
+`find_revenue_leaks`, `negotiate_payment`, `check_payment_status`, `get_recovery_endpoint`, `list_recovery_events`, `configure_recovery_event`, `test_recovery_event`, `set_recovery_endpoint_active`, `list_recovery_ingests`, `retry_recovery_ingest`
+
+### Wallet
+
+`get_wallet_balance`, `list_wallet_transactions`
+
+### Guardian Mode (brand safety)
+
+`configure_guardian_policy`, `list_policy_violations`, `resolve_policy_violation`
+
+### Opt-out e LGPD
+
+`list_opt_outs`, `register_opt_out`, `revoke_opt_out`, `check_opt_out`, `lgpd_export_contact`, `lgpd_delete_contact`
+
+### Utilidades
+
+`get_pricing`, `get_delivery_metrics`, `lookup_phone`, `lookup_phones_batch`, `get_business_profile`, `update_business_profile`, `sync_business_profile`
+
+## Guardian Mode
+
+Toda ferramenta de envio (`send_message`, `send_template_to_many`, `reply_in_conversation`, `create_campaign`) passa pelo **Guardian** antes de qualquer mensagem sair. O Guardian roda regras configuráveis (PII, palavras proibidas, tom inadequado) e bloqueia o envio se detectar problema.
+
+Configurar por sessão:
+
+```
+> Configure o Guardian pra bloquear envio que contenha CPF, RG ou cartão, e que peça aprovação humana acima de R$ 1000.
+```
+
+O agente invoca `configure_guardian_policy` com a regra. Vale pelo resto da sessão.
+
+## Exemplos de uso
+
+<AccordionGroup>
+  <Accordion title="Recovery autônomo de receita" icon="rotate-right">
+    ```
+    "Verifica se temos algum leak no AbacatePay nas últimas 72h. Pros 3 maiores valores, monta um briefing por cliente e me sugere abordagem."
+    ```
+    
+    Agente chama `find_revenue_leaks`, depois `get_conversation_messages` por telefone pra montar contexto, retorna lista priorizada.
+  </Accordion>
+  <Accordion title="Triagem de respostas de campanha" icon="filter">
+    ```
+    "Dispara a campanha 'reativacao_inativos_60d'. Depois de 2h, traz a triagem de respostas priorizando urgência."
+    ```
+    
+    Agente chama `create_campaign`, espera, depois `list_conversations` + `get_conversation_messages` e classifica.
+  </Accordion>
+  <Accordion title="Operação multi-org (agência)" icon="building">
+    ```
+    "Lista os 5 clientes com saldo baixo (< R$ 200). Pra cada um, manda mensagem pro contato principal avisando."
+    ```
+    
+    Agente itera sobre profiles, chama `get_wallet_balance`, `get_organization_info`, depois `send_message` pra cada.
+  </Accordion>
+</AccordionGroup>
+
+## Segurança
+
+- **Chaves não persistidas no servidor MCP**: a `X-Arara-Key` vai no header de cada request SSE. Servidor não armazena.
+- **Mesmas permissões da API key**: o MCP herda escopo da chave fornecida. Use chaves com permissão mínima por caso de uso.
+- **Logs locais**: cada tool call fica logado na sessão. No Claude Desktop, em "View → Developer → Logs". Útil pra auditoria.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Por que isso importa" icon="lightbulb" href="/agents">
+    Posicionamento — quando usar MCP vs SDK vs Brain.
+  </Card>
+  <Card title="Source do MCP" icon="github" href="https://github.com/ararahq/ararahq-mcp">
+    Código aberto, 84 tools, releases versionadas.
+  </Card>
+</CardGroup>

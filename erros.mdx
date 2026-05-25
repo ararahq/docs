@@ -1,123 +1,167 @@
 ---
 title: 'Erros'
-description: 'Formato de erros, codigos comuns e diagnosticos da Arara.'
+description: 'Formato de erro, códigos emitidos pela API, diagnóstico de erros WhatsApp traduzidos da Meta e retry automático.'
+keywords: ['erros', 'error codes', 'troubleshooting', 'retry', 'failure']
 ---
 
-## Formato de erro
+A maioria dos erros da Arara segue um envelope JSON com `code` legível por máquina. Rotas mais antigas ainda retornam um envelope simplificado sem `code` — abaixo cada formato e quando esperar cada um.
 
-Todas as respostas de erro seguem o mesmo formato:
+## Formato canônico
 
 ```json
 {
   "error": {
-    "code": "INSUFFICIENT_CREDITS",
-    "message": "Your wallet does not have enough credits for this operation."
+    "code": "PLAN_FEATURE_LOCKED",
+    "message": "Essa feature está liberada a partir do plano BUSINESS.",
+    "feature": "campaigns",
+    "currentPlan": "STARTER",
+    "upgradeTo": "BUSINESS"
   }
 }
 ```
 
-| Campo | Tipo | Descricao |
-|-------|------|-----------|
-| `error.code` | string | Codigo maquina do erro (constante, pode ser usado em logica de retry). |
-| `error.message` | string | Descricao legivel para humanos. |
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `error.code` | string | Código estável (constante). Use em `if`/`switch`. |
+| `error.message` | string | Descrição em português, pra exibir ao usuário. |
+| Campos extras | varia | Cada `code` pode trazer contexto específico (planos, limites, currentStatus, etc). |
 
-## Codigos de erro comuns
+## Formato simplificado (sem `code`)
 
-### Autenticacao e autorizacao
-
-| Codigo | HTTP | Descricao |
-|--------|------|-----------|
-| `INVALID_API_KEY` | 401 | API key invalida, expirada ou revogada. |
-| `MISSING_API_KEY` | 401 | Header `Authorization` ausente. |
-| `FORBIDDEN` | 403 | Chave valida, mas sem permissao para este recurso ou ambiente. |
-
-### Validacao de input
-
-| Codigo | HTTP | Descricao |
-|--------|------|-----------|
-| `INVALID_PHONE_NUMBER` | 400 | Numero de telefone em formato invalido. |
-| `INVALID_EMAIL` | 400 | Endereco de email invalido. |
-| `MISSING_REQUIRED_FIELD` | 400 | Campo obrigatorio ausente no body. |
-| `INVALID_TEMPLATE_VARIABLES` | 400 | Variaveis do template nao conferem com o esperado. |
-| `TEMPLATE_NOT_FOUND` | 404 | Template nao existe ou nao pertence a sua organizacao. |
-| `MESSAGE_NOT_FOUND` | 404 | Mensagem nao encontrada. |
-| `CAMPAIGN_NOT_FOUND` | 404 | Campanha nao encontrada. |
-| `CONTACT_NOT_FOUND` | 404 | Contato nao encontrado. |
-
-### Regras de negocio
-
-| Codigo | HTTP | Descricao |
-|--------|------|-----------|
-| `INSUFFICIENT_CREDITS` | 402 | Saldo de creditos insuficiente. Recarregue sua carteira. |
-| `TEMPLATE_NOT_APPROVED` | 422 | Template ainda nao foi aprovado pela Meta. |
-| `TEMPLATE_PAUSED` | 422 | Template pausado por baixa qualidade. |
-| `SESSION_WINDOW_CLOSED` | 422 | Janela de 24h fechada. Envie um template para reabrir a conversa. |
-| `DUPLICATE_RESOURCE` | 409 | Recurso ja existe (ex: template com mesmo nome). |
-| `IDEMPOTENCY_CONFLICT` | 409 | Requisicao com mesma `Idempotency-Key` ja processada com body diferente. |
-
-### Rate limiting
-
-| Codigo | HTTP | Descricao |
-|--------|------|-----------|
-| `RATE_LIMIT_EXCEEDED` | 429 | Limite de requisicoes excedido. Aguarde e tente novamente. |
-
-### Erros internos
-
-| Codigo | HTTP | Descricao |
-|--------|------|-----------|
-| `INTERNAL_ERROR` | 500 | Erro interno do servidor. Tente novamente ou contate suporte. |
-| `PROVIDER_ERROR` | 502 | Erro no provider externo (Meta, email). Retry automatico em andamento. |
-| `SERVICE_UNAVAILABLE` | 503 | Servico temporariamente indisponivel. |
-
-## Escudo de Erros (WhatsApp)
-
-A Arara traduz erros tecnicos da Meta em diagnosticos legiveis. Em vez de receber um codigo generico como `#131030`, voce recebe uma explicacao clara e uma sugestao de acao.
-
-| Codigo Arara | Diagnostico | Acao recomendada |
-|:-------------|:------------|:-----------------|
-| `ararahq-63016` | Janela de conversacao fechada. | Envie um template para reabrir a conversa. |
-| `ararahq-insufficient-funds` | Saldo de creditos esgotado. | Recarregue sua carteira no painel. |
-| `ararahq-rate-limit` | Limite de requisicoes excedido. | Reduza a velocidade ou use a API de Campanhas. |
-| `ararahq-template-mismatch` | Variaveis do template invalidas. | Verifique os parametros no JSON. |
-| `ararahq-media-invalid` | Arquivo pesado ou nao suportado. | Reduza o tamanho do arquivo (max 16MB/100MB). |
-| `ararahq-template-error` | Template rejeitado ou pausado. | Verifique o status no Gerenciador da Meta. |
-| `ararahq-invalid-number` | Numero invalido ou sem WhatsApp. | Verifique o formato (DDI + DDD + numero). |
-| `ararahq-meta-block` | Bloqueio preventivo de spam. | Aguarde ou mude o conteudo da mensagem. |
-| `ararahq-opt-out` | O destinatario bloqueou a empresa. | Remova o contato da sua lista de envios. |
-| `ararahq-generic` | Erro generico no processamento. | Tente reenviar em alguns minutos. |
-
-## Como consultar o erro de uma mensagem
-
-Ao consultar uma mensagem com status `FAILED`, o campo `failureReason` contem o codigo do erro:
-
-```bash
-curl https://new-api.ararahq.com/api/v2/messages/ara_msg_k9Bf2XqP \
-  -H "Authorization: Bearer ara_live_xxx"
-```
+Algumas rotas — autenticação (filter do Spring), validação de body (`@Valid`), e exceptions genéricas — retornam:
 
 ```json
 {
-  "id": "ara_msg_k9Bf2XqP",
-  "status": "FAILED",
-  "failureReason": "ararahq-63016",
-  "failureMessage": "Janela de conversacao fechada. Envie um template para reabrir a conversa.",
-  "createdAt": "2026-04-04T14:30:00Z"
+  "error": "Unauthorized",
+  "message": "Invalid API Key format"
 }
 ```
 
-## Retentativas automaticas
+Use o `status` HTTP pra ramificar, não `error.code` (pode ser `null` aqui). Padronização está em andamento; eventualmente todas as rotas vão emitir `error.code`.
 
-Para erros temporarios (instabilidade da Meta, timeouts), a Arara aplica retry com backoff exponencial automaticamente antes de marcar a mensagem como `FAILED`. Voce nao precisa implementar retry no seu lado para esses casos.
+## Códigos com envelope canônico
 
-<Accordion title="V1 Legacy">
-  Na V1, o formato de erro era diferente:
+### Plano e conta
 
-  ```json
-  {
-    "error": "Unauthorized",
-    "message": "Invalid or expired API key"
+| Código | HTTP | Quando |
+|---|---|---|
+| `PLAN_FEATURE_LOCKED` | 403 | Feature exige plano superior — payload traz `feature`, `currentPlan`, `upgradeTo`. |
+| `PLAN_LIMIT_REACHED` | 403 | Limite do plano atingido — payload traz `feature`, `current`, `max`. |
+| `ACCOUNT_NOT_ACTIVATED` | 403 | Onboarding incompleto — payload traz `currentStatus`. Bloqueia criação de chave LIVE. |
+| `NO_DEDICATED_NUMBER` | 403 | Operação exige número WhatsApp dedicado. |
+| `ORGANIZATION_SUSPENDED` | 429 | Org suspensa por taxa de falhas alta. |
+| `NUMBER_BLOCKED` | 422 | Destinatário em opt-out ou número bloqueado preventivamente. |
+
+### Recovery
+
+| Código | HTTP | Quando |
+|---|---|---|
+| `RECOVERY_ENDPOINT_NOT_FOUND` | 404 | Endpoint de recovery não encontrado. |
+| `RECOVERY_ENDPOINT_INACTIVE` | 403 | Endpoint existe mas está `active: false`. |
+| `RECOVERY_EVENT_INVALID` | 400 | `eventType` ou `period` fora dos aceitos. |
+| `RECOVERY_HMAC_INVALID` | 401 | Assinatura HMAC do parceiro não confere. |
+| `RECOVERY_RATE_LIMITED` | 429 | Excesso de eventos por minuto — header `Retry-After: 60`. |
+| `RECOVERY_CONFIG_NOT_FOUND` | 404 | Sem config pra esse `eventType`. |
+| `RECOVERY_TEMPLATE_MISSING` | 412 | Config existe mas o template vinculado foi removido. |
+
+### OAuth device flow
+
+| Código | HTTP | Quando |
+|---|---|---|
+| `invalid_grant` | 400 | Device code inválido. |
+| `authorization_pending` | 400 | Usuário ainda não aprovou no browser. |
+| `slow_down` | 400 | Cliente CLI fazendo polling muito rápido. |
+| `access_denied` | 400 | Usuário negou. |
+| `expired_token` | 400 | Device code expirou — refaça `/oauth/device/code`. |
+| `device_code_not_found` | 404 | Code não existe. |
+| `device_code_already_used` | 409 | Code já foi trocado por access token. |
+
+### Genéricos
+
+| Código | HTTP | Quando |
+|---|---|---|
+| `NOT_FOUND` | 404 | Endpoint inexistente (rota sem handler). |
+| `NOTIFICATION_NOT_FOUND` | 404 | Notification in-app não existe. |
+
+## Erros sem `code` estruturado
+
+Esses ainda saem com `{ error: "...", message: "..." }` (sem `code`). Use o status HTTP:
+
+| HTTP | Origem típica |
+|---|---|
+| `400` | Validação de body (`@Valid` falhou). `message` traz a primeira violação. |
+| `401` | API key ausente, malformada, revogada ou IP fora da allowlist. |
+| `402` | Saldo da wallet insuficiente. Vem com `diagnostic` traduzindo o erro. |
+| `403` | Acesso negado (escopo de chave, IP bloqueado, security exception). |
+| `404` | Recurso não existe (link, mensagem, contato, etc — alguns ainda sem `code`). |
+| `409` | Conflito de estado (`IllegalStateException`). |
+| `422` | Regra de negócio violada (`BusinessException` — fora da janela 24h, template não existe, variáveis incompatíveis). Vem com `diagnostic`. |
+| `500` | Erro interno não tratado. |
+
+## Diagnóstico WhatsApp (`failureReason`)
+
+Mensagens com `status: failed` trazem `failureReason` traduzido da Meta:
+
+| `failureReason` | Diagnóstico | Ação |
+|---|---|---|
+| `63016` | Janela de 24h fechada | Use template HSM pra reabrir |
+| `insufficient_funds` | Saldo esgotado | Recarga ou auto-recharge |
+| `21211` | Número inválido ou sem WhatsApp | Confere DDI + DDD + dígito |
+| `63024` | Template não encontrado / não aprovado | Verifica status no dashboard |
+| `invalid_template_params` | Variáveis incompatíveis | Confere número/ordem das vars |
+| `generic` | Erro genérico Meta | Retry em alguns minutos |
+
+Consulta detalhe completo:
+
+```bash
+curl https://api.ararahq.com/api/v1/messages/ara_msg_xxx \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+## Retry automático
+
+A Arara retenta automaticamente:
+
+- **5xx upstream Meta**: backoff exponencial, até 5 tentativas em ~1h
+- **429 rate limit Meta**: respeita `Retry-After`
+- **HMAC inválido em recovery**: 401, sem retry — o parceiro precisa corrigir a assinatura
+
+Mensagem só fica em `status: failed` depois que todos os retries falharam. Você **não precisa** retentar do seu lado pra esses casos.
+
+Pra **4xx que não 429**, a Arara não retenta — corrigir antes (chave inválida, template ausente, número inválido).
+
+## Estratégia de tratamento no cliente
+
+```typescript
+try {
+  await sdk.messages.send({ ... });
+} catch (err) {
+  if (err.statusCode === 429) {
+    await sleep((err.retryAfter ?? 60) * 1000);
+    retry();
+  } else if (err.error?.code === 'PLAN_FEATURE_LOCKED' || err.error?.code === 'PLAN_LIMIT_REACHED') {
+    notifyAdmin(`Upgrade necessário: ${err.error.upgradeTo}`);
+  } else if (err.error?.code === 'ACCOUNT_NOT_ACTIVATED') {
+    openOnboardingWizard();
+  } else if (err.statusCode === 402) {
+    notifyAdmin('Saldo insuficiente — recarregar wallet');
+  } else if (err.statusCode === 422) {
+    queueForRetry();
+  } else if (err.statusCode >= 500) {
+    notifyOps(err);
+  } else {
+    throw err;
   }
-  ```
+}
+```
 
-  A V2 padroniza todos os erros no formato `{ "error": { "code": "...", "message": "..." } }`.
-</Accordion>
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Webhooks de status" icon="bell" href="/webhooks/events">
+    Receber falha de envio em tempo real.
+  </Card>
+  <Card title="Idempotência" icon="rotate-right" href="/api-reference/introduction#idempotência">
+    Evitar duplicata em retry.
+  </Card>
+</CardGroup>

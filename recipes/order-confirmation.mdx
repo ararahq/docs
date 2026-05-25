@@ -1,0 +1,251 @@
+---
+title: 'Confirmação de pedido'
+description: 'Substitua email transacional por WhatsApp. Confirmação + rastreio + status de entrega via templates UTILITY (R$ 0,12). 98% de abertura vs 22% do email. Receita completa pra Shopify, Woo e custom.'
+keywords: ['confirmação pedido', 'order confirmation', 'rastreio', 'transacional', 'utility']
+---
+
+Email transacional tem 22% de abertura. WhatsApp tem 98%. Confirmação de pedido é o caso de uso UTILITY mais óbvio — e o mais subutilizado. Esta receita mostra como migrar de email transacional pra WhatsApp.
+
+## Por que isso vale a pena
+
+| | Email transacional | WhatsApp UTILITY |
+|---|---|---|
+| Taxa de abertura | ~22% | ~98% |
+| Tempo até leitura | Horas/dias | Minutos |
+| Custo por mensagem | ~R$ 0,002 | ~R$ 0,12 |
+| Conversão de upsell pós-compra | < 1% | 3-8% |
+| Cliente respondendo dúvida | "Onde tá meu pedido?" pra SAC | Responde direto no chat |
+| NPS / satisfação | Baseline | +15-25 pontos |
+
+Custo subiu 60x. Conversão de upsell, redução de calls pra SAC e satisfação compensam — média de **ROI 3-5x** em operações que rodaram.
+
+## Templates necessários
+
+Você precisa de **4 templates UTILITY**. A Arara cria automaticamente na integração Shopify; manual:
+
+### 1. Pedido confirmado
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "name": "pedido_confirmado",
+    "category": "UTILITY",
+    "language": "pt_BR",
+    "body": "Pedido #{{1}} confirmado! ✅\n\nTotal: R$ {{2}}\nForma de pagamento: {{3}}\nPrazo: {{4}}\n\nVou te avisar quando despachar.",
+    "samples": ["ARA-12345", "147,90", "Pix", "2 dias úteis"],
+    "buttons": [
+      { "type": "URL", "text": "Ver pedido", "url": "https://meusite.com/pedido/{{1}}" }
+    ]
+  }'
+```
+
+### 2. Pedido enviado (com rastreio)
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "name": "pedido_enviado",
+    "category": "UTILITY",
+    "language": "pt_BR",
+    "body": "Seu pedido #{{1}} saiu pra entrega! 🚚\n\nCódigo de rastreio: {{2}}\nTransportadora: {{3}}\n\nAcompanhe a entrega:",
+    "samples": ["ARA-12345", "BR123456789BR", "Correios PAC"],
+    "buttons": [
+      { "type": "URL", "text": "Rastrear", "url": "https://www.linkcorrecto.com.br/rastreio/{{1}}" }
+    ]
+  }'
+```
+
+### 3. Pedido entregue
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "name": "pedido_entregue",
+    "category": "UTILITY",
+    "language": "pt_BR",
+    "body": "Seu pedido #{{1}} foi entregue! 📦\n\nTudo certo com a sua compra? Em caso de problema, responda essa mensagem.",
+    "samples": ["ARA-12345"]
+  }'
+```
+
+### 4. Falha no pagamento
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "name": "pagamento_falhou",
+    "category": "UTILITY",
+    "language": "pt_BR",
+    "body": "Tivemos um problema com o pagamento do pedido #{{1}}.\n\nMotivo: {{2}}\n\nVocê pode tentar novamente:",
+    "samples": ["ARA-12345", "Cartão recusado"],
+    "buttons": [
+      { "type": "URL", "text": "Tentar outro pagamento", "url": "https://meusite.com/checkout/{{1}}" }
+    ]
+  }'
+```
+
+Tempo de aprovação: 1-4h por template. Submeta os 4 de uma vez na sexta-feira, segunda já tá tudo aprovado.
+
+## Implementação
+
+### Quando confirmar pedido
+
+<CodeGroup>
+```typescript Node.js
+import { NodeSDK } from '@ararahq/sdk';
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY, baseUrl: '...' });
+
+async function notifyOrderConfirmed(order: Order) {
+  await sdk.messages.send({
+    receiver: `whatsapp:${order.customer.phone}`,
+    templateName: 'pedido_confirmado',
+    templateVariables: [
+      order.id,
+      order.total.toFixed(2),
+      order.paymentMethod,
+      order.estimatedDelivery,
+    ],
+  }, {
+    idempotencyKey: `order-confirmed-${order.id}`,
+  });
+}
+```
+
+```python Python
+from arara_api_sdk import AraraClient
+from arara_api_sdk.models.message import SendMessageRequest
+
+with AraraClient(api_key="ara_live_xxx") as client:
+    client.messages.send(SendMessageRequest(
+        receiver=f"whatsapp:{order.customer.phone}",
+        template_name="pedido_confirmado",
+        template_variables=[
+            order.id,
+            f"{order.total:.2f}",
+            order.payment_method,
+            order.estimated_delivery,
+        ],
+    ), idempotency_key=f"order-confirmed-{order.id}")
+```
+
+```php PHP
+use Arara\Arara;
+
+$sdk = new Arara($config);
+$sdk->messages->send(
+    receiver: 'whatsapp:' . $order->customer->phone,
+    templateName: 'pedido_confirmado',
+    variables: [
+        $order->id,
+        number_format($order->total, 2, ',', '.'),
+        $order->payment_method,
+        $order->estimated_delivery,
+    ],
+    idempotencyKey: "order-confirmed-{$order->id}",
+);
+```
+</CodeGroup>
+
+### Quando despachar (rastreio)
+
+```typescript
+async function notifyOrderShipped(order: Order, trackingCode: string, carrier: string) {
+  await sdk.messages.send({
+    receiver: `whatsapp:${order.customer.phone}`,
+    templateName: 'pedido_enviado',
+    templateVariables: [order.id, trackingCode, carrier],
+  });
+}
+```
+
+Hook nos webhooks do Shopify `fulfillments/create` ou do correio/transportadora.
+
+### Quando entregar
+
+```typescript
+async function notifyOrderDelivered(order: Order) {
+  await sdk.messages.send({
+    receiver: `whatsapp:${order.customer.phone}`,
+    templateName: 'pedido_entregue',
+    templateVariables: [order.id],
+  });
+}
+```
+
+Hook em webhook do tracker (Correios via Frenet, Melhor Envio, etc) quando status muda pra "delivered".
+
+### Quando pagamento falhar
+
+```typescript
+async function notifyPaymentFailed(order: Order, reason: string) {
+  await sdk.messages.send({
+    receiver: `whatsapp:${order.customer.phone}`,
+    templateName: 'pagamento_falhou',
+    templateVariables: [order.id, reason],
+  });
+}
+```
+
+Hook no webhook do gateway (Stripe `invoice.payment_failed`, Pagar.me, AbacatePay).
+
+## Conversa pós-confirmação
+
+Depois do template, **a janela 24h está aberta**. Cliente pode responder com dúvida. Você pode:
+
+1. **Brain responde automaticamente** (se configurado): rastreio, política de troca, etc — ver [Brain](/brain)
+2. **Inbox atende** (humano): dashboard de conversas
+3. **Mistura**: Brain tier 1, humano tier 2 — ver [Inbox support](/recipes/inbox-support)
+
+## Upsell pós-compra
+
+Janela aberta é oportunidade. **3-5 dias após entrega**, você pode mandar template MARKETING (consentimento de opt-in pra marketing requerido):
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/templates \
+  -d '{
+    "name": "upsell_pos_compra",
+    "category": "MARKETING",
+    "language": "pt_BR",
+    "body": "Oi {{1}}, esperamos que esteja curtindo seu/sua {{2}}!\n\nComo cliente, você ganhou 15% off na próxima compra usando o cupom CLIENTE15. Válido por 7 dias.",
+    "samples": ["João", "camiseta básica"]
+  }'
+```
+
+Operações testaram: conversão de upsell pós-compra fica em **3-8%**, depende do produto.
+
+## Métricas
+
+Dashboard → **Dashboard → Métricas → Templates**:
+
+| Métrica | Bom benchmark UTILITY |
+|---|---|
+| Taxa de entrega | > 98% |
+| Taxa de leitura | > 90% (UTILITY tem leitura altíssima) |
+| Tempo até leitura | < 5 minutos médio |
+| Taxa de bloqueio | < 0,2% (UTILITY raramente é bloqueado) |
+| Taxa de resposta | 8-15% (clientes perguntam dúvida) |
+
+## Checklist de produção
+
+- [ ] 4 templates aprovados pela Meta
+- [ ] Hooks no Shopify/Woo/seu backend disparando cada evento
+- [ ] `Idempotency-Key` em cada send pra evitar duplicata em retry
+- [ ] Phone do cliente normalizado pra E.164 (`+5511...`) — Brasil pode vir como `(11) 99999-9999`, normaliza antes
+- [ ] Cliente que não tem WhatsApp: fallback pra SMS ou email (Arara retorna `failed` com errorCode)
+- [ ] Brain configurado pra responder dúvidas mais comuns (rastreio, troca)
+- [ ] Métricas monitoradas semanal — taxa de entrega caiu? Investigar quality
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Inbox multi-atendente" icon="users" href="/recipes/inbox-support">
+    Quando cliente responde, quem atende?
+  </Card>
+  <Card title="Brain (IA)" icon="brain" href="/brain">
+    Atendimento automatizado 24/7.
+  </Card>
+</CardGroup>

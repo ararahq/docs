@@ -1,0 +1,135 @@
+---
+title: 'Smart Links'
+description: 'URLs curtas servidas do domínio da Arara que rastreiam clique, atribuição first-party (sem 3rd party cookies, sem ITP), e atrelam conversão ao número que recebeu a mensagem.'
+keywords: ['smart links', 'short url', 'tracking', 'atribuição', 'first-party', 'utm', 'conversão']
+---
+
+Smart Links são URLs curtas servidas de `https://arr.ai/c/{code}` (ou seu domínio customizado) que **rastreiam o clique** e **atribuem a conversão** ao número de WhatsApp que recebeu a mensagem. First-party tracking, sem cookie de terceiros, imune a ITP do Safari e privacy do Brave.
+
+<Note>
+  Smart Link não é encurtador genérico. Cada link é criado dentro do contexto de uma campanha ou template, sabe quem é o destinatário, e dispara conversão quando o pixel é atingido.
+</Note>
+
+## Por que isso importa
+
+UTM clássico responde **"de qual canal veio"**. Smart Link responde **"qual cliente específico converteu"** — e quanto custou trazer ele. Diferença critical pra:
+
+- **LTV por cohort**: você vê que o cliente A converteu pela campanha X, lê depois pelo template Y, comprou de novo. Atribuição multi-touch real.
+- **Atribuição em iOS**: o ITP (Intelligent Tracking Prevention) corta cookies 3rd-party em 7 dias. Smart Link é 1st-party — sobrevive.
+- **Anti-fraude**: clique de bot vs clique humano com WhatsApp aberto. A Arara identifica.
+
+## Criando um Smart Link
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/smart-links \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "destinationUrl": "https://meusite.com.br/produto/camiseta-basica?utm_source=whatsapp",
+    "campaignId": "ara_cmp_abc",
+    "expiresAt": "2026-06-30T23:59:59Z",
+    "title": "Camiseta Black Friday"
+  }'
+```
+
+Resposta:
+
+```json
+{
+  "code": "FtFmja",
+  "shortUrl": "https://arr.ai/c/FtFmja",
+  "destinationUrl": "https://meusite.com.br/produto/camiseta-basica?utm_source=whatsapp",
+  "campaignId": "ara_cmp_abc",
+  "createdAt": "2026-05-18T10:00:00Z",
+  "expiresAt": "2026-06-30T23:59:59Z"
+}
+```
+
+Cole `shortUrl` no template ou na mensagem. Quando o cliente clicar:
+
+1. Servidor da Arara registra o clique (com número, campanha, IP region, user agent)
+2. Redireciona pra `destinationUrl` em < 80ms (pode adicionar UTMs por cliente)
+3. Se você setou pixel, dispara conversão quando o cliente atinge a thank-you page
+
+## Em template
+
+Em vez de hardcodar a URL, use placeholder de variável e a Arara substitui no momento do envio:
+
+```
+Olá {{1}}! Confira a camiseta que você curtiu: {{2}}
+```
+
+Onde `{{2}}` recebe o `shortUrl` no payload. Cada cliente recebe um Smart Link diferente, com tracking individual.
+
+Ou use o tipo de botão `SMART_LINK` (ver [Política de templates](/templates/policy)):
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "name": "produto_quente",
+    "category": "MARKETING",
+    "language": "pt_BR",
+    "body": "Oi {{1}}, separei essa camiseta básica pra você. Toque pra ver:",
+    "buttons": [
+      {
+        "type": "SMART_LINK",
+        "text": "Ver produto",
+        "url": "https://meusite.com.br/produto/{{2}}"
+      }
+    ]
+  }'
+```
+
+A `{{2}}` da URL recebe o slug do produto na hora do envio. Arara faz o wrap em Smart Link automaticamente.
+
+## Listando
+
+```bash
+curl https://api.ararahq.com/api/v1/smart-links \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Retorna paginado com estatísticas:
+
+```json
+{
+  "data": [
+    {
+      "code": "FtFmja",
+      "shortUrl": "https://arr.ai/c/FtFmja",
+      "destinationUrl": "https://meusite.com.br/produto/...",
+      "title": "Camiseta Black Friday",
+      "createdAt": "2026-05-18T10:00:00Z",
+      "stats": {
+        "totalSends": 2410,
+        "totalClicks": 387,
+        "ctr": 0.1606,
+        "totalConversions": 41,
+        "conversionRate": 0.1059,
+        "revenueCents": 738000
+      }
+    }
+  ],
+  "pagination": { ... }
+}
+```
+
+## Domínio customizado
+
+Por default, links saem em `arr.ai/c/{code}`. Pra usar `link.suamarca.com.br`:
+
+1. CNAME do seu DNS pra `customlinks.ararahq.com`
+2. No dashboard, **Configurações → Smart Links → Domínio**, valida
+3. SSL automático via Let's Encrypt
+4. Links novos saem no domínio custom; links antigos seguem com `arr.ai`
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Atribuição com pixel" icon="bullseye" href="/smart-links/attribution">
+    Como instrumentar o pixel de conversão.
+  </Card>
+  <Card title="Receita: SmartLinks em marketing" icon="link" href="/cookbooks/marketing-smartlinks">
+    Fluxo completo de campanha com tracking.
+  </Card>
+</CardGroup>

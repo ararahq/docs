@@ -1,0 +1,115 @@
+---
+title: 'Status e SLA'
+description: 'Status em tempo real da API, dos providers (Meta, AbacatePay, Stripe), SLA por plano, histórico de incidentes e janelas de manutenção planejada.'
+keywords: ['status', 'sla', 'uptime', 'incident', 'manutenção', 'health']
+---
+
+A Arara expõe status em tempo real em [status.ararahq.com](https://status.ararahq.com) — uptime de cada componente, incidentes ativos, janelas de manutenção.
+
+## Status agora
+
+<CardGroup cols={2}>
+  <Card title="Status page" icon="signal" href="https://status.ararahq.com">
+    Uptime dos últimos 90 dias por componente. RSS, Slack webhook e email subscriptions.
+  </Card>
+  <Card title="Health endpoint" icon="heart-pulse" href="/api-reference/introduction">
+    `GET /health` retorna `200` se a API está saudável.
+  </Card>
+</CardGroup>
+
+```bash
+curl https://api.ararahq.com/api/health
+```
+
+```json
+{
+  "status": "UP",
+  "timestamp": "2026-05-18T14:30:00Z",
+  "service": "arara-api"
+}
+```
+
+## Componentes monitorados
+
+| Componente | O que cobre |
+|---|---|
+| **API REST** | Endpoints públicos `/v1/*`, `/auth/*` |
+| **Webhooks de saída** | Entrega dos eventos pro seu backend |
+| **Dashboard** | ararahq.com (dashboard web) |
+| **Meta Cloud API** | Provider WhatsApp (dependência crítica) |
+| **AbacatePay** | Provider Pix (dependência crítica pra Recovery) |
+| **Stripe** | Provider de checkout (dependência pra add-ons) |
+| **MCP Server** | mcp.ararahq.com (servidor SSE) |
+| **CDN de mídia** | Upload e serving de mídia de templates |
+
+Cada componente tem sua linha de status, com histórico de 90 dias.
+
+## SLA por plano
+
+| Plano | Uptime SLA | RTO (recovery time) | Suporte |
+|---|---|---|---|
+| FREE | best effort | n/a | Email comunidade |
+| PRO | **99,5%** | 4h | Email 24h úteis |
+| BUSINESS | **99,9%** | 1h | Email 4h úteis + Slack Connect |
+| ENTERPRISE | **99,95%** | 30min | Slack dedicado + on-call |
+
+<Note>
+  SLA cobre **apenas componentes da Arara**. Falhas no provider Meta (Cloud API) ou outros providers downstream não contam pro SLA — quando Meta cai, todos os BSPs caem. Reportamos transparentemente na status page mas não há crédito retroativo.
+</Note>
+
+### Crédito por descumprimento
+
+Se cair abaixo do SLA contratado no mês, crédito automático na fatura seguinte:
+
+| Uptime efetivo | Crédito |
+|---|---|
+| < SLA contratado | 5% |
+| < SLA - 1pp | 10% |
+| < SLA - 2pp | 25% |
+
+Crédito aplicado automaticamente, sem você precisar abrir ticket. Aparece na fatura como "SLA Credit — Maio 2026".
+
+## Janelas de manutenção planejada
+
+Manutenções planejadas:
+
+- **Frequência**: 1× mês, geralmente último domingo
+- **Horário**: 04:00-05:00 BRT (baixo tráfego)
+- **Aviso prévio**: 7 dias por email + status page + dashboard banner
+- **Impacto típico**: requisições podem ter latência adicional 100-500ms; downtime real é < 30s
+
+Operações críticas (Black Friday, lançamentos) podem requerer manutenções extras — sempre comunicadas com prévio aviso.
+
+## Histórico de incidentes
+
+| Data | Componente | Duração | Causa | RCA |
+|---|---|---|---|---|
+| 2026-05-12 | Meta Cloud API (upstream) | 47min | Outage Meta | Não-aplicável (Meta) |
+| 2026-04-23 | Webhooks de saída | 22min | Bug em queue worker | [RCA](https://status.ararahq.com/incidents/2026-04-23) |
+| 2026-03-15 | MCP Server | 3min | Deploy com regressão | [RCA](https://status.ararahq.com/incidents/2026-03-15) |
+
+RCA (Root Cause Analysis) público pra todo incidente de impacto. Sem desculpas, com timeline e fixes aplicados.
+
+## Reportar problema
+
+Suspeita de incidente que não está na status page:
+
+<CardGroup cols={2}>
+  <Card title="Email" icon="envelope" href="mailto:incident@ararahq.com">
+    incident@ararahq.com — vai direto pro on-call em planos pagos.
+  </Card>
+  <Card title="X/Twitter" icon="twitter" href="https://twitter.com/ararahq">
+    Updates de incidente em real time também postados aqui.
+  </Card>
+</CardGroup>
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Webhooks com retry" icon="rotate-right" href="/webhooks">
+    Como resilientizar seu lado pra incidente curto.
+  </Card>
+  <Card title="Como contribuir" icon="code-pull-request" href="/contributing">
+    Reportar bug nos SDKs, MCP ou docs.
+  </Card>
+</CardGroup>

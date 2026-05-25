@@ -1,0 +1,145 @@
+---
+title: 'SDK Go'
+description: 'O SDK Go oficial está em desenvolvimento. Use o CLI da Arara (escrito em Go, biblioteca interna exposta) ou chamadas REST diretas como solução temporária.'
+---
+
+<Note>
+  **Status: em breve.** O SDK Go oficial está sendo extraído do código interno do [CLI da Arara](/cli) (que é escrito em Go). Release público previsto pra Q3 2026.
+</Note>
+
+## Por que ainda não tem
+
+O CLI da Arara é escrito em Go e expõe internamente toda a superfície da API. Para virar SDK público estável, faltam:
+
+- Versionamento semântico independente do CLI
+- Documentação Go-idiomática (godoc)
+- Cobertura de testes ≥ 80%
+- Suporte oficial a `context.Context` em todas as chamadas
+- Release no `pkg.go.dev` com tag `v1.0.0` estável
+
+A gente não solta SDK em estado "beta perpétuo". Quando sair, vai estar pronto pra produção.
+
+## Como resolver hoje
+
+### Opção 1 — REST direto com `net/http`
+
+Pra envio simples, 30 linhas de Go resolvem:
+
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "io"
+    "net/http"
+    "os"
+)
+
+type SendMessageRequest struct {
+    Receiver          string   `json:"receiver"`
+    TemplateName      string   `json:"templateName,omitempty"`
+    TemplateVariables []string `json:"templateVariables,omitempty"`
+    Body              string   `json:"body,omitempty"`
+}
+
+func main() {
+    req := SendMessageRequest{
+        Receiver:     "whatsapp:+5511999999999",
+        TemplateName: "confirmacao_pedido",
+        TemplateVariables: []string{
+            "https://meusite.com/nota/123.pdf", // header (mídia)
+            "João",                              // {{1}}
+            "ARA-12345",                         // {{2}}
+        },
+    }
+
+    body, _ := json.Marshal(req)
+    httpReq, _ := http.NewRequest(
+        "POST",
+        "https://api.ararahq.com/api/v1/messages",
+        bytes.NewReader(body),
+    )
+    httpReq.Header.Set("Authorization", "Bearer "+os.Getenv("ARARA_API_KEY"))
+    httpReq.Header.Set("Content-Type", "application/json")
+
+    resp, err := http.DefaultClient.Do(httpReq)
+    if err != nil {
+        panic(err)
+    }
+    defer resp.Body.Close()
+
+    respBody, _ := io.ReadAll(resp.Body)
+    fmt.Println(string(respBody))
+}
+```
+
+A [referência completa da API REST](/api-reference/introduction) cobre todos os endpoints.
+
+### Opção 2 — Usar o CLI como subprocesso
+
+Pra script ou serviço pequeno, invoca o CLI da Arara via `exec.Command`:
+
+```go
+package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "os/exec"
+)
+
+func main() {
+    cmd := exec.Command(
+        "arara", "send",
+        "--to", "+5511999999999",
+        "--template", "confirmacao_pedido",
+        "--var", "João",
+        "--var", "ARA-12345",
+        "--output", "json",
+    )
+
+    out, err := cmd.Output()
+    if err != nil {
+        panic(err)
+    }
+
+    var result map[string]any
+    json.Unmarshal(out, &result)
+    fmt.Println(result["id"])
+}
+```
+
+A flag `--output json` retorna estruturado. O CLI cuida de auth (profile), retry e idempotency-key automaticamente. Ver [CLI](/cli).
+
+### Opção 3 — Usar o pacote interno do CLI (não recomendado)
+
+O CLI tem em `internal/api` toda a lógica de chamada. **Não é API estável** — pode mudar sem aviso entre releases. Use apenas em projeto que você controla o upgrade junto com o CLI.
+
+```bash
+# Não fazemos suporte. Use sob seu risco.
+go get github.com/ararahq/arara-cli/internal/api@v0.2.0
+```
+
+## Avisa quando sair
+
+<CardGroup cols={2}>
+  <Card title="Inscreve no GitHub" icon="bell" href="https://github.com/ararahq/arara-go-sdk">
+    Watch no repo (vai existir quando sair). Notificação no primeiro release.
+  </Card>
+  <Card title="Pede no Discord" icon="discord" href="https://discord.gg/ararahq">
+    Tá precisando pra um projeto específico? Avisa qual case que a gente prioriza.
+  </Card>
+</CardGroup>
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Use REST direto enquanto isso.
+  </Card>
+  <Card title="CLI" icon="terminal" href="/cli">
+    O CLI já é Go e cobre tudo.
+  </Card>
+</CardGroup>

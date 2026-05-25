@@ -1,169 +1,83 @@
 ---
 title: 'Campanhas'
-description: 'Dispare o mesmo template para milhares de contatos de uma vez.'
+description: 'Dispare o mesmo template pra milhares de contatos. A campanha valida saldo antecipado, enfileira em background com rate limit respeitado, e expõe métricas agregadas.'
+keywords: ['campaigns', 'campanhas', 'broadcast', 'disparo em massa']
 ---
 
-Campanhas sao o jeito certo de disparar em massa. Voce manda uma lista de contatos, a Arara valida o saldo, enfileira tudo e processa em background.
+Campanhas são o jeito certo de disparar em massa. Diferente de loops em `POST /v1/messages`, a campanha **valida saldo antecipado, enfileira tudo, processa em background com rate limit respeitado, e expõe métricas agregadas**.
 
-**Base URL:** `https://new-api.ararahq.com/api/v2`
+**Base URL:** `https://api.ararahq.com/api`
 
 <Note>
-  **1 por 1:** use [`POST /v2/messages`](/api-reference/endpoint/v2/messages).
-  **Em massa:** use `POST /v2/campaigns`.
+  Pra **1 mensagem**: [`POST /v1/messages`](/api-reference/endpoint/v2/messages).<br/>
+  Pra **batch de até 1000** com payload simples: [`POST /v1/messages/batch`](/api-reference/endpoint/v2/messages#lote).<br/>
+  Pra **disparo segmentado em massa**: `POST /v1/campaigns`.
 </Note>
 
----
+## Criar campanha
 
-## Criar uma campanha
+`POST /v1/campaigns`
 
-`POST /v2/campaigns`
-
-O header `Idempotency-Key` e **obrigatorio** — ele garante que um retry nunca crie duas campanhas iguais.
-
-<CodeGroup>
-
-```bash cURL
-curl -X POST https://new-api.ararahq.com/api/v2/campaigns \
+```bash
+curl -X POST https://api.ararahq.com/api/v1/campaigns \
   -H "Authorization: Bearer ara_live_xxx" \
-  -H "Idempotency-Key: 7f8a1c2d-4e5f-6789-abcd-ef0123456789" \
+  -H "Idempotency-Key: bf26-main" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Black Friday 2026",
-    "template": "promo_black_friday",
+    "templateName": "bf_oferta_geral",
     "contacts": [
-      { "to": "5511999999999", "variables": ["Joao"] },
-      { "to": "5511888888888", "variables": ["Maria"] },
-      { "to": "5511777777777", "variables": ["Carlos"] }
+      { "to": "+5511999999999", "variables": ["João", "30"] },
+      { "to": "+5511888888888", "variables": ["Maria", "25"] }
     ]
   }'
 ```
 
-```javascript Node.js
-import { randomUUID } from "crypto";
-
-await fetch("https://new-api.ararahq.com/api/v2/campaigns", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer ara_live_xxx",
-    "Idempotency-Key": randomUUID(),
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    name: "Black Friday 2026",
-    template: "promo_black_friday",
-    contacts: [
-      { to: "5511999999999", variables: ["Joao"] },
-      { to: "5511888888888", variables: ["Maria"] },
-      { to: "5511777777777", variables: ["Carlos"] },
-    ],
-  }),
-});
-```
-
-```python Python
-import requests, uuid
-
-requests.post(
-    "https://new-api.ararahq.com/api/v2/campaigns",
-    headers={
-        "Authorization": "Bearer ara_live_xxx",
-        "Idempotency-Key": str(uuid.uuid4()),
-    },
-    json={
-        "name": "Black Friday 2026",
-        "template": "promo_black_friday",
-        "contacts": [
-            {"to": "5511999999999", "variables": ["Joao"]},
-            {"to": "5511888888888", "variables": ["Maria"]},
-            {"to": "5511777777777", "variables": ["Carlos"]},
-        ],
-    },
-)
-```
-
-</CodeGroup>
-
-Resposta (`201 Created`):
+Resposta (`200 OK`):
 
 ```json
 {
-  "id": "ara_cmp_7b3789fb",
+  "id": "7b3789fb-4c5d-6789-abcd-ef0123456789",
   "name": "Black Friday 2026",
-  "template": "promo_black_friday",
   "status": "PROCESSING",
-  "totalRecipients": 3,
-  "sent": 0,
-  "delivered": 0,
-  "failed": 0,
-  "cost": 0.48,
-  "createdAt": "2026-04-13T18:30:00Z",
-  "completedAt": null
+  "totalMessages": 2,
+  "totalCost": 0.80
 }
 ```
-
-### Parametros
-
-| Campo | Tipo | Obrigatorio | Descricao |
-|-------|------|-------------|-----------|
-| `name` | string | sim | Nome identificador da campanha. |
-| `template` | string | sim | Nome do template pre-aprovado. |
-| `contacts` | array | sim | Lista de destinatarios. Nao pode ser vazia. |
-| `contacts[].to` | string | sim | WhatsApp: E.164 sem `+` (`5511999999999`). |
-| `contacts[].variables` | string[] | nao | Array ordenado dos valores dos placeholders `{{1}}`, `{{2}}`... |
 
 <Note>
-  Idempotency-Key e **obrigatorio** no header. Gere um UUID novo para cada campanha.
+  Resposta é minimal por design — pra detalhes (sent/delivered/timing), consulte `GET /v1/campaigns/{id}` que tem o `CampaignDetailResponse` completo.
 </Note>
 
----
+### Parâmetros
 
-## Estimar custo antes de disparar
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `name` | string | sim | Identificador interno (não vai pra Meta) |
+| `templateName` | string | sim | Template aprovado pela Meta |
+| `sender` | string | não | Número específico pra usar (default: round-robin da org) |
+| `contacts` | array | sim | Destinatários. Min 1 |
+| `contacts[].to` | string | sim | E.164 (`+5511999999999`) |
+| `contacts[].variables` | string[] | não | Array posicional pra `{{1}}`, `{{2}}`... do template. Default: array vazio |
 
-`GET /v2/campaigns/estimate`
+<Warning>
+  `contacts[].variables` é **array posicional** (`["João", "30"]`), não objeto. Cliente que enviar `{"name": "João"}` recebe erro de bind.
+</Warning>
 
-Calcule o custo sem criar a campanha. Util pra checar saldo ou mostrar o total ao usuario antes de confirmar.
+### Idempotency
 
-```bash
-curl "https://new-api.ararahq.com/api/v2/campaigns/estimate?templateName=promo_black_friday&count=50000" \
-  -H "Authorization: Bearer ara_live_xxx"
-```
-
-### Query params
-
-| Param | Tipo | Descricao |
-|-------|------|-----------|
-| `templateName` | string | Nome do template. |
-| `count` | integer | Quantidade de destinatarios. |
-
-Resposta (`200 OK`):
-
-```json
-{
-  "templateCost": 0.04,
-  "araraFee": 0.12,
-  "unitPrice": 0.16,
-  "totalCost": 8000.00,
-  "templateCategory": "UTILITY",
-  "recipientCount": 50000
-}
-```
-
-| Campo | Descricao |
-|-------|-----------|
-| `templateCost` | Custo por mensagem cobrado pelo provider (Meta). |
-| `araraFee` | Taxa da Arara por mensagem. |
-| `unitPrice` | `templateCost + araraFee`. |
-| `totalCost` | `unitPrice * recipientCount`. |
-| `templateCategory` | `UTILITY`, `MARKETING` ou `AUTHENTICATION`. Afeta o custo. |
-
----
-
-## Consultar uma campanha
-
-`GET /v2/campaigns/{id}`
+`Idempotency-Key` é **obrigatório**. Request sem o header retorna 400. Gere UUID único por campanha — se o mesmo header chegar de novo, a Arara devolve a campanha original (sem duplicar custo).
 
 ```bash
-curl https://new-api.ararahq.com/api/v2/campaigns/ara_cmp_7b3789fb \
+-H "Idempotency-Key: $(uuidgen)"
+```
+
+## Consultar campanha
+
+`GET /v1/campaigns/{id}`
+
+```bash
+curl https://api.ararahq.com/api/v1/campaigns/7b3789fb-4c5d-6789-abcd-ef0123456789 \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -171,103 +85,140 @@ Resposta (`200 OK`):
 
 ```json
 {
-  "id": "ara_cmp_7b3789fb",
+  "id": "7b3789fb-4c5d-6789-abcd-ef0123456789",
   "name": "Black Friday 2026",
-  "template": "promo_black_friday",
   "status": "COMPLETED",
-  "totalRecipients": 50000,
-  "sent": 48500,
-  "delivered": 47200,
-  "failed": 1500,
-  "cost": 7760.00,
-  "createdAt": "2026-04-13T18:30:00Z",
-  "completedAt": "2026-04-13T19:10:00Z"
+  "templateName": "bf_oferta_geral",
+  "templateBody": "Oi {{1}}, oferta {{2}}% off válida hoje!",
+  "totalMessages": 50000,
+  "sentCount": 48500,
+  "deliveredCount": 47200,
+  "readCount": 38900,
+  "clickedCount": 4120,
+  "convertedCount": 312,
+  "convertedValue": 87650.00,
+  "totalCost": 18647.50,
+  "scheduledAt": null,
+  "startedAt": "2026-11-29T18:00:12Z",
+  "finishedAt": "2026-11-29T18:23:14Z",
+  "createdAt": "2026-11-29T18:00:00Z"
 }
 ```
 
-### Campos
-
-| Campo | Tipo | Descricao |
-|-------|------|-----------|
-| `id` | string | ID da campanha (`ara_cmp_...`). |
-| `name` | string | Nome informado na criacao. |
-| `template` | string | Template usado. |
-| `status` | string | Status atual (ver abaixo). |
-| `totalRecipients` | int | Total de contatos na campanha. |
-| `sent` | int | Quantos foram enviados ao provider. |
-| `delivered` | int | Quantos chegaram ao destinatario. |
-| `failed` | int | Quantos falharam definitivamente. |
-| `cost` | number | Custo real acumulado em BRL. |
-| `createdAt` | string | Quando a campanha foi criada. |
-| `completedAt` | string \| null | Quando terminou. `null` enquanto em processamento. |
-
----
+`clickedCount` e `convertedCount` dependem de integração com [Smart Links](/smart-links).
 
 ## Listar campanhas
 
-`GET /v2/campaigns`
+`GET /v1/campaigns`
 
 ```bash
-curl "https://new-api.ararahq.com/api/v2/campaigns?page=0&size=20" \
+curl "https://api.ararahq.com/api/v1/campaigns?page=0&size=20" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-### Query params
+Query params:
 
-| Param | Tipo | Default | Descricao |
-|-------|------|---------|-----------|
-| `page` | int | `0` | Pagina (base 0). |
-| `size` | int | `20` | Itens por pagina. |
+| Param | Tipo | Default | Descrição |
+|---|---|---|---|
+| `page` | integer | `0` | Página |
+| `size` | integer | `20` | Itens por página (1-100) |
+| `status` | string | — | Filtra por status (`PROCESSING`, `COMPLETED`, `CANCELLED`, `FAILED`) |
 
-Resposta (`200 OK`):
+Resposta usa o envelope `content / totalElements / totalPages` do Spring Page:
 
 ```json
 {
-  "data": [
+  "content": [
     {
-      "id": "ara_cmp_7b3789fb",
+      "id": "7b3789fb-4c5d-6789-abcd-ef0123456789",
       "name": "Black Friday 2026",
-      "template": "promo_black_friday",
       "status": "COMPLETED",
-      "totalRecipients": 50000,
-      "sent": 48500,
-      "delivered": 47200,
-      "failed": 1500,
-      "cost": 7760.00,
-      "createdAt": "2026-04-13T18:30:00Z",
-      "completedAt": "2026-04-13T19:10:00Z"
+      "templateName": "bf_oferta_geral",
+      "totalMessages": 50000,
+      "sentCount": 48500,
+      "totalCost": 18647.50,
+      "createdAt": "2026-11-29T18:00:00Z"
     }
   ],
-  "pagination": {
-    "page": 0,
-    "size": 20,
-    "totalElements": 1,
-    "totalPages": 1
-  }
+  "totalPages": 1,
+  "totalElements": 1
 }
 ```
 
----
+## Estimar custo antes
+
+`GET /v1/campaigns/estimate`
+
+Calcula custo sem criar a campanha — bom pra UX "Confirma envio? Total R$ X".
+
+```bash
+curl "https://api.ararahq.com/api/v1/campaigns/estimate?templateName=bf_oferta_geral&count=50000" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Resposta:
+
+```json
+{
+  "templateCategory": "MARKETING",
+  "recipientCount": 50000,
+  "templateCost": 0.295,
+  "araraFee": 0.0885,
+  "unitPrice": 0.3835,
+  "totalCost": 19175.00
+}
+```
+
+| Campo | Descrição |
+|---|---|
+| `templateCost` | Custo Meta por mensagem entregue |
+| `araraFee` | Margem Arara por mensagem |
+| `unitPrice` | `templateCost + araraFee` |
+| `totalCost` | `unitPrice × recipientCount` |
+
+Pra verificar saldo antes do disparo, consulte separadamente [Wallet](/concepts/pricing).
 
 ## Status
 
 | Status | Significado |
-|--------|-------------|
-| `PROCESSING` | Contatos sendo enfileirados para envio. |
-| `COMPLETED` | Todos os contatos foram processados. |
-| `FAILED` | Falha geral (ex: saldo insuficiente antes de iniciar). |
+|---|---|
+| `PROCESSING` | Disparando contatos |
+| `COMPLETED` | Todos contatos processados (entregues ou falharam) |
+| `CANCELLED` | Cancelado manualmente |
+| `FAILED` | Falha geral (saldo insuficiente antes de iniciar, etc) |
 
-Para acompanhar em tempo real a entrega de cada mensagem individual, assine os [webhooks](/api-reference/events) de `message.delivered` / `message.failed`.
+Pra acompanhar **mensagem por mensagem em tempo real**, escute o webhook `message.status_updated`. Campanha terminada dispara `campaign.completed`.
 
----
+## Cancelar campanha em andamento
+
+`POST /v1/campaigns/{id}/cancel`
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/campaigns/7b3789fb-.../cancel \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Marca como `CANCELLED`. Envios já disparados continuam processando no provider — só evita as próximas mensagens da fila.
 
 ## Erros
 
 | HTTP | Quando |
-|------|--------|
-| `400` | `contacts` vazio, `name`/`template` em branco. |
-| `401` | Chave invalida. |
-| `402` | Saldo insuficiente para cobrir a campanha. |
-| `404` | Template nao encontrado, campanha inexistente (no GET). |
-| `409` | Idempotency-Key ja usada. |
-| `429` | Rate limit excedido. |
+|---|---|
+| `400` | Body inválido (`name`/`templateName`/`contacts` ausente, `contacts` vazio, ou `Idempotency-Key` faltando) |
+| `401` | API key inválida |
+| `402` | Saldo da wallet abaixo do custo estimado |
+| `403` | `PLAN_FEATURE_LOCKED` (plano não inclui campanhas) ou `NO_DEDICATED_NUMBER` |
+| `422` | Template não existe, não aprovado, ou variáveis incompatíveis (vem em formato simplificado `{ error, message, diagnostic }`) |
+
+Ver [Erros](/erros) pro formato completo.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Receita: Black Friday" icon="tag" href="/recipes/black-friday">
+    Fluxo completo com triagem.
+  </Card>
+  <Card title="Smart Links pra atribuição" icon="link" href="/smart-links">
+    Rastrear clique e conversão de campanha.
+  </Card>
+</CardGroup>

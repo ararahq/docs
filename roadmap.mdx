@@ -1,0 +1,109 @@
+---
+title: 'Roadmap'
+description: 'O que estamos construindo, com janelas reais (Q2/Q3/Q4 2026). Roadmap em público, atualizado mensalmente, vinculado a issues do GitHub. Sem datas fakes, sem "em breve" eternos.'
+keywords: ['roadmap', 'futuro', 'plano', 'features', 'milestones']
+---
+
+A Arara é construída em público. Esta página lista o que está em desenvolvimento e quando esperamos lançar. Datas são **estimativas honestas** — não promessas. Mudam quando o trabalho descobre escopo novo.
+
+<Note>
+  **Atualizado mensalmente.** Última revisão: 2026-05-18. Pra histórico de releases, ver [changelog](/changelog).
+</Note>
+
+## Q2 2026 (em desenvolvimento)
+
+### Em progresso agora
+
+<CardGroup cols={2}>
+  <Card title="Flow Builder visual">
+    Builder no-code pra orquestração multi-step (template → espera → condição → template). **Beta privado: jun/2026. Público: jul/2026.**
+  </Card>
+  <Card title="SDK Go público">
+    Extraído do código interno do CLI. **Q3 2026.**
+  </Card>
+  <Card title="WooCommerce plugin oficial">
+    Plugin WordPress com webhook nativo + sync de catálogo. **Beta: jul/2026.**
+  </Card>
+  <Card title="Brain v3.1 — multi-modelo">
+    Suporte a usar seu próprio modelo (BYO OpenAI/Anthropic key) ou usar Brain hospedado. **Beta: jun/2026.**
+  </Card>
+</CardGroup>
+
+### Recém-lançado
+
+- ✅ **MCP v3.0** — 84 ferramentas, OAuth, telemetria opt-in (2026-05)
+- ✅ **CLI v0.2** — `arara listen --capture`, profiles, hooks, `arara init` (2026-05)
+- ✅ **AbacatePay Brain Action** — recovery automatizada de Pix (2026-04)
+- ✅ **A/B test em campanhas** com autopilot (2026-04)
+- ✅ **Smart Links com atribuição 1st-party** (2026-03)
+
+## Q3 2026 (planejado)
+
+<CardGroup cols={2}>
+  <Card title="Brain Actions v2">
+    Actions customizáveis (você define o webhook que o Brain pode chamar). **Set/2026.**
+  </Card>
+  <Card title="Shopify app oficial">
+    Listado no App Store do Shopify. Hoje é integração custom via Admin API. **Q3.**
+  </Card>
+  <Card title="EN i18n da doc">
+    Documentação completa em inglês pra atender mercado global. **Q3.**
+  </Card>
+  <Card title="Multi-region (NA + EU)">
+    Réplica de infra pra clientes US/EU com baixa latência. **Q3.**
+  </Card>
+</CardGroup>
+
+## Q4 2026 (idealizado)
+
+Coisas que **queremos fazer** mas escopo ainda não está fechado. Pode mudar.
+
+- **WhatsApp Pay** — quando Meta liberar pagamentos diretos no chat BR
+- **Voice notes via API** — transcrição automática + Brain processa audio
+- **Templates carousel** — formato de carrossel de produtos no template (Meta beta)
+- **Customer Insights** — dashboard cohorts, retention curves, LTV automático
+- **Self-serve Enterprise** — quem chegou pelo dashboard consegue ativar Enterprise sem precisar de sales
+
+## Não está no roadmap
+
+Honestidade sobre **o que não vamos fazer**:
+
+| Não-roadmap | Por quê |
+|---|---|
+| SMS / Email / Voice como canal | Foco em WhatsApp. Pra multi-canal, use Twilio. |
+| Suporte oficial a gateways não-oficiais (Z-API, Baileys) | Risco regulatório. Migrar é melhor caminho. |
+| Editor de fluxo visual super complexo (Blip Builder-style) | Brain + Actions cobre 80%, com 20% do código. |
+| White-label completo | Não no nosso roteiro. Reseller program sim. |
+| Single Sign-On (SSO/SAML) | Q4 2026 → Q1 2027. Não prioritário pro nosso ICP atual. |
+
+## Como influenciar
+
+<CardGroup cols={2}>
+  <Card title="GitHub Discussions" icon="github" href="https://github.com/orgs/ararahq/discussions">
+    Abre discussão. Issues votadas viram prioridade.
+  </Card>
+  <Card title="Feedback direto" icon="envelope" href="mailto:contato@ararahq.com">
+    Cliente pago: prioridade na evolução. Conta seu caso.
+  </Card>
+</CardGroup>
+
+## Métricas que acompanhamos
+
+Pra calibrar o roadmap, olhamos:
+
+- **NPS** mensal entre clientes pagos
+- **Issues abertas** por repo (priorizamos por upvotes)
+- **Churn cause** — feature missing que fez perder cliente vira prioridade
+- **Acquisition path** — feature que aparece no "como conheceu" entra antes
+- **Volume de uso** — endpoint com 10K req/dia leva preferência sobre 10 req/dia
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Changelog" icon="clock-rotate-left" href="/changelog">
+    O que já foi lançado.
+  </Card>
+  <Card title="Status atual" icon="signal" href="/status">
+    Uptime e incidentes.
+  </Card>
+</CardGroup>

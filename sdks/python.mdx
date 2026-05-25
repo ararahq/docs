@@ -1,0 +1,260 @@
+---
+title: 'SDK Python'
+description: 'SDK Python oficial da Arara — síncrono e assíncrono, Pydantic models tipados, retry com tenacity, cobertura mais completa entre os 4 SDKs (inclui Brain, Payments, Campaigns).'
+---
+
+```bash
+pip install ararahq-sdk
+```
+
+[![PyPI](https://img.shields.io/pypi/v/ararahq-sdk)](https://pypi.org/project/ararahq-sdk/)
+
+Compatível com Python 3.8+. Funciona com `requests`/`httpx` API style, suporta `asyncio` nativo, Pydantic v2 pros modelos.
+
+## Instalação e setup
+
+```python
+from arara_api_sdk import AraraClient
+
+# Síncrono
+client = AraraClient(
+    api_key="ara_live_xxx",
+    base_url="https://api.ararahq.com/api",
+)
+
+# Com context manager (fecha conexões automaticamente)
+with AraraClient(api_key="ara_live_xxx") as client:
+    # uso aqui
+    ...
+```
+
+## Recursos disponíveis
+
+Mais completo entre os SDKs:
+
+| Recurso | Acesso |
+|---|---|
+| Messages | `client.messages` |
+| Templates | `client.templates` |
+| Users | `client.users` |
+| Organizations | `client.organizations` |
+| Campaigns | `client.campaigns` |
+| Brain | `client.brain` |
+| Payments | `client.payments` |
+
+## Enviar mensagem
+
+```python
+from arara_api_sdk import AraraClient
+from arara_api_sdk.models.message import SendMessageRequest
+
+with AraraClient(api_key="ara_live_xxx") as client:
+    response = client.messages.send(SendMessageRequest(
+        receiver="whatsapp:+5511999999999",
+        template_name="confirmacao_pedido",
+        template_variables=[
+            "https://meusite.com/nota/123.pdf",  # header (mídia opcional)
+            "João",                                # {{1}}
+            "ARA-12345",                           # {{2}}
+        ],
+    ))
+
+print(response.id)      # ara_msg_xxx
+print(response.status)  # queued
+```
+
+**Mensagem de sessão (texto livre, dentro de janela 24h):**
+
+```python
+response = client.messages.send(SendMessageRequest(
+    receiver="whatsapp:+5511999999999",
+    body="Oi! Vi sua dúvida e respondo já já.",
+))
+```
+
+## Async / asyncio
+
+Toda chamada tem variante `_async`:
+
+```python
+import asyncio
+from arara_api_sdk import AraraClient
+from arara_api_sdk.models.message import SendMessageRequest
+
+async def main():
+    async with AraraClient(api_key="ara_live_xxx") as client:
+        responses = await asyncio.gather(*[
+            client.messages.send_async(SendMessageRequest(
+                receiver=f"whatsapp:+551199999{i:04d}",
+                template_name="lembrete_aula",
+                template_variables=["João"],
+            ))
+            for i in range(100)
+        ])
+        return responses
+
+results = asyncio.run(main())
+```
+
+Bom pra batch sem `messages/batch` (ainda) ou quando precisa intercalar lógica entre envios.
+
+## Consultar status
+
+```python
+msg = client.messages.get("ara_msg_xxx")
+print(msg.status)  # sent | delivered | read | failed
+```
+
+## Templates
+
+```python
+from arara_api_sdk.models.template import CreateTemplateRequest
+
+# Listar
+templates = client.templates.list()
+
+# Criar
+template = client.templates.create(CreateTemplateRequest(
+    name="promo_natal",
+    category="MARKETING",
+    language="pt_BR",
+    body="Oi {{1}}, oferta de Natal: {{2}}% off até {{3}}.",
+    samples=["João", "30", "sexta"],
+))
+
+# Status
+status = client.templates.get_status("promo_natal")
+print(status.status)  # PENDING | APPROVED | REJECTED | PAUSED
+```
+
+## Campanhas
+
+```python
+from arara_api_sdk.models.campaign import CreateCampaignRequest
+
+campaign = client.campaigns.create(CreateCampaignRequest(
+    name="blackfriday-2026",
+    template_name="bf_oferta_geral",
+    contacts=[
+        {"phone": "+5511999999999", "variables": {"name": "João", "discount": "30"}},
+        {"phone": "+5511888888888", "variables": {"name": "Maria", "discount": "25"}},
+    ],
+))
+
+# Acompanha
+detail = client.campaigns.get(campaign.id)
+print(detail.status)  # PROCESSING | COMPLETED | CANCELLED
+```
+
+## Brain (AI)
+
+```python
+# Configurar
+client.brain.update_config({
+    "can_use_ai": True,
+    "is_ai_agent_enabled": True,
+})
+
+# Knowledge base
+client.brain.create_knowledge(title="Política de devolução",
+                              content="Devolução em até 7 dias úteis...")
+
+# Eval suite
+result = client.brain.run_eval(case_ids=["case_1", "case_2"])
+print(result.pass_rate)
+```
+
+## Payments (Pix via AbacatePay)
+
+```python
+pix = client.payments.create_pix({
+    "amount_cents": 19990,
+    "customer_tax_id": "12345678900",
+    "customer_phone": "+5511999999999",
+})
+
+print(pix.qr_code)
+print(pix.expires_at)
+```
+
+## Pydantic models
+
+Todos os request/response são Pydantic models. Você ganha validation grátis:
+
+```python
+from arara_api_sdk.models.message import SendMessageRequest
+from pydantic import ValidationError
+
+try:
+    req = SendMessageRequest(
+        receiver="invalid",  # vai falhar — deve ter prefixo whatsapp:
+        body="oi",
+    )
+except ValidationError as e:
+    print(e.errors())
+```
+
+E exportar como dict/JSON pra logs:
+
+```python
+req.model_dump_json(indent=2)
+```
+
+## Idempotency
+
+POSTs que criam recurso aceitam `idempotency_key`:
+
+```python
+import uuid
+
+client.messages.send(SendMessageRequest(...), idempotency_key=str(uuid.uuid4()))
+```
+
+## Erros
+
+```python
+from arara_api_sdk.exceptions import (
+    AraraError,
+    AraraAuthError,
+    AraraValidationError,
+    AraraRateLimitError,
+    AraraResourceNotFoundError,
+    AraraServerError,
+    AraraConnectionError,
+    AraraTimeoutError,
+)
+
+try:
+    client.messages.send(...)
+except AraraRateLimitError as e:
+    time.sleep(e.retry_after)
+except AraraError as e:
+    print(e.code, e.message, e.status_code)
+```
+
+## Retry com tenacity
+
+O SDK usa `tenacity` por baixo. Retry default em 429/5xx com backoff exponencial. Configurável:
+
+```python
+client = AraraClient(
+    api_key="...",
+    max_retries=5,
+    retry_max_wait=30,
+)
+```
+
+## Source
+
+GitHub: [github.com/ararahq/arara-python-sdk](https://github.com/ararahq/arara-python-sdk) · MIT
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Endpoints REST por baixo do SDK.
+  </Card>
+  <Card title="Brain (AI)" icon="brain" href="/brain">
+    Como usar o motor AI da Arara.
+  </Card>
+</CardGroup>

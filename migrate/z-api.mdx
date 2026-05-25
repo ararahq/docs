@@ -1,0 +1,167 @@
+---
+title: 'Migrar do Z-API'
+description: 'Sair do Z-API (gateway não-oficial) pra API oficial da Meta via Arara. Como portar o número sem ficar offline, riscos de banimento durante a transição, e por que esse é o investimento mais importante de quem opera WhatsApp em escala.'
+keywords: ['z-api', 'migração', 'gateway não-oficial', 'banimento', 'api oficial', 'meta']
+---
+
+Z-API é o gateway não-oficial mais usado no Brasil. Funciona com WhatsApp Web reverso. Migrar pra API oficial via Arara não é "trocar de fornecedor" — é mudar de **arquitetura**. Esta página explica os trade-offs honestamente e o caminho técnico.
+
+<Warning>
+  **Não dá pra migrar mantendo o mesmo número** se ele já está conectado ao Z-API via WhatsApp Web. Pra ir pra API oficial, o número precisa ser **registrado na Meta Cloud API** — o que desconecta do WhatsApp app pessoal/Business. É decisão que afeta operação por dias durante a transição.
+</Warning>
+
+## Por que sair do Z-API
+
+| | Z-API (não-oficial) | Arara (oficial Meta) |
+|---|---|---|
+| Conexão | WhatsApp Web reversed | Cloud API Meta |
+| Estabilidade | Quebra quando Meta atualiza Web | Estável (API contratada) |
+| Banimento | **Alto e imprevisível** | Quase zero (dentro das regras) |
+| Templates aprovados | Não existe | Sim |
+| Volume sustentável | 200-500 msg/dia | 100K+ msg/dia (com warming) |
+| Marca verificada (selo verde) | Não | Sim |
+| Selo "Business" no app cliente | Não | Sim |
+| Conformidade LGPD | Você é o controlador 100% | Operador formal (Arara) |
+| Preço aparente | "Grátis" + R$ 100-300/mês fixo | R$ 199/mês + uso |
+| **Preço real** | Custos de banimento ocultos | Previsível |
+
+## O custo real do Z-API
+
+Olhar só "R$ 100/mês" é miopia. O custo verdadeiro inclui:
+
+1. **Banimento médio a cada 3-6 meses** — número some, recupera leva 2-30 dias
+2. **Conversas perdidas durante banimento** — leads e clientes ficam sem retorno
+3. **Reputação de marca quebrada** — cliente que avisa "vocês não responderam" 
+4. **Custo de recomeçar** — número novo, contatos antigos não sabem, marketing perdido
+5. **Risco de processo** — se Meta endurecer, conta toda some
+
+Operações sérias contabilizam isso em **R$ 5-50K/banimento dependendo do tamanho**. 
+
+## O caminho técnico
+
+### Fase 1 — preparação (1 semana)
+
+1. **Avalia se o número atual continua**
+   - Se é só seu, sem cliente já habituado: vale a pena. Vai pra Cloud API
+   - Se cliente já conhece o número: você decide se quer continuar (precisa parar Z-API pra ativar Cloud API) ou se prefere **número novo**, mantendo Z-API rodando em paralelo até desativar
+2. **Cria conta Arara** (free tier)
+3. **Cria conta Meta Business** (se já não tem). Inclui CNPJ + verificação Meta Business — 3-7 dias
+
+### Fase 2 — registro Meta (3-7 dias)
+
+4. **Solicita número na Arara**:
+   ```bash
+   curl -X POST https://api.ararahq.com/api/v1/organizations/me/numbers/request \
+     -H "Authorization: Bearer ara_live_xxx" \
+     -d '{
+       "areaCode": "11",
+       "displayName": "Minha Marca",
+       "reason": "Migração do Z-API para API oficial Meta",
+       "expectedVolumePerMonth": 5000
+     }'
+   ```
+5. Se for portar o número atual, **avisa que vai desconectar do Z-API e WhatsApp app no dia D**. Cliente da Arara orienta o processo.
+
+### Fase 3 — templates (1-3 dias)
+
+6. **Cria templates dos disparos que você fazia "livre" no Z-API**:
+   - Carrinho abandonado → template `carrinho_abandonado` UTILITY
+   - Confirmação de pedido → `pedido_confirmado` UTILITY
+   - Marketing genérico → `oferta_geral` MARKETING
+
+7. Revisa cada template contra as [regras de policy](/templates/policy) antes de submeter — caps, emoji, urgência, variáveis adjacentes são as causas mais comuns de rejeição.
+
+### Fase 4 — diff de código
+
+<CodeGroup>
+```typescript Z-API (antes)
+import axios from 'axios';
+
+await axios.post(
+  `https://api.z-api.io/instances/${INSTANCE}/token/${TOKEN}/send-text`,
+  {
+    phone: '5511999999999',
+    message: 'Olá João, seu pedido foi confirmado!',
+  }
+);
+```
+
+```typescript Arara (depois)
+import { NodeSDK } from '@ararahq/sdk';
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY, baseUrl: '...' });
+
+// Janela 24h aberta? → texto livre
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  body: 'Olá João, seu pedido foi confirmado!',
+});
+
+// Janela fechada? → template aprovado
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'pedido_confirmado',
+  templateVariables: ['João', 'ARA-123'],
+});
+```
+</CodeGroup>
+
+Principais mudanças:
+- **Não pode mais mandar texto livre pra qualquer um a qualquer hora.** Tem que respeitar janela 24h.
+- **Comunicação iniciada por empresa = template HSM aprovado.** Sem exceção.
+- **Webhook unificado** com HMAC.
+- **Phone com prefix `whatsapp:` e formato E.164** (`+5511`, não `5511`).
+
+### Fase 5 — adaptação mental
+
+A maior mudança é cultural, não técnica. Time precisa entender:
+
+- **Janela 24h é regra de plataforma**, não decisão da Arara
+- **Template é categoria + idioma + body fixo** — não tem como "personalizar o template no dia"
+- **Cliente precisa ter consentido** em receber WhatsApp da marca
+
+Operações que sobreviveram bem à migração investiram **1-2 semanas** em treinar marketing e SAC sobre essas regras.
+
+### Fase 6 — cutover
+
+8. Aprovado o número na Meta, **desconecta Z-API** (orientação no dashboard Arara)
+9. Atualiza env vars no código
+10. Faz deploy
+11. Monitora dashboard Arara por 7 dias
+
+## Período de transição (paralelo)
+
+Se você não tem janela de manutenção e precisa rodar os dois um tempo:
+
+- **Número novo na Arara**: você roda em paralelo. Migra clientes aos poucos via "agora a gente atende neste outro número". Mais conservador, mais lento.
+- **Mesmo número**: na hora do cutover, fica offline ~24h enquanto Meta processa registro. Comunique cliente antes.
+
+## O que NÃO migra
+
+- **Histórico de mensagens do Z-API**: ficar com você no Z-API até desativar. Arara não importa.
+- **Lista de contatos do WhatsApp app**: continua no telefone físico (se houver). Arara não pega isso.
+- **Grupos**: API oficial Meta tem limitações pesadas sobre grupos. Verifique se sua operação dependia disso.
+
+## Riscos durante a transição
+
+- **Período sem comunicação**: ~24h-48h se for portar número. Planeje campanha de aviso.
+- **Templates não aprovados a tempo**: submeta 1 semana antes. UTILITY aprova em horas. MARKETING leva até 72h em alguns casos.
+- **Cliente reagindo ao número novo**: alguns vão estranhar se você mudar de número. Aviso com antecedência ajuda.
+
+## Quando NÃO migrar
+
+- Operação 100% pessoal/CEO (volume baixíssimo, 1-2 mensagens/dia)
+- Você usa WhatsApp pra grupos (API oficial não é forte aqui)
+- Operação informal sem CNPJ (precisa de CNPJ pra Meta Business)
+
+Pra qualquer operação séria que dependa de WhatsApp pra receita, migrar é questão de "quando", não "se".
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Conceitos WhatsApp" icon="lightbulb" href="/concepts/whatsapp">
+    Entenda janela 24h e templates antes de migrar.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Primeiro envio em 5 min após o número estar pronto.
+  </Card>
+</CardGroup>

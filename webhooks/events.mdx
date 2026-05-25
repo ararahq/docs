@@ -1,0 +1,213 @@
+---
+title: 'Catálogo de eventos'
+description: 'Schema completo de cada evento webhook que a Arara envia hoje: campos, tipos, exemplos JSON.'
+keywords: ['eventos webhook', 'payload', 'message status', 'inbound', 'conversation', 'schema']
+---
+
+Catálogo dos eventos que a Arara envia pro seu `inboundWebhookUrl`. Todos seguem o mesmo envelope universal — esta página detalha o conteúdo de `data` em cada um.
+
+<Note>
+  Pra como configurar o URL e validar HMAC, ver [Webhooks](/webhooks).
+</Note>
+
+## Envelope universal
+
+```json
+{
+  "event": "message.status_updated",
+  "apiVersion": "1",
+  "data": { },
+  "timestamp": "2026-05-18T14:32:15.234Z",
+  "organizationId": "0e4f3c1e-..."
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `event` | string | Tipo do evento (lista abaixo). |
+| `apiVersion` | string | Versão do schema dos payloads. |
+| `data` | object | Payload específico do evento. |
+| `timestamp` | string (ISO 8601) | Quando o evento foi emitido pela Arara. |
+| `organizationId` | string (UUID) | Org dona do recurso. |
+
+A Arara assina cada requisição com `X-Arara-Signature: sha256=<hex>` usando seu webhook secret. Ver [Webhooks](/webhooks#hmac).
+
+<Warning>
+  **Número compartilhado não recebe `message.received`.** Mensagens inbound que chegam num número do pool compartilhado da Arara não roteiam pra organização específica e portanto **não disparam webhook**. Os outros eventos (`message.status_updated`, `template.updated`, `campaign.completed`, `conversation.needs_human`) funcionam normalmente — só o inbound depende de número dedicado. Pra liberar inbound completo, [solicite um número dedicado](/numbers#pedir-um-número-dedicado).
+</Warning>
+
+## Mensagens
+
+### `message.status_updated`
+
+Toda mudança de estado de uma mensagem outbound dispara este evento — `sent`, `delivered`, `read`, `failed`, etc. Use o campo `status` em `data` pra ramificar.
+
+```json
+{
+  "event": "message.status_updated",
+  "data": {
+    "id": "ara_msg_k9Bf2XqP",
+    "messageId": "0e4f3c1e-...",
+    "internalId": "ara_msg_k9Bf2XqP",
+    "providerSid": "wamid.HBgL...",
+    "status": "delivered",
+    "receiver": "+5511999999999",
+    "sender": "+5511888888888",
+    "errorDetails": null
+  }
+}
+```
+
+`status` aceita: `queued`, `scheduled`, `processing`, `sent`, `delivered`, `read`, `failed`, `canceled`.
+
+Quando `status: "failed"`, `errorDetails` traz o objeto bruto da Meta:
+
+```json
+{
+  "status": "failed",
+  "errorDetails": {
+    "code": "131047",
+    "title": "Re-engagement message",
+    "message": "Message failed to send because more than 24 hours have passed."
+  }
+}
+```
+
+Códigos comuns (referência completa em [developers.facebook.com](https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes)):
+
+| `code` | Significado | Ação |
+|---|---|---|
+| `131026` | Receptor não recebe | Número sem WhatsApp ou bloqueou seu número. |
+| `131047` | Janela 24h expirada | Use template HSM. |
+| `132000` | Template pausado | Aguarde reativação ou crie outro. |
+| `133010` | Limite de tier excedido | Aguarde reset diário ou suba de tier (warming). |
+
+### `message.received`
+
+Cliente respondeu ou iniciou conversa.
+
+```json
+{
+  "event": "message.received",
+  "data": {
+    "id": "wamid.HBgL...",
+    "from": "+5511999999999",
+    "to": "+5511888888888",
+    "body": "ok recebi",
+    "type": "text",
+    "media_url": "",
+    "sender_name": "João Silva",
+    "timestamp": "2026-05-18T14:36:00Z",
+    "provider": "twilio"
+  }
+}
+```
+
+| Campo | Descrição |
+|---|---|
+| `id` | ID da mensagem no provider (WhatsApp `wamid`). |
+| `from` | Telefone do cliente (E.164). |
+| `to` | Seu número dedicado que recebeu. |
+| `body` | Texto da mensagem. Vazio quando é só mídia. |
+| `type` | `text` ou `media`. |
+| `media_url` | URL pra baixar a mídia. Vazio quando `type: text`. |
+| `sender_name` | Nome de perfil que o cliente tem no WhatsApp. |
+| `provider` | Provider que entregou o inbound (hoje `twilio`). |
+
+## Templates
+
+### `template.updated`
+
+Qualquer mudança de status de template (aprovação, rejeição, pausa) dispara este evento único — use `status` em `data` pra ramificar.
+
+```json
+{
+  "event": "template.updated",
+  "data": {
+    "templateId": "0e4f3c1e-...",
+    "name": "blackfriday_v3",
+    "status": "APPROVED",
+    "category": "MARKETING",
+    "rejectionReason": null
+  }
+}
+```
+
+`status` aceita os valores do provider: `APPROVED`, `REJECTED`, `PAUSED`, `PENDING`, `IN_APPEAL`, `DISABLED`. Quando `REJECTED`, `rejectionReason` traz o motivo da Meta.
+
+## Campanhas
+
+### `campaign.completed`
+
+Campanha terminou de disparar todos os envios (não confunde com todos entregues).
+
+```json
+{
+  "event": "campaign.completed",
+  "data": {
+    "id": "0e4f3c1e-...",
+    "name": "blackfriday-2026",
+    "status": "completed",
+    "totalMessages": 12500,
+    "totalCost": 1486.40
+  }
+}
+```
+
+Pra métricas detalhadas (entregues, lidos, conversões), faça `GET /v1/campaigns/{id}` depois de receber o evento.
+
+## Conversas (Brain)
+
+### `conversation.needs_human`
+
+Brain decidiu escalar uma conversa pra humano (urgência, reclamação, fora do escopo, guardian bloqueou).
+
+```json
+{
+  "event": "conversation.needs_human",
+  "data": {
+    "handoffId": "ara_handoff_xyz",
+    "conversationId": "0e4f3c1e-...",
+    "reason": "URGENT",
+    "summary": "Cliente pedindo cancelamento imediato; ameaçou abrir reclamação.",
+    "createdAt": "2026-05-18T14:36:00Z"
+  }
+}
+```
+
+`reason` aceita: `URGENT`, `COMPLAINT`, `OUT_OF_SCOPE`, `GUARDIAN_BLOCK`.
+
+Pra fechar o loop, marca o handoff como resolvido:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/brain/handoffs/{handoffId}/resolve \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+## Diagnóstico
+
+### `webhook.test`
+
+Evento sintético disparado pelo botão **"Disparar teste"** em **Dashboard → Webhooks**, ou via `POST /v1/webhooks/deliveries/test`. Útil pra validar URL, HMAC e ACK do seu lado antes de habilitar eventos reais. Cria delivery real no histórico mas sem efeito colateral em mensagens, templates ou campanhas.
+
+```json
+{
+  "event": "webhook.test",
+  "data": {
+    "test": true,
+    "message": "Este é um teste disparado pelo dashboard. Se você está vendo isso, sua URL funciona.",
+    "dispatchedAt": "2026-05-25T17:00:00Z"
+  }
+}
+```
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Como configurar webhook" icon="gear" href="/webhooks">
+    URL, HMAC, retry, dedupe.
+  </Card>
+  <Card title="Inspecionar entregas" icon="list" href="/api-reference/endpoint/v2/messages">
+    Pra ver o histórico de entregas, use o dashboard em **Webhooks → Histórico**.
+  </Card>
+</CardGroup>

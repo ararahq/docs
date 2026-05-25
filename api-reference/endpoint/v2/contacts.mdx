@@ -1,207 +1,188 @@
 ---
 title: 'Contatos'
-description: 'Gerencie sua base de contatos com upsert, busca e importacao em lote.'
+description: 'Gerencie sua base de contatos com upsert em lote, busca por telefone, paginação e estatísticas. CRM leve embarcado pra alinhar disparo + base.'
+keywords: ['contacts', 'contatos', 'crm', 'base', 'upsert', 'batch']
 ---
 
-Seu CRM leve. Cada contato e identificado pelo `phone`, com nome, email, tags e atributos customizaveis.
+Os contatos são o CRM leve da Arara — phone como chave única, com nome, email e atributos customizáveis. Útil pra segmentar campanhas e enriquecer conversas com contexto.
 
-**Base URL:** `https://new-api.ararahq.com/api/v2`
+**Base URL:** `https://api.ararahq.com/api`
 
----
-
-## Criar ou atualizar um contato
-
-`POST /v2/contacts`
-
-E um **upsert**: se o telefone ja existe, os dados sao sobrescritos. Se nao, e criado.
-
-<CodeGroup>
-
-```bash cURL
-curl -X POST https://new-api.ararahq.com/api/v2/contacts \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "phone": "5511999999999",
-    "name": "Joao Silva",
-    "email": "joao@exemplo.com",
-    "tags": ["cliente-vip"],
-    "attributes": {
-      "plan": "pro",
-      "source": "landing-page"
-    }
-  }'
-```
-
-```javascript Node.js
-await fetch("https://new-api.ararahq.com/api/v2/contacts", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer ara_live_xxx",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    phone: "5511999999999",
-    name: "Joao Silva",
-    email: "joao@exemplo.com",
-    tags: ["cliente-vip"],
-    attributes: { plan: "pro", source: "landing-page" },
-  }),
-});
-```
-
-```python Python
-import requests
-
-requests.post(
-    "https://new-api.ararahq.com/api/v2/contacts",
-    headers={"Authorization": "Bearer ara_live_xxx"},
-    json={
-        "phone": "5511999999999",
-        "name": "Joao Silva",
-        "email": "joao@exemplo.com",
-        "tags": ["cliente-vip"],
-        "attributes": {"plan": "pro", "source": "landing-page"},
-    },
-)
-```
-
-</CodeGroup>
-
-Resposta (`201 Created`):
-
-```json
-{
-  "id": "1f2e3d4c-5b6a-7890-abcd-ef1234567890",
-  "phone": "5511999999999",
-  "name": "Joao Silva",
-  "email": "joao@exemplo.com",
-  "tags": ["cliente-vip"],
-  "attributes": { "plan": "pro", "source": "landing-page" },
-  "createdAt": "2026-04-13T18:30:00Z",
-  "updatedAt": "2026-04-13T18:30:00Z"
-}
-```
-
-### Parametros
-
-| Campo | Tipo | Obrigatorio | Descricao |
-|-------|------|-------------|-----------|
-| `phone` | string | sim | Telefone E.164 sem `+` (`5511999999999`). Identificador unico. |
-| `name` | string | nao | Nome do contato. |
-| `email` | string | nao | Email do contato. |
-| `tags` | string[] | nao | Lista de tags. Max 20. |
-| `attributes` | object | nao | Dados customizados chave-valor. |
-
----
-
-## Buscar contato por telefone
-
-`GET /v2/contacts/{phone}`
-
-```bash
-curl https://new-api.ararahq.com/api/v2/contacts/5511999999999 \
-  -H "Authorization: Bearer ara_live_xxx"
-```
-
-Resposta (`200 OK`) — mesmo formato do POST. Se nao existir, retorna `404`.
-
----
+<Note>
+  A criação individual de contato (`POST /v1/contacts`) **não existe**. Pra inserir um contato isolado, use o endpoint batch com array de 1 item.
+</Note>
 
 ## Listar contatos
 
-`GET /v2/contacts`
+`GET /v1/contacts`
 
 ```bash
-curl "https://new-api.ararahq.com/api/v2/contacts?query=joao&page=0&size=20" \
+curl "https://api.ararahq.com/api/v1/contacts?q=joão&page=0&size=20" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-### Query params
+Query params:
 
-| Param | Tipo | Default | Descricao |
-|-------|------|---------|-----------|
-| `query` | string | — | Busca por nome, telefone ou email. |
-| `page` | int | `0` | Pagina (base 0). |
-| `size` | int | `20` | Itens por pagina. |
+| Param | Tipo | Default | Descrição |
+|---|---|---|---|
+| `q` | string | — | Busca por nome, telefone ou email |
+| `page` | integer | `0` | Página |
+| `size` | integer | `20` | Itens por página |
 
-Resposta (`200 OK`):
+Resposta:
 
 ```json
 {
-  "data": [
+  "contacts": [
     {
       "id": "1f2e3d4c-5b6a-7890-abcd-ef1234567890",
-      "phone": "5511999999999",
-      "name": "Joao Silva",
+      "name": "João Silva",
+      "phone": "+5511999999999",
       "email": "joao@exemplo.com",
-      "tags": ["cliente-vip"],
-      "attributes": { "plan": "pro" },
-      "createdAt": "2026-04-13T18:30:00Z",
-      "updatedAt": "2026-04-13T18:30:00Z"
+      "attributes": {
+        "plan": "pro",
+        "ltv": 2400
+      },
+      "createdAt": "2026-05-18T14:30:00Z"
     }
   ],
-  "pagination": {
-    "page": 0,
-    "size": 20,
-    "totalElements": 1,
-    "totalPages": 1
-  }
+  "total": 1,
+  "page": 0,
+  "size": 20,
+  "totalPages": 1
 }
 ```
 
----
+## Buscar contato por telefone
 
-## Importar em lote
+`GET /v1/contacts/{phone}`
 
-`POST /v2/contacts/batch`
-
-Crie ou atualize ate **10.000 contatos** em uma unica chamada. Cada item segue o mesmo formato do POST individual.
+Phone em E.164 **com `+`** no path (sem prefixo `whatsapp:`):
 
 ```bash
-curl -X POST https://new-api.ararahq.com/api/v2/contacts/batch \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contacts": [
-      { "phone": "5511999999999", "name": "Joao Silva", "tags": ["abril-2026"] },
-      { "phone": "5511888888888", "name": "Maria Santos", "tags": ["abril-2026"] },
-      { "phone": "5511777777777", "name": "Carlos Oliveira", "tags": ["abril-2026"] }
-    ]
-  }'
+curl https://api.ararahq.com/api/v1/contacts/+5511999999999 \
+  -H "Authorization: Bearer ara_live_xxx"
 ```
 
-### Parametros
+Não existir retorna `404`.
 
-| Campo | Tipo | Descricao |
-|-------|------|-----------|
-| `contacts` | array | Entre 1 e 10.000 contatos. |
+## Importar em lote (upsert)
+
+`POST /v1/contacts/batch`
+
+Cria ou atualiza contatos. Body é **array direto** (não wrapped em objeto):
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/contacts/batch \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "name": "João Silva",
+      "phone": "+5511999999999",
+      "email": "joao@exemplo.com",
+      "attributes": { "plan": "pro", "ltv": 2400 }
+    },
+    {
+      "name": "Maria Santos",
+      "phone": "+5511888888888"
+    }
+  ]'
+```
 
 Resposta (`200 OK`):
 
 ```json
 {
-  "imported": 3,
-  "failed": 0
+  "importId": "fa1b2c3d-4567-89ab-cdef-0123456789ab",
+  "created": 1,
+  "updated": 1,
+  "skipped": 0,
+  "errors": []
 }
 ```
 
-| Campo | Descricao |
-|-------|-----------|
-| `imported` | Contatos criados ou atualizados com sucesso. |
-| `failed` | Contatos que falharam na validacao (ex: telefone vazio). |
+Comportamento upsert:
 
-<Note>
-  **Partial success:** se parte dos contatos falhar, os demais ainda sao processados. O retorno informa quantos passaram e quantos falharam.
-</Note>
+- Phone **já existe** → atualiza campos enviados (`updated++`)
+- Phone **novo** → cria novo contato (`created++`)
+- Phone **inválido** ou **vazio** → entra em `errors[]` com motivo, `skipped++`
 
----
+```json
+{
+  "importId": "fa1b2c3d-...",
+  "created": 8,
+  "updated": 2,
+  "skipped": 1,
+  "errors": [
+    { "index": 7, "phone": "+5511invalid", "reason": "INVALID_PHONE_NUMBER" }
+  ]
+}
+```
+
+## Estatísticas
+
+`GET /v1/contacts/stats`
+
+```bash
+curl https://api.ararahq.com/api/v1/contacts/stats \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Resposta é mapa `String → Long` com contadores agregados:
+
+```json
+{
+  "totalContacts": 12450,
+  "withActiveConversation": 312,
+  "optedOut": 87
+}
+```
+
+Os campos retornados podem variar conforme features ativas na sua org.
+
+## Campos do contato
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | UUID | Identificador interno do contato |
+| `phone` | string | E.164 (`+5511999999999`). **Chave única** na org |
+| `name` | string | Nome — **obrigatório** ao criar/atualizar |
+| `email` | string \| null | Email — opcional, útil pra atribuição cross-channel |
+| `attributes` | object \| null | Chave-valor livre. Acessível em templates via Brain |
+| `createdAt` | ISO 8601 | Quando foi criado |
+
+`ContactRequest` (no batch) valida:
+- `name`: obrigatório, max 255 chars
+- `phone`: obrigatório, regex E.164 (`^\+[1-9]\d{6,14}$`)
+- `email`: opcional, max 255 chars
+- `attributes`: mapa livre
+
+## Opt-out — comportamento
+
+Contato em opt-out **continua na base** mas:
+
+- `POST /v1/messages` com template `MARKETING` retorna `422 NUMBER_BLOCKED`
+- Template `UTILITY` ainda passa (notificação transacional é permitida)
+
+Pra registrar opt-out programaticamente, use o endpoint de opt-outs (não documentado aqui ainda). Ver [Compliance](/concepts/compliance).
 
 ## Erros
 
-| HTTP | Quando |
-|------|--------|
-| `400` | `phone` ausente ou `tags` com mais de 20 itens. |
-| `401` | Chave invalida. |
-| `404` | Contato nao encontrado no GET. |
-| `422` | Lote com menos de 1 ou mais de 10.000 contatos. |
+| HTTP | Código | Quando |
+|---|---|---|
+| `400` | `INVALID_PHONE_NUMBER` | Formato E.164 inválido |
+| `400` | `MISSING_REQUIRED_FIELD` | `name` ou `phone` ausente |
+| `401` | `INVALID_API_KEY` | Chave inválida |
+| `404` | — | Phone não existe na sua org (no GET) |
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Campanhas" icon="bullhorn" href="/api-reference/endpoint/v2/campaigns">
+    Disparo segmentado pra cohort de contatos.
+  </Card>
+  <Card title="Compliance LGPD" icon="scale-balanced" href="/concepts/compliance">
+    Opt-in, opt-out, export e delete.
+  </Card>
+</CardGroup>

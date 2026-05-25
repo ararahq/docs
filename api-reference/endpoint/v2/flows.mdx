@@ -1,208 +1,66 @@
 ---
 title: 'Flows'
-description: 'Dispare automacoes publicadas no Dashboard a partir do seu backend.'
+description: 'Disparar automações visuais desenhadas no dashboard via API. Esta feature está em desenvolvimento — disponível em breve.'
+keywords: ['flows', 'automation', 'workflow', 'orchestration']
 ---
 
-Flows sao automacoes desenhadas no Dashboard da Arara (envio -> espera -> condicao -> envio...). Voce dispara elas via API sempre que um evento acontece no seu sistema.
+<Warning>
+  **Em desenvolvimento.** O Flow Builder visual (envio → espera → condição → envio...) está sendo construído. API REST pra disparar flow programaticamente fica disponível quando o builder lançar (previsão Q3 2026).
+</Warning>
 
-**Base URL:** `https://new-api.ararahq.com/api/v2`
+## Por que essa página existe
 
-<Note>
-  O flow precisa estar **publicado** (status `PUBLISHED`). Flows em `DRAFT` retornam `400 FLOW_NOT_PUBLISHED`.
-</Note>
+A Arara está construindo um **Flow Builder visual** — desenhe orquestrações multi-step (template inicial → espera 2h → se não respondeu manda lembrete → se respondeu chama Brain) sem código. Quando lançar, esta página vai documentar a API REST de disparo.
 
----
+Por enquanto, pra orquestrações similares, use:
 
-## Disparar um flow
+<CardGroup cols={2}>
+  <Card title="Brain (IA)" icon="brain" href="/brain">
+    Orquestração inteligente baseada em conversação. Recomenda Pix, agenda, escalonamento.
+  </Card>
+  <Card title="Recipes" icon="book-open" href="/recipes">
+    Receitas prontas pra carrinho abandonado, OTP, Black Friday — código adaptável.
+  </Card>
+  <Card title="Brain Actions" icon="bolt" href="/actions">
+    Triggers customizados (AbacatePay, Cal.com, Catálogo, Stripe).
+  </Card>
+  <Card title="Smart Links" icon="link" href="/smart-links">
+    Triggers baseados em clique e conversão.
+  </Card>
+</CardGroup>
 
-`POST /v2/flows/{internalId}/trigger`
+## API planejada (sujeita a mudança)
 
-O `internalId` e o identificador do flow, visivel no Dashboard.
-
-<CodeGroup>
-
-```bash cURL
-curl -X POST https://new-api.ararahq.com/api/v2/flows/ara_flow_abc123/trigger \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "phone": "5511999999999",
-    "name": "Joao",
-    "metadata": {
-      "orderId": "12345",
-      "amount": 199.90
-    }
-  }'
-```
-
-```javascript Node.js
-await fetch("https://new-api.ararahq.com/api/v2/flows/ara_flow_abc123/trigger", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer ara_live_xxx",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    phone: "5511999999999",
-    name: "Joao",
-    metadata: { orderId: "12345", amount: 199.90 },
-  }),
-});
-```
-
-```python Python
-import requests
-
-requests.post(
-    "https://new-api.ararahq.com/api/v2/flows/ara_flow_abc123/trigger",
-    headers={"Authorization": "Bearer ara_live_xxx"},
-    json={
-        "phone": "5511999999999",
-        "name": "Joao",
-        "metadata": {"orderId": "12345", "amount": 199.90},
-    },
-)
-```
-
-</CodeGroup>
-
-Resposta (`202 Accepted`):
-
-```json
-{
-  "executionId": "4f9a3b2c-1d5e-6789-abcd-ef0123456789",
-  "flowName": "Boas-vindas",
-  "contactName": "Joao",
-  "status": "RUNNING"
-}
-```
-
-### Parametros
-
-| Campo | Tipo | Obrigatorio | Descricao |
-|-------|------|-------------|-----------|
-| `phone` | string | sim | Telefone do contato (E.164 sem `+`). Se nao existir, e criado automaticamente. |
-| `name` | string | nao | Nome do contato (usado se for criado agora). |
-| `email` | string | nao | Email do contato. |
-| `metadata` | object | nao | Variaveis disponiveis pro flow usar nos templates e condicoes. Chave-valor livre. |
-
-### Resposta
-
-| Campo | Descricao |
-|-------|-----------|
-| `executionId` | UUID da execucao. Guarde para auditoria. |
-| `flowName` | Nome do flow disparado. |
-| `contactName` | Nome do contato resolvido/criado. |
-| `status` | `RUNNING` — a execucao esta em andamento em background. |
-
-### Rate limit
-
-**100 triggers por minuto por flow.** Excedendo, retorna:
-
-```json
-{
-  "error": {
-    "code": "RATE_LIMIT_EXCEEDED",
-    "message": "Rate limit exceeded: maximum 100 triggers per minute per flow."
-  }
-}
-```
-
----
-
-## Testar um flow (dry-run)
-
-`POST /v2/flows/{internalId}/test`
-
-Roda o flow **sincronamente** no modo de teste. Nenhuma mensagem real e enviada e nenhum credito e consumido. Util pra validar a logica do flow antes de disparar em producao.
+A interface está sendo desenhada nestas linhas:
 
 ```bash
-curl -X POST https://new-api.ararahq.com/api/v2/flows/ara_flow_abc123/test \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "phone": "5511999999999",
-    "name": "Joao",
-    "metadata": { "orderId": "12345" }
-  }'
-```
-
-Resposta (`200 OK`):
-
-```json
+# Disparar flow publicado pra um contato
+POST /v1/flows/{flowId}/trigger
 {
-  "executionId": "8b7a6c5d-4e3f-2a1b-0987-654321fedcba",
-  "status": "COMPLETED",
-  "totalDurationMs": 847,
-  "nodeResults": [
-    {
-      "nodeId": "start_1",
-      "nodeType": "START",
-      "label": "Inicio",
-      "status": "COMPLETED",
-      "durationMs": 2,
-      "message": null,
-      "inputData": null,
-      "outputData": { "contactId": "1f2e3d4c-..." }
-    },
-    {
-      "nodeId": "send_template_2",
-      "nodeType": "SEND_TEMPLATE",
-      "label": "Enviar boas-vindas",
-      "status": "SIMULATED",
-      "durationMs": 120,
-      "message": "Template 'welcome_flow' would be sent to 5511999999999",
-      "inputData": { "template": "welcome_flow", "variables": ["Joao"] },
-      "outputData": null
-    },
-    {
-      "nodeId": "wait_3",
-      "nodeType": "WAIT",
-      "label": "Aguardar 24h",
-      "status": "SKIPPED",
-      "durationMs": 0,
-      "message": "Skipped in test mode",
-      "inputData": null,
-      "outputData": null
-    }
-  ]
+  "phone": "+5511999999999",
+  "metadata": { "orderId": "12345" }
 }
+
+# Testar flow (dry-run)
+POST /v1/flows/{flowId}/test
+{
+  "phone": "+5511999999999",
+  "metadata": { "orderId": "12345" }
+}
+
+# Listar execuções
+GET /v1/flows/{flowId}/executions
 ```
 
-### Campos da resposta
+Não use ainda — esses endpoints **retornam 404** no backend atual.
 
-| Campo | Descricao |
-|-------|-----------|
-| `executionId` | UUID da execucao de teste. |
-| `status` | `COMPLETED` se o flow rodou ate o fim, `FAILED` se um node estourou. |
-| `totalDurationMs` | Tempo total da execucao em ms. |
-| `nodeResults[]` | Resultado node-por-node, na ordem de execucao. |
+## Avisa quando sair
 
-### Cada `nodeResults[]`
-
-| Campo | Descricao |
-|-------|-----------|
-| `nodeId` | ID do node no flow. |
-| `nodeType` | Tipo do node: `START`, `SEND_TEMPLATE`, `SEND_BODY`, `WAIT`, `CONDITION`, `END`... |
-| `label` | Nome amigavel do node (como definido no Dashboard). |
-| `status` | `COMPLETED`, `SIMULATED`, `SKIPPED`, `FAILED`. |
-| `durationMs` | Quanto tempo aquele node levou. |
-| `message` | Mensagem de log/erro do node. |
-| `inputData` | Dados que entraram no node. |
-| `outputData` | Dados que sairam do node. |
-
-<Note>
-  **Dry-run vs trigger:** o `/test` roda sincronamente e simula envios; o `/trigger` enfileira a execucao em SQS e os envios sao reais.
-</Note>
-
----
-
-## Erros
-
-| HTTP | Quando |
-|------|--------|
-| `400` | `FLOW_NOT_PUBLISHED` — o flow esta em DRAFT. Publique primeiro. |
-| `401` | Chave invalida. |
-| `403` | Flow pertence a outra organizacao. |
-| `404` | Flow nao encontrado. |
-| `429` | `RATE_LIMIT_EXCEEDED` — mais de 100 triggers/min para o mesmo flow. |
+<CardGroup cols={2}>
+  <Card title="Newsletter" icon="envelope" href="https://ararahq.com">
+    Inscrição na landing — release de Flows vai sair por email.
+  </Card>
+  <Card title="GitHub" icon="github" href="https://github.com/ararahq">
+    Watch nos repos pra acompanhar.
+  </Card>
+</CardGroup>

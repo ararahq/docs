@@ -1,0 +1,144 @@
+---
+title: 'Revenue Recovery'
+description: 'Recupere automaticamente Pix vencido, cartão recusado e carrinho abandonado. A Arara cruza eventos do AbacatePay com histórico do cliente e dispara reabordagem inteligente — sem você ter de orquestrar nada.'
+keywords: ['recovery', 'recuperação', 'pix vencido', 'abacatepay', 'carrinho abandonado', 'churn', 'falha pagamento']
+---
+
+Revenue Recovery é o motor da Arara pra **recuperar dinheiro que ia evaporar**. Pix gerado e não pago, cartão recusado, carrinho fechado e abandonado: a Arara detecta, prioriza por valor e janela, e reabre conversa no WhatsApp com mensagem certa pro contexto.
+
+<Note>
+  Revenue Recovery integra com **AbacatePay** (Pix nativo BR). Pra recovery de Stripe ou outros gateways, configure webhooks customizados via [Brain Actions](/actions).
+</Note>
+
+## O problema que isso resolve
+
+| Cenário | O que normalmente acontece | Com Revenue Recovery |
+|---|---|---|
+| Cliente gera Pix R$ 200, fecha o app | Pix expira em 1h, ninguém faz nada | Em 45min: "Vi que seu Pix tá pra vencer. Quer que eu gere um novo?" |
+| Cliente recebe boleto, não paga | Email no dia 1 + 3 + 5, ignorado | Dia 2: WhatsApp com link de pagamento direto + desconto opcional |
+| Carrinho abandonado | Email 2h depois, taxa de abertura 8% | WhatsApp 1h depois, taxa de abertura 95%, conversão 12-18% |
+
+Operações com ticket médio > R$ 50 normalmente recuperam **8-15% do que se perderia**. Em volume de R$ 500K/mês, isso é R$ 40-75K resgatados.
+
+## Como funciona
+
+```
+1. AbacatePay/Stripe envia webhook       (pix.expired, payment.failed, etc)
+   ↓
+2. Arara cruza com histórico do cliente   (LTV, conversas anteriores, tier)
+   ↓
+3. Arara decide se vale recuperar         (regra: ticket > X, cliente não-bloqueado)
+   ↓
+4. Brain monta mensagem contextual        (tom amigável pra novo, direto pra recorrente)
+   ↓
+5. Envia template ou abre janela 24h      (depende de quando foi última interação)
+   ↓
+6. Brain trata a resposta                 (gera novo Pix, oferece desconto, escala pra humano)
+```
+
+## Setup
+
+<Steps>
+  <Step title="Conecta o AbacatePay">
+    Configura a [AbacatePay Action](/brain/actions/abacate-pix). Esta Action expõe os eventos de Pix pro motor de recovery.
+  </Step>
+  <Step title="Pega o endpoint da sua org">
+    A Arara cria um endpoint único por organização — ele recebe todos os eventos. No dashboard em **Recuperação**, ou via API:
+    ```bash
+    curl https://api.ararahq.com/api/v1/recovery/endpoint \
+      -H "Authorization: Bearer ara_live_xxx"
+    ```
+    Retorna `{ code, hmacSecret, active, url }`. O `url` (`https://ararahq.com/l/{code}`) é o que você configura como destino dos webhooks do parceiro.
+  </Step>
+  <Step title="Vincula um template a cada tipo de evento">
+    Cada `eventType` (`pix.expired`, `payment.failed`, `cart.abandoned`, etc) aponta pra um template:
+    ```bash
+    curl -X PUT https://api.ararahq.com/api/v1/recovery/events/pix.expired \
+      -H "Authorization: Bearer ara_live_xxx" \
+      -d '{
+        "templateId": "ara_tpl_abc123",
+        "active": true,
+        "variableMapping": {
+          "1": "$.customer.firstName",
+          "2": "$.payment.amount",
+          "3": "$.generated.pixUrl"
+        }
+      }'
+    ```
+    `variableMapping` usa JSONPath sobre o payload recebido pra preencher cada variável posicional do template.
+  </Step>
+  <Step title="Liga o endpoint">
+    Por default o endpoint sobe `active: false` (dry-run: registra o ingest mas não envia). Ative quando estiver confiante:
+    ```bash
+    curl -X PATCH https://api.ararahq.com/api/v1/recovery/endpoint \
+      -H "Authorization: Bearer ara_live_xxx" \
+      -d '{ "active": true }'
+    ```
+  </Step>
+</Steps>
+
+## Listando configs e métricas
+
+Configs por evento:
+
+```bash
+curl https://api.ararahq.com/api/v1/recovery/events \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+```json
+{
+  "data": [
+    {
+      "eventType": "pix.expired",
+      "templateId": "ara_tpl_abc123",
+      "templateName": "pix_vencido_v2",
+      "active": true,
+      "lastTriggeredAt": "2026-05-24T18:22:10Z"
+    }
+  ]
+}
+```
+
+Stats agregados:
+
+```bash
+curl "https://api.ararahq.com/api/v1/recovery/stats?period=30D" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+`period` aceita `TODAY`, `7D`, `30D`.
+
+## Testando sem evento real
+
+Pra validar o setup sem esperar um pagamento falhar, dispare um teste:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/recovery/events/pix.expired/test \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+A Arara monta um payload sintético e processa como se viesse do parceiro. Útil pra ver a mensagem chegar no seu próprio número antes de ligar em produção.
+
+## Receita real de payback
+
+Cliente nosso de e-commerce moda feminina:
+
+- Ticket médio: R$ 180
+- Pix vencidos / mês: ~800 (~R$ 144K em risco)
+- Recovery rate antes: 4% (email)
+- Recovery rate depois: **17%** (WhatsApp)
+- Recuperação adicional: ~R$ 18.700/mês
+- Custo Arara (mensagens + plano): ~R$ 800/mês
+- **ROI: 23x**
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Receita: Recuperar carrinho" icon="cart-shopping" href="/recipes/abandoned-cart">
+    Fluxo end-to-end de carrinho abandonado.
+  </Card>
+  <Card title="Brain Actions" icon="brain" href="/actions">
+    Como o agente IA orquestra recovery dentro do chat.
+  </Card>
+</CardGroup>

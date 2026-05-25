@@ -1,0 +1,90 @@
+---
+title: 'Receitas'
+description: 'Soluções prontas para os casos mais comuns: carrinho abandonado, OTP, Black Friday, suporte 24/7 com IA, migração de Twilio. Cada receita vem com código completo e checklist pra ir pra produção.'
+keywords: ['receitas', 'cookbooks', 'casos de uso', 'exemplos', 'carrinho abandonado', 'otp', 'black friday']
+---
+
+Cada receita aqui resolve um problema específico de quem usa WhatsApp Business em produção. Não é demo de "hello world" — é o código que você cola, ajusta 3 linhas e está rodando.
+
+Todas seguem a mesma estrutura: **contexto → arquitetura → código completo (4 linguagens) → como testar → checklist de produção**.
+
+## E-commerce
+
+<CardGroup cols={2}>
+  <Card title="Carrinho abandonado" icon="cart-shopping" href="/recipes/abandoned-cart">
+    Detecta abandono, envia template 1h depois, recupera Pix vencido via AbacatePay. Ticket médio +18% nos clientes que testaram.
+  </Card>
+  <Card title="Confirmação de pedido" icon="receipt" href="/recipes/order-confirmation">
+    Template com código do pedido, valor, prazo. Webhook pro status mudar quando entregar. Dispensa email transacional.
+  </Card>
+</CardGroup>
+
+## Autenticação
+
+<CardGroup cols={2}>
+  <Card title="OTP de login" icon="key" href="/cookbooks/auth-2fa">
+    Código de 6 dígitos com expiração de 5min. Template categoria AUTHENTICATION (mais rápido que MARKETING). Custo médio R$ 0,12 por código entregue.
+  </Card>
+  <Card title="2FA via WhatsApp" icon="shield-halved" href="/cookbooks/auth-2fa#2fa">
+    Segunda etapa de login. Substitui SMS (mais barato, mais entregável, mais seguro).
+  </Card>
+</CardGroup>
+
+## Marketing
+
+<CardGroup cols={2}>
+  <Card title="Campanha Black Friday" icon="bullhorn" href="/recipes/black-friday">
+    Disparo segmentado com A/B test. Janela 24h pra responder. Triagem automática de respostas por urgência.
+  </Card>
+  <Card title="Smart Links com tracking" icon="link" href="/cookbooks/marketing-smartlinks">
+    Link curto que rastreia clique, atribuição first-party (sem ITP), cohort por origem.
+  </Card>
+</CardGroup>
+
+## Suporte
+
+<CardGroup cols={2}>
+  <Card title="Inbox multi-atendente" icon="users" href="/recipes/inbox-support">
+    Conversas distribuídas por skill, escalonamento, Brain como tier 1.
+  </Card>
+  <Card title="Suporte 24/7 com Brain" icon="robot" href="/brain">
+    Agente AI atende, escala pra humano quando preciso. Eval suite pra garantir qualidade.
+  </Card>
+</CardGroup>
+
+## Operação
+
+<CardGroup cols={2}>
+  <Card title="Webhooks com retry" icon="rotate-right" href="/webhooks">
+    Receber, validar HMAC, dedupar por message ID, retentar com backoff.
+  </Card>
+  <Card title="Multi-organização" icon="building" href="/recipes/multi-org">
+    Agência operando N contas. Profiles do CLI, escopo por API key.
+  </Card>
+</CardGroup>
+
+## Migração
+
+<CardGroup cols={2}>
+  <Card title="Migrar do Twilio" icon="right-left" href="/migrate/twilio">
+    Diff de código, mapping de campos, paridade de eventos. Sem downtime.
+  </Card>
+  <Card title="Migrar do Z-API / Baileys" icon="right-left" href="/migrate/z-api">
+    Sair de gateway não-oficial sem perder número. Risco de banimento Meta zerado.
+  </Card>
+</CardGroup>
+
+## Integrações
+
+<CardGroup cols={2}>
+  <Card title="Laravel" icon="php" href="/integracoes/laravel">
+    Queue jobs, webhook controller, broadcasting.
+  </Card>
+  <Card title="Next.js" icon="js" href="/integracoes/nextjs">
+    Server Actions, route handlers, streaming de status.
+  </Card>
+</CardGroup>
+
+## Quer uma receita nova?
+
+Abre uma issue no [GitHub](https://github.com/ararahq/docs/issues) com seu caso. Se for genérico o suficiente pra outros clientes, vira receita oficial.
