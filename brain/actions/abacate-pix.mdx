@@ -1,0 +1,95 @@
+---
+title: 'AbacatePay (Pix)'
+description: 'Deixe o agente AI da Arara gerar Pix, enviar o QR Code e confirmar pagamento direto no WhatsApp. Recupera carrinho abandonado sem você orquestrar nada.'
+---
+
+A Action **AbacatePay** dá ao agente o poder de **fechar venda**: cria o Pix no AbacatePay, envia o QR Code no chat e fica de olho no status. Quando o cliente paga, o agente confirma na hora.
+
+<Note>
+  Esta Action exige uma conta no [AbacatePay](https://abacatepay.com) com API key ativa. Conta brasileira, Pix nativo, sem maquininha.
+</Note>
+
+## Quando o agente usa
+
+O modelo aciona automaticamente quando:
+
+- Cliente confirma intenção de compra e não tem checkout aberto
+- Cliente reabre uma conversa onde houve carrinho abandonado
+- Cliente pede "manda o Pix" ou variações
+- Cliente fechou negociação com desconto (combinação de `negotiate_payment` + `send_message` no MCP)
+
+Você pode forçar via `negotiate_payment` (tool MCP) ou desabilitar a invocação automática deixando só manual.
+
+## Setup
+
+<Steps>
+  <Step title="Pega sua API key no AbacatePay">
+    Dashboard AbacatePay → **Configurações → API Keys**. Use `abacate_live_*` em produção.
+  </Step>
+  <Step title="Habilita no dashboard da Arara">
+    **Brain → Actions → AbacatePay**. Cola a key. A Arara criptografa antes de persistir — você não vê o valor de novo.
+  </Step>
+  <Step title="Configura via API (alternativa)">
+    ```bash
+    curl -X PATCH https://api.ararahq.com/api/v1/brain/actions/abacate-pix \
+      -H "Authorization: Bearer ara_live_xxx" \
+      -d '{
+        "enabled": true,
+        "config": {
+          "apiKey": "abacate_live_xxx",
+          "defaultExpirationMinutes": 60,
+          "webhookSecret": "share_a_secret_for_callbacks"
+        }
+      }'
+    ```
+  </Step>
+</Steps>
+
+## Fluxo completo
+
+```
+Cliente:   "Quero a oferta de R$ 47"
+  ↓
+Agente:    [chama AbacatePay → cria Pix R$ 47 com expiração 1h]
+  ↓
+Agente:    "Aqui está o Pix de R$ 47, válido por 1 hora.
+            [QR Code anexo + código copia-e-cola]"
+  ↓
+Cliente:   *paga*
+  ↓
+[AbacatePay → webhook pix.paid → Arara]
+  ↓
+Agente:    "Pagamento confirmado! Sua entrega vai sair em 24h."
+```
+
+## Confirmação automática
+
+Quando o AbacatePay confirma o pagamento (webhook `pix.paid`), a Arara dispara o callback no mesmo chat — sem você precisar reabrir conversa, sem timeout de janela 24h (já estamos dentro).
+
+Pra ver o status manualmente:
+
+```bash
+curl https://api.ararahq.com/api/payments/pix/{id}/status \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+## Recuperação proativa
+
+O agente também usa essa Action de forma reversa: roda `find_revenue_leaks` no AbacatePay, descobre Pix vencido sem pagamento, calcula valor em risco e reabre conversa com o cliente — com desconto se você configurar autopilot.
+
+Ver [Revenue Recovery](/recovery) pro fluxo completo.
+
+## Limitações
+
+- **Pix only**: AbacatePay também tem cartão de crédito, mas a Action só lida com Pix (mais alta conversão no WhatsApp). Pra cartão, use [Stripe](/brain/actions/stripe) ou redirecione pra um link próprio.
+- **Janela 24h**: a Arara só envia atualizações dentro da janela ativa. Se o cliente sumir e o Pix vencer 25h depois, você cai em template HSM pra reabrir.
+- **Sem split**: pagamentos vão pra sua conta AbacatePay direto. Marketplace com split precisa lógica custom.
+
+<CardGroup cols={2}>
+  <Card title="Receita: Carrinho abandonado" icon="cart-shopping" href="/recipes/abandoned-cart">
+    Fluxo completo com Action + webhook.
+  </Card>
+  <Card title="Revenue Recovery" icon="rotate-right" href="/recovery">
+    Recuperação proativa de Pix vencido.
+  </Card>
+</CardGroup>

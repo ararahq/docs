@@ -6,7 +6,7 @@ description: 'Conecte Claude, GPT-4 ou qualquer LLM à infraestrutura da AraraHQ
 A Arara expõe um servidor MCP (Model Context Protocol) que dá a qualquer agente de IA acesso completo à sua conta: mensagens, templates, campanhas, conversas, base de conhecimento e recuperação de receita via AbacatePay.
 
 <CardGroup cols={3}>
-  <Card title="19 ferramentas" icon="wrench">
+  <Card title="84 ferramentas" icon="wrench">
     Cobertura completa da conta — sem precisar escrever código.
   </Card>
   <Card title="Guardian Mode" icon="shield-check">
@@ -78,11 +78,11 @@ A Arara expõe um servidor MCP (Model Context Protocol) que dá a qualquer agent
       "mcpServers": {
         "ararahq": {
           "command": "npx",
-          "args": ["-y", "@ararahq/mcp"],
+          "args": ["-y", "ararahq-mcp"],
           "env": {
             "ARARA_API_KEY": "SUA_API_KEY_ARARA",
             "ABACATEPAY_API_KEY": "SUA_API_KEY_ABACATEPAY",
-            "ARARA_BASE_URL": "https://new-api.ararahq.com/api"
+            "ARARA_BASE_URL": "https://api.ararahq.com/api"
           }
         }
       }
@@ -91,142 +91,123 @@ A Arara expõe um servidor MCP (Model Context Protocol) que dá a qualquer agent
   </Tab>
 </Tabs>
 
-<Note>
-  **Usando a V2 da AraraHQ?** No modo local (stdio), adicione `"ARARA_BASE_URL": "https://new-api.ararahq.com/api"` no bloco `env`. Nos modos SSE (Claude Desktop, Cursor, Windsurf), o servidor remoto `mcp.ararahq.com` já roteia automaticamente com base na sua API key.
-</Note>
-
 ---
 
-## Ferramentas Disponíveis
+## Ferramentas por área
 
-### Conta e Configuração
+<Note>
+  Lista completa em [MCP](/mcp). Abaixo, as principais agrupadas por intenção.
+</Note>
 
-| Ferramenta | O que faz |
-| :--- | :--- |
-| `get_account_overview` | Saldo da carteira, métricas de entrega (sent / delivered / read / failed) e spend total |
-| `manage_organization` | Gerencia números ativos, configuração de webhook, brain config e membros do time |
-| `manage_api_keys` | Lista, cria e revoga API keys da conta |
-| `configure_guardian_policy` | Define regras customizadas de bloqueio de conteúdo para a sessão (palavras proibidas, padrões de marca) |
+### Conta e saldo
+
+`whoami`, `get_organization_info`, `get_wallet_balance`, `list_wallet_transactions`, `get_delivery_metrics`, `get_pricing`
 
 ### Mensagens
 
-| Ferramenta | O que faz |
-| :--- | :--- |
-| `send_smart_message` | Envia mensagem única para um número (texto, template ou mídia). Guardian Mode ativo. |
-| `send_batch_messages` | Envia até 1.000 mensagens em uma única chamada. Guardian Mode ativo em cada mensagem. |
-| `manage_messages` | Lista mensagens do dashboard com filtros ou consulta o status de um ID específico |
+`send_message`, `send_template_to_many`, `get_message_status`, `list_messages`
 
 ### Templates
 
-| Ferramenta | O que faz |
-| :--- | :--- |
-| `manage_templates` | Cria, lista, consulta status de aprovação, analytics por template e deleta templates |
+`list_templates`, `create_template`, `get_template_status`, `get_template_analytics`, `delete_template`, `list_paused_templates`
 
 ### Campanhas
 
-| Ferramenta | O que faz |
-| :--- | :--- |
-| `create_campaign` | Cria e dispara campanha com template + lista de destinatários e variáveis por contato |
-| `monitor_campaign_responses` | Busca conversas abertas desde o disparo, classifica cada resposta por urgência (URGENT / COMPLAINT / QUESTION / POSITIVE / ROUTINE) e retorna fila de triage |
+`create_campaign`, `list_campaigns`, `get_campaign`, `estimate_campaign_cost`, `cancel_campaign`, `create_ab_test`, `get_ab_test`, `force_ab_test_winner`
 
-### Conversas
+### Conversas (inbox)
 
-| Ferramenta | O que faz |
-| :--- | :--- |
-| `manage_conversations` | Lista conversas abertas, acessa histórico completo de uma conversa e envia reply. Guardian Mode ativo no reply. |
+`list_conversations`, `get_conversation_messages`, `reply_in_conversation`, `check_window_status`, `bulk_window_check`, `get_lead_stats`
 
-### Conteúdo e Memória
+### Brain (RAG + agente)
 
-| Ferramenta | O que faz |
-| :--- | :--- |
-| `upload_media` | Sobe arquivo de uma URL para o CDN da Arara e retorna short URL |
-| `manage_knowledge_base` | Lista, salva, atualiza e deleta entradas da base de conhecimento do brain |
-| `build_business_memory` | Analisa histórico de conversas (sentimento, humor, urgência), calcula LTV via AbacatePay, classifica o tier do cliente (NEW / ENGAGED / VIP) e salva na base de conhecimento |
+`brain_interact`, `brain_suggest_reply`, `get_brain_config`, `get_brain_metrics`, `add_brain_knowledge`, `list_brain_knowledge`, `update_brain_knowledge`, `delete_brain_knowledge`, `ingest_url_to_brain`
 
 ### Revenue Recovery (AbacatePay)
 
-| Ferramenta | O que faz |
-| :--- | :--- |
-| `autonomous_recovery` | Escaneia todos os leaks do AbacatePay, enriquece cada um com histórico de mensagens do cliente, calcula total de R$ em risco e retorna briefing pronto para ação imediata |
-| `atomic_negotiation_cycle` | Cria produto + checkout com desconto + envia o link via WhatsApp em uma única chamada atômica |
-| `confirm_payment_handshake` | Verifica o status real de um checkout em tempo real |
-| `check_revenue_leaks` | Scan rápido de checkouts pendentes ou vencidos no AbacatePay |
-| `negotiate_payment` | Cria produto e checkout no AbacatePay e retorna o link (sem enviar) |
+`find_revenue_leaks`, `negotiate_payment`, `check_payment_status`, `get_recovery_endpoint`, `list_recovery_events`, `configure_recovery_event`, `test_recovery_event`, `set_recovery_endpoint_active`, `list_recovery_ingests`, `retry_recovery_ingest`
+
+### Guardian Mode (brand safety)
+
+`configure_guardian_policy`, `list_policy_violations`, `resolve_policy_violation`
+
+### Opt-out e LGPD
+
+`list_opt_outs`, `register_opt_out`, `revoke_opt_out`, `check_opt_out`, `lgpd_export_contact`, `lgpd_delete_contact`
 
 ---
 
-## Os 5 Pilares
+## Os 5 pilares
 
 <Steps>
-  <Step title="Autonomous Revenue Recovery">
-    `autonomous_recovery` monitora leaks (Pix vencido, falha de cartão), busca o histórico de cada cliente e entrega ao agente um briefing completo: quanto está em risco, qual o humor do cliente, qual a janela de oportunidade. O agente age sem esperar ordem.
+  <Step title="Revenue Recovery">
+    `find_revenue_leaks` escaneia os checkouts pendentes/vencidos do AbacatePay e retorna a fila com valor em risco. Combinado com `negotiate_payment` (cria checkout com desconto) e `check_payment_status`, o agente fecha o ciclo de cobrança sem você abrir o app.
   </Step>
-  <Step title="Atomic Negotiation">
-    `atomic_negotiation_cycle` executa o ciclo completo em uma chamada: cria o produto com desconto, gera o checkout no AbacatePay e envia o link via WhatsApp. O diálogo vira o contrato.
+  <Step title="Negociação no WhatsApp">
+    `negotiate_payment` gera o checkout e devolve o link. Combina com `send_message` (template UTILITY) pra mandar pro cliente. `check_payment_status` confirma quando paga.
   </Step>
   <Step title="Guardian Mode (Brand Safety)">
-    Todas as ferramentas de envio passam pelo Guardian antes de qualquer mensagem sair. `configure_guardian_policy` permite definir regras customizadas por sessão: palavras proibidas, padrões de marca, dados sensíveis. Nada escapa.
+    Todas as ferramentas de envio passam pelo Guardian antes de qualquer mensagem sair. `configure_guardian_policy` define regras por sessão (palavras proibidas, padrões de marca, PII). Violações vão pra `list_policy_violations`.
   </Step>
-  <Step title="Business Memory Layer">
-    `build_business_memory` constrói um perfil profundo: sentimento das últimas conversas, LTV histórico, tier do cliente, janela de 24h aberta ou não. A IA sabe com quem está falando antes de falar.
+  <Step title="Brain Memory">
+    `brain_interact` consulta o agente RAG com o histórico da org. `add_brain_knowledge` + `ingest_url_to_brain` carregam contexto novo. `brain_suggest_reply` propõe resposta pra uma conversa específica.
   </Step>
-  <Step title="Mass Orchestration">
-    `create_campaign` + `monitor_campaign_responses` formam o ciclo completo: dispara segmentado, lê o aftermath, classifica respostas por urgência, sugere auto-reply para POSITIVE e QUESTION, escala URGENT e COMPLAINT para humano.
+  <Step title="Orquestração em massa">
+    `create_campaign` dispara segmentado. `list_conversations` + `get_conversation_messages` leem o aftermath. `reply_in_conversation` responde individualmente quando o agente decide.
   </Step>
 </Steps>
 
 ---
 
-## Exemplos de Uso
+## Exemplos de uso
 
 <AccordionGroup>
   <Accordion title="Recuperação de receita autônoma" icon="money-bill-trend-up">
     ```
-    "Verifique se temos algum leak de receita do AbacatePay. Para os 3 maiores valores,
-    analise o perfil de cada cliente e me dê um plano de ação para recuperar hoje."
+    "Roda find_revenue_leaks. Pros 3 maiores valores em risco hoje, traz histórico recente
+    do cliente via get_conversation_messages e me dá um plano de abordagem."
     ```
 
-    O agente chama `autonomous_recovery`, recebe o briefing por cliente com valor em risco,
-    histórico de conversas e sugestão de abordagem. Sem precisar de mais contexto.
+    O agente chama `find_revenue_leaks`, cruza com `get_conversation_messages` por telefone,
+    e sintetiza recomendação. Você revisa e aprova o envio.
   </Accordion>
 
-  <Accordion title="Negociação atômica no WhatsApp" icon="handshake">
+  <Accordion title="Negociação no WhatsApp" icon="handshake">
     ```
-    "O cliente (11) 99999-9999 achou o valor alto. Gere um link com 15% de desconto
-    e mande no WhatsApp dele explicando a oferta."
+    "Cliente +5511999... achou o valor alto. Gere checkout com 15% off via negotiate_payment
+    e manda o link via send_message usando o template 'oferta_personalizada'."
     ```
 
-    Uma chamada para `atomic_negotiation_cycle` cria o produto, gera o checkout e envia.
-    Use `confirm_payment_handshake` para checar confirmação.
+    Um `negotiate_payment` cria o checkout, `send_message` entrega o link. Depois `check_payment_status`
+    confirma quando o cliente paga.
   </Accordion>
 
-  <Accordion title="Campanha com gestão de respostas" icon="bullhorn">
+  <Accordion title="Campanha com triagem de respostas" icon="bullhorn">
     ```
-    "Dispare a campanha de reativação para a lista de clientes inativos.
-    Após 2 horas, me traga uma triagem das respostas priorizando os mais urgentes."
+    "Dispare a campanha de reativação via create_campaign. Depois de 2h, traga as
+    conversas que reabriram (list_conversations) e classifica por urgência."
     ```
 
-    `create_campaign` dispara. Depois, `monitor_campaign_responses` retorna a fila
-    classificada por URGENT → COMPLAINT → QUESTION → POSITIVE → ROUTINE.
+    `create_campaign` dispara. `list_conversations` traz as que tiveram resposta.
+    O agente lê cada uma via `get_conversation_messages` e classifica.
   </Accordion>
 
   <Accordion title="Perfil de cliente antes de responder" icon="brain">
     ```
-    "Antes de eu responder o cliente (21) 88888-8888, me dê o perfil completo dele:
-    humor das últimas interações, histórico de pagamentos e se a janela de 24h está aberta."
+    "Antes de eu responder +5521888..., me dê: status da janela 24h (check_window_status),
+    histórico recente (get_conversation_messages) e perfil sugerido pelo Brain (brain_interact)."
     ```
 
-    `build_business_memory` cruza histórico de conversas com AbacatePay e retorna
-    tier, mood score, LTV e janela de oportunidade.
+    Três chamadas, agente sintetiza tier, mood, janela e contexto.
   </Accordion>
 
-  <Accordion title="Gestão operacional da conta" icon="gear">
+  <Accordion title="Resumo operacional da conta" icon="gear">
     ```
-    "Me dê um resumo da conta: saldo, taxa de entrega da última semana
-    e quais templates estão aprovados e prontos para uso."
+    "Resumo do dia: saldo (get_wallet_balance), entrega das últimas 24h (get_delivery_metrics),
+    templates aprovados (list_templates) e leaks abertos (find_revenue_leaks)."
     ```
 
-    `get_account_overview` + `manage_templates` com `action: list`.
+    Quatro tools, agente monta o digest.
   </Accordion>
 </AccordionGroup>
 

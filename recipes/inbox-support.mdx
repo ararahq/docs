@@ -1,0 +1,206 @@
+---
+title: 'Inbox multi-atendente'
+description: 'Operação de suporte com múltiplos atendentes, distribuição por skill, Brain como tier 1, escalonamento contextualizado pra humano. Janela 24h, opt-out automático, anti-duplo-atendimento.'
+keywords: ['inbox', 'suporte', 'sac', 'multi-atendente', 'help desk', 'brain handoff']
+---
+
+WhatsApp como canal de suporte é diferente de email/ticket. Janela de 24h, conversa contínua, cliente espera resposta em minutos. Esta receita mostra como operar inbox multi-atendente com sanidade.
+
+## Arquitetura
+
+```
+[Mensagem do cliente entra]
+   ↓
+[Brain (tier 1) responde se for resolução simples]
+   ↓ (se Brain não resolveu OU se cliente pediu humano)
+[Distribuição por skill / round-robin]
+   ↓
+[Atendente assume]
+   ↓ (durante atendimento)
+[Lock pra evitar duplo atendimento]
+   ↓
+[Resolução]
+   ↓
+[Conversa fechada, métricas registradas]
+```
+
+## Pré-requisitos
+
+- Plano com [Conversas inbox](/api-reference/endpoint/v2/contacts) (PRO+)
+- Time multi-membro configurado em **Organização → Membros**
+- (Opcional) [Brain ativo](/brain) pra automação tier 1
+
+## Modos de operação
+
+### Modo 100% humano
+
+Cliente manda mensagem → entra na fila do inbox → primeiro atendente disponível assume **pelo dashboard**.
+
+```bash
+# Listar conversas (a lista filtra por status no client/dashboard)
+curl https://api.ararahq.com/api/v1/conversations \
+  -H "Authorization: Bearer ara_live_xxx"
+
+# Responder (atendente envia o reply via dashboard ou API)
+curl -X POST https://api.ararahq.com/api/v1/conversations/reply \
+  -d '{
+    "conversationId": "ara_conv_xyz",
+    "text": "Oi João, posso te ajudar! Qual é o número do pedido?"
+  }'
+```
+
+<Note>
+  Assignment/lock entre atendentes hoje acontece no **dashboard** (não via API REST). A API expõe lista, mensagens da conversa, reply e check de janela. Atribuição programática está no roadmap.
+</Note>
+
+### Modo Brain + humano (recomendado)
+
+Brain atende primeiro. Resolve o que dá pra resolver (FAQ, status de pedido, cancelamento). Escala pra humano quando:
+- Cliente pediu explicitamente
+- Brain não soube responder
+- Detectou tom agressivo / reclamação
+- Tópico fora do escopo do Brain (reembolso > R$ X, problema complexo)
+
+```bash
+# Brain ativo (regras de saída ficam dentro de exitTriggers ou no dashboard)
+curl -X PATCH https://api.ararahq.com/api/v1/brain/config \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "active": true,
+    "exitTriggers": {
+      "onComplaint": true,
+      "onUrgentTone": true,
+      "afterNAttempts": 3,
+      "onValueAboveCents": 50000
+    }
+  }'
+
+# Handoffs pendentes (escalações)
+curl "https://api.ararahq.com/api/v1/brain/handoffs?status=PENDING" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Cada handoff vem com:
+- Resumo da conversa anterior (3-5 mensagens)
+- Motivo da escalação (`URGENT`, `COMPLAINT`, `OUT_OF_SCOPE`, `USER_REQUEST`)
+- Sugestão de primeira resposta (humano aceita ou edita)
+- Contexto do cliente (LTV, último pedido, conta verificada)
+
+Ver [Brain](/brain).
+
+## Distribuição por skill
+
+Operação com produtos diversos: atendente A sabe de tênis, atendente B sabe de roupa.
+
+A distribuição por skill é configurada hoje no dashboard em **Inbox → Regras de distribuição** (filtros por palavra-chave da mensagem inbound, número que recebeu, ou Brain category detection). Suporte a tags/labels customizadas na API REST está no roadmap — por enquanto, use as regras do dashboard.
+
+Pra automação custom, escute o webhook `message.received`, classifica do seu lado (regex, LLM, etc), e use [Brain handoff](/brain) pra escalar quando precisar.
+
+## Lock — evitar duplo atendimento
+
+Atendente A e B abrem a mesma conversa simultaneamente. Resposta dupla. Cliente confuso.
+
+Hoje a Arara resolve isso no **dashboard** (frontend exibe "Carlos está atendendo há 3 min" e bloqueia segundo atendente). API REST de assignment com lock atômico está no roadmap — quando lançar, vai usar optimistic locking via `expectedVersion`.
+
+Se sua operação não usa o dashboard da Arara (você tem inbox próprio), implemente o lock no **seu lado**: marca a conversa como "in_progress por user X" no seu DB ao buscar `/v1/conversations`, e libera ao terminar reply.
+
+## Janela 24h — implicações
+
+Toda conversa de inbox respeita a janela:
+
+- **Cliente respondeu nos últimos 24h**: você pode responder com qualquer coisa.
+- **Janela fechada**: pra reabrir, manda template `retomada_atendimento`. Cliente responde, janela abre, continua.
+
+```typescript
+const status = await sdk.conversations.windowStatus([conversation.phone]);
+
+if (status[conversation.phone].status === 'OPEN') {
+  await sdk.conversations.reply({
+    conversationId: conversation.id,
+    text: 'Já te respondo, só preciso checar uma coisa',
+  });
+} else {
+  // Janela fechada, manda template
+  await sdk.messages.send({
+    receiver: `whatsapp:${conversation.phone}`,
+    templateName: 'retomada_atendimento',
+    templateVariables: ['Olá'],
+  });
+}
+```
+
+Ver [Janela de 24h](/concepts/24h-window).
+
+## Métricas de operação
+
+Dashboard → **Inbox → Métricas**:
+
+| Métrica | Bom benchmark |
+|---|---|
+| First response time | < 5 minutos |
+| Resolution time médio | < 30 minutos pra casos simples |
+| Conversations resolved per agent / hour | 8-15 (varia por complexidade) |
+| Escalation rate Brain → humano | 15-30% (se Brain ativo) |
+| CSAT pós-atendimento | > 4,3/5 |
+
+CSAT é coletado opcional — depois do handoff de resolução, pode disparar template:
+
+```
+"Te ajudamos hoje? Responde com:
+👍 — Sim, resolvido
+👎 — Não, ainda preciso de ajuda"
+```
+
+## Opt-out e block list
+
+Cliente que pediu "Stop" (ver [Compliance](/concepts/compliance)) **continua podendo responder no inbox** — mas você não pode mandar template MARKETING pra ele. Atendimento iniciado por ele continua válido.
+
+A Arara automaticamente bloqueia disparos MARKETING pra contatos em opt-out, mas inbox segue funcionando.
+
+## Pegadinhas
+
+### 1. Cliente reabre conversa antiga
+
+Conversa estava fechada há 1 semana. Cliente manda mensagem nova. Inbox abre como conversa nova ou continua a antiga?
+
+A Arara faz **continuação automática** — pega a última conversa do mesmo número e adiciona. Histórico contínuo. Atendente vê tudo.
+
+### 2. Múltiplos contextos no mesmo cliente
+
+Cliente Maria tem 3 conversas em paralelo: pedido #1, dúvida sobre devolução do pedido #2, e cadastro novo. Tudo no mesmo número.
+
+A Arara mantém o histórico contínuo do número, mas cabe ao seu time (ou ao [Brain](/brain) com knowledge base correta) identificar o assunto na resposta. Pra contextualização externa, espelhe a conversa no seu CRM/helpdesk via webhook.
+
+### 3. Sair de férias
+
+Atendente vai viajar 1 semana, mas tem conversas abertas com ele. Hoje a re-distribuição acontece no dashboard (**Inbox → Membros → Reatribuir conversas de X pra Y**). API REST programática pra bulk reassign está no roadmap.
+
+Cliente nem percebe — o número que recebe a mensagem é o mesmo, só muda quem responde do outro lado.
+
+### 4. Picos de demanda
+
+BF, lançamento, crise. Volume 10x normal. Brain como tier 1 vira essencial — humano só pra casos complexos.
+
+## Checklist de produção
+
+- [ ] Time configurado (mínimo 2 atendentes pra cobertura)
+- [ ] Brain treinado com FAQ se for usar tier 1
+- [ ] Regras de distribuição definidas (skill, round-robin, ou ambos)
+- [ ] Template `retomada_atendimento` aprovado (pra reabrir janela fechada)
+- [ ] Métricas de FRT e CSAT instrumentadas
+- [ ] Lock atômico no frontend (versão do conversation)
+- [ ] Atendentes treinados sobre janela 24h
+- [ ] Política de escalation clara pro Brain (`onValueAbove`, `onComplaint`)
+- [ ] Re-assignment plan pra férias/ausência
+- [ ] Backup: número 2 funcional caso o primário caia de tier
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Brain (IA)" icon="brain" href="/brain">
+    Tier 1 automatizado, 70-80% das conversas resolvidas sozinhas.
+  </Card>
+  <Card title="Janela 24h" icon="clock" href="/concepts/24h-window">
+    Regra mais importante do inbox.
+  </Card>
+</CardGroup>

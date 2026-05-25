@@ -1,30 +1,22 @@
-/* Customização do botão Try it */
-button[class*="try-it"],
-button[aria-label*="Try it"],
-button:has-text("Try it") {
-  background-color: #FF6B35 !important;
-  color: #FFFFFF !important;
+/* Arara brand tokens — espelho dos tokens canônicos de ararahq-lp.
+   Mintlify controla a cor primária via docs.json (colors.primary). Este
+   arquivo só existe para overrides pontuais quando o tema não cobre. */
+
+:root {
+  --arara-brand-500: #1c99a7;
+  --arara-brand-600: #1c7682;
+  --arara-brand-300-dark: #5fbcc7;
 }
 
-/* Seletor mais específico para o botão Try it do Mintlify */
-button[data-testid="try-it-button"],
-.mintlify-code-block button[class*="try"],
-pre button[class*="try"],
-.mintlify-code button {
-	background-color: #FF6B35 !important;
-	color: #FFFFFF !important;
-}
-
-/* Estilo para hover */
-button[class*="try-it"]:hover,
-button[aria-label*="Try it"]:hover {
-	background-color: #CC5A1F !important;
-}
-
-/* Tentativa com seletores mais genéricos do Mintlify */
-[class*="TryIt"] button,
-[class*="try-it"] button,
-button:contains("Try it") {
-  background-color: #FF6B35 !important;
-  color: #FFFFFF !important;
+/* Logo da navbar: dá altura completa pro SVG horizontal cropado preencher
+   o espaço sem sobrar margem interna. Mintlify default deixa h-7 (28px). */
+nav img[alt*="logo" i],
+header img[alt*="logo" i],
+a[href="/"] img,
+[class*="logo"] img,
+[class*="Logo"] img {
+  height: 2.25rem;
+  max-height: 2.25rem;
+  width: auto;
+  object-fit: contain;
 }

@@ -1,0 +1,146 @@
+---
+title: 'Como contribuir'
+description: 'A Arara é construída em público. SDKs, CLI, MCP, esta doc — tudo no GitHub sob MIT. Esta página mostra como reportar bug, sugerir feature, fazer PR.'
+keywords: ['contributing', 'github', 'open source', 'pr', 'pull request', 'issue', 'bug report']
+---
+
+A Arara é **build in public**. SDKs, CLI, MCP, esta documentação, e até parte da landing page estão no [GitHub da AraraHQ](https://github.com/ararahq) sob licença MIT. Não está no GitHub: o backend principal (`ararahq-api`) e o dashboard — código proprietário.
+
+## Repositórios públicos
+
+<CardGroup cols={2}>
+  <Card title="arara-node-sdk" icon="node" href="https://github.com/ararahq/arara-node-sdk">
+    SDK oficial Node.js / TypeScript.
+  </Card>
+  <Card title="arara-python-sdk" icon="python" href="https://github.com/ararahq/arara-python-sdk">
+    SDK oficial Python.
+  </Card>
+  <Card title="arara-php-sdk" icon="php" href="https://github.com/ararahq/arara-php-sdk">
+    SDK oficial PHP.
+  </Card>
+  <Card title="arara-java-sdk" icon="java" href="https://github.com/ararahq/arara-java-sdk">
+    SDK oficial Java/Kotlin.
+  </Card>
+  <Card title="arara-cli" icon="terminal" href="https://github.com/ararahq/arara-cli">
+    CLI single-binary em Go.
+  </Card>
+  <Card title="ararahq-mcp" icon="server" href="https://github.com/ararahq/ararahq-mcp">
+    Servidor MCP com 84 tools.
+  </Card>
+  <Card title="arara-postman" icon="rectangle-terminal" href="https://github.com/ararahq/arara-postman">
+    Collection oficial.
+  </Card>
+  <Card title="docs" icon="book-open" href="https://github.com/ararahq/docs">
+    Esta documentação.
+  </Card>
+</CardGroup>
+
+## Como reportar bug
+
+<Steps>
+  <Step title="Confere se já não existe">
+    Procura em **Issues** do repo correspondente antes de abrir. Bug duplicado a gente fecha apontando pro original.
+  </Step>
+  <Step title="Reproduz isolado">
+    Snippet mínimo que reproduz o bug — não cola código de produção inteiro. "Stack overflow style" funciona.
+  </Step>
+  <Step title="Abre issue com template">
+    Cada repo tem template de bug report. Preencha:
+    - SDK version (`@ararahq/sdk@1.8.0`)
+    - Runtime version (Node 20, PHP 8.2, etc)
+    - Sistema operacional
+    - Comportamento esperado vs observado
+    - Snippet reproduzível
+  </Step>
+  <Step title="Aguarda triage">
+    Triage em **2 dias úteis**. Bugs críticos (segurança, perda de dados) priorizados.
+  </Step>
+</Steps>
+
+## Como sugerir feature
+
+Discussão antes de PR. Abra **Discussion** (não Issue) descrevendo:
+
+- Problema que você está tentando resolver
+- Solução que você imagina
+- Alternativas consideradas
+- Quem se beneficia
+
+Features pequenas (helper method, validação) viram PR direto. Features grandes (novo recurso, mudança de API) precisam alinhamento prévio.
+
+## Pull Requests
+
+### Antes de codar
+
+- Abra issue/discussion primeiro pra alinhar abordagem
+- Comente "vou pegar essa" pra evitar trabalho duplicado
+- Fork → branch (`feat/xxx` ou `fix/xxx`) → PR
+
+### O que esperamos
+
+| Critério | Requisito |
+|---|---|
+| **Testes** | Funcionalidade nova vem com teste. Bug fix vem com teste que falha antes do fix. |
+| **Lint** | `npm run lint`, `ruff`, `composer lint`, `mvn checkstyle` — zero warning |
+| **Commit message** | `tipo(escopo): descrição` (ex: `feat(messages): add interactive payload type`) |
+| **CHANGELOG** | Adicione entrada em `CHANGELOG.md` sob `## [Unreleased]` |
+| **Docs** | Se mudou API pública, atualize README do SDK |
+
+### Review
+
+- 1 maintainer aprova → merge
+- Tempo médio de review: **48-72h**
+- Sem feedback em 1 semana? Marca o maintainer no PR
+
+### Tamanho do PR
+
+Pequenos e focados. PR grande (> 500 linhas) divide em série. Difícil revisar mega-PRs.
+
+## Documentação
+
+Esta página, todas as outras desta doc, e as receitas práticas vivem em [github.com/ararahq/docs](https://github.com/ararahq/docs). É Mintlify-based.
+
+Pra contribuir com a doc:
+
+```bash
+git clone https://github.com/ararahq/docs
+cd docs
+npx mintlify dev  # roda local em http://localhost:3000
+```
+
+Edite o `.mdx` correspondente, dê preview local, abre PR.
+
+### Padrões
+
+- **Tom**: dev-first BR, sem hype, honesto sobre limitações
+- **Slugs**: inglês curto (`/concepts/whatsapp`, não `/conceitos/`)
+- **Snippets**: validados contra código real, não inventados
+- **Frontmatter**: title + description + keywords obrigatórios
+- **Idioma**: PT-BR salvo termos técnicos consolidados (webhook, payload, retry)
+
+## Code of conduct
+
+Comportamento esperado:
+
+- **Respeito**: assuma boa-fé. Crítica ao código, não à pessoa.
+- **Inclusão**: sem comentários racistas, sexistas, homofóbicos, etc. Zero tolerância.
+- **Construtividade**: "isso não funciona" não ajuda. "isso não funciona porque X, sugiro Y" sim.
+
+Violação → ban do org GitHub. Reportar a [conduct@ararahq.com](mailto:conduct@ararahq.com).
+
+## Reconhecimento
+
+Top contributors aparecem no README de cada repo. Contribuições significativas viram caso na newsletter (com permissão).
+
+Não pagamos por contribuição (ainda) mas qualquer PR mergeado entra pro registro público.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="GitHub Org" icon="github" href="https://github.com/ararahq">
+    Watch nos repos que te interessam.
+  </Card>
+  <Card title="Roadmap público" icon="map" href="/roadmap">
+    O que está em construção.
+  </Card>
+</CardGroup>

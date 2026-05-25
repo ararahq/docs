@@ -1,0 +1,159 @@
+---
+title: 'Pricing'
+description: 'Quanto custa a Arara em BRL: custo Meta + margem Arara + plano. Fatura simulada, calculadora de custo por volume, comparativo com SMS e gateway pirata. Sem letra miúda.'
+keywords: ['preço', 'custo', 'fatura', 'brl', 'meta pricing', 'whatsapp custo']
+---
+
+A regra geral: **3 atores cobram**. Esta página mostra cada um com número real em BRL.
+
+```
+Meta (Cloud API) cobra por mensagem entregue
+       ↓
+Arara cobra Meta + ~30% margem + valor do plano
+       ↓
+Você fatura pro cliente final (opcional)
+```
+
+<Note>
+  Toda conversão USD → BRL nesta página usa câmbio R$ 5,00 (atualização periódica). Sua fatura usa câmbio do dia do fechamento. Pode variar ~5%.
+</Note>
+
+## Custo por mensagem (categoria)
+
+Meta cobra **por mensagem entregue** desde meados de 2025. Falhas (template rejeitado, número inválido, fora da janela) não custam.
+
+| Categoria | Custo Meta (USD) | Margem Arara | Total final (BRL) |
+|---|---|---|---|
+| **UTILITY** | $ 0,0050 | 30% | **~R$ 0,12** |
+| **AUTHENTICATION** | $ 0,0050 | 30% | **~R$ 0,12** |
+| **MARKETING** | $ 0,0590 | 30% | **~R$ 0,40** |
+| **Service (sessão 24h)** | $ 0 (incluso) | — | **R$ 0** |
+
+Mensagens **dentro da janela 24h** (service messages — você respondendo cliente que iniciou) são **grátis**. Você só paga por mensagem fora da janela.
+
+## Planos
+
+O plano cobre **valor fixo mensal** + créditos pré-pagos pra mensagens.
+
+| Plano | R$/mês | Créditos inclusos | Sobreposição | Recursos |
+|---|---|---|---|---|
+| **FREE** | 0 | R$ 30 em créditos teste | n/a | 3 templates, número compartilhado, 5K msg/mês teste |
+| **PRO** | 199 | R$ 200 em créditos | + R$ 0,40/MARKETING, R$ 0,12/UTILITY | 50 templates, 1 número dedicado, A/B test, conversas inbox |
+| **BUSINESS** | 499 | R$ 600 em créditos | mesmas tarifas | 250 templates, 5 números dedicados, IP allowlist, time multi-membro |
+| **ENTERPRISE** | a partir 1.499 | R$ 2.000 em créditos | tarifas negociadas | Templates ilimitados, ~20 números, Brain incluso, SLA dedicado |
+
+Add-ons:
+- **Brain (IA)**: R$ 250/mês (incluído no Enterprise). 5K conversas/mês, depois usage.
+- **Seat extra (time)**: R$ 79/seat (BUSINESS e acima).
+- **Número dedicado extra**: incluído no plano, números adicionais via solicitação.
+
+## Calculadora
+
+Cenário 1 — **E-commerce médio**:
+- 8.000 mensagens UTILITY/mês (confirmações, rastreio)
+- 4.000 mensagens MARKETING/mês (carrinho abandonado, campanhas)
+- Plano PRO
+
+```
+Plano PRO:                                  R$  199
+8.000 × R$ 0,12 (UTILITY):                  R$  960
+4.000 × R$ 0,40 (MARKETING):                R$ 1.600
+Créditos inclusos (PRO):                   -R$  200
+                                           ─────────
+Fatura mensal:                              R$ 2.559
+```
+
+Cenário 2 — **SaaS B2B**:
+- 1.500 mensagens AUTHENTICATION/mês (OTP login)
+- 500 mensagens UTILITY/mês (alertas)
+- Sem marketing
+- Plano PRO
+
+```
+Plano PRO:                                  R$  199
+1.500 × R$ 0,12 (AUTH):                     R$  180
+500 × R$ 0,12 (UTILITY):                    R$   60
+Créditos inclusos (PRO):                   -R$  200
+                                           ─────────
+Fatura mensal:                              R$  239
+```
+
+Cenário 3 — **Operação Black Friday**:
+- 80.000 mensagens MARKETING em 5 dias
+- 20.000 mensagens UTILITY (pedidos, rastreio)
+- Plano BUSINESS
+
+```
+Plano BUSINESS:                             R$  499
+80.000 × R$ 0,40 (MARKETING):               R$32.000
+20.000 × R$ 0,12 (UTILITY):                 R$ 2.400
+Créditos inclusos (BUSINESS):              -R$  600
+                                           ─────────
+Fatura do mês:                              R$34.299
+```
+
+## Estimativa via API
+
+```bash
+curl "https://api.ararahq.com/api/v1/wallet/calculate?amountCents=10000" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Retorna quantas mensagens cada R$ 100 compra por categoria + janela 24h.
+
+## Comparativo
+
+### vs SMS BR
+
+| | SMS | WhatsApp via Arara |
+|---|---|---|
+| Custo por envio | R$ 0,12 - 0,15 (entregue ou não) | R$ 0,12 - 0,40 (só entregue) |
+| Taxa de abertura | ~50% | ~98% |
+| CTR | ~1% | ~8-10% |
+| Resposta possível | Não | Sim (janela 24h) |
+| **CAC efetivo** | Alto (poucos convertem) | Baixo (alto CTR) |
+
+WhatsApp custa 1-3x mais por envio, converte 8-10x mais. CAC efetivo menor.
+
+### vs Z-API / gateway pirata
+
+| | Gateway pirata ("grátis") | Arara |
+|---|---|---|
+| Custo aparente | R$ 100-300/mês fixo | R$ 199 + uso |
+| Custo real (incluindo banimento) | **R$ X.000 quando o número quebra** + 30 dias parado | Previsível |
+| Risco de banimento | Alto | Quase zero |
+| Templates aprovados | Não tem | Sim |
+| Volume máximo | 200-500 msg/dia | Sem limite real (com warming) |
+
+[Comparativo completo](/migrate/z-api).
+
+## Onde ver fatura
+
+Dashboard → **Cobrança → Faturas**. Cada fatura tem:
+
+- Resumo: plano + créditos consumidos + saldo
+- Detalhamento por categoria
+- Cohort por template (quanto cada template custou)
+- Câmbio do dia do fechamento
+
+## Wallet e auto-recharge
+
+Saldo é em **créditos pré-pagos** (R$ depositados via Pix ou cartão). Quando saldo cai abaixo do threshold, auto-recharge dispara cartão e completa.
+
+```bash
+curl https://api.ararahq.com/api/v1/wallet/auto-recharge \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Configuração: dashboard → **Cobrança → Auto-recarga** ou via PATCH no endpoint acima.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Marketing no WhatsApp" icon="bullhorn" href="/marketing">
+    Como otimizar custo de marketing.
+  </Card>
+  <Card title="API: Wallet" icon="wallet" href="/api-reference/introduction">
+    Endpoints de billing e wallet.
+  </Card>
+</CardGroup>

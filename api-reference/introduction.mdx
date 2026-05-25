@@ -1,61 +1,53 @@
 ---
 title: 'Referência da API'
-description: 'Base URL, autenticacao, formatos de resposta e codigos de erro.'
+description: 'Base URL, autenticação, formatos de resposta, paginação, idempotência e rate limits. Tudo que vale pra todos os endpoints — depois vai pros endpoints específicos.'
+keywords: ['api reference', 'base url', 'autenticação', 'paginação', 'idempotência', 'rate limit']
 ---
+
+A API da Arara é REST padrão, JSON in/out, autenticação Bearer. Esta página cobre **convenções gerais** — formato, paginação, idempotência, headers. Endpoints específicos têm sua página.
 
 ## Base URL
 
-Todas as requisicoes devem ser feitas para:
-
 ```
-https://new-api.ararahq.com/api
+https://api.ararahq.com/api
 ```
 
-Endpoints sao versionados no path (ex: `/v2/messages`, `/v2/templates`).
+Não há SemVer no path. Mudanças incompatíveis viram **endpoint novo** (ex: `/v1/messages/batch` adicionado sem quebrar `/v1/messages`). Deprecations são anunciadas no [changelog](/changelog) com ≥ 6 meses de aviso antes de remover.
 
-<Accordion title="Usando a V1?">
-  A V1 continua disponivel em `https://api.ararahq.com/api/v1`. Se voce esta migrando, consulte a secao [V1 (Legacy)](/api-reference/endpoint/messages) para a documentacao dos endpoints antigos.
-</Accordion>
+## Autenticação
 
-## Autenticacao
+A maioria dos endpoints aceita **Bearer API key**:
 
-Todas as requisicoes exigem um header `Authorization` com sua API key:
-
-```bash
+```
 Authorization: Bearer ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-Existem dois tipos de chave:
-
-| Prefixo | Ambiente | Descricao |
-|---------|----------|-----------|
-| `ara_live_` | Producao | Mensagens entregues a destinatarios reais. Creditos consumidos. |
-| `ara_test_` | Sandbox | Mensagens simuladas. Nenhum credito consumido. |
-
-Consulte a pagina de [Autenticacao](/api-reference/authentication) para detalhes sobre criacao e revogacao de chaves.
+Endpoints de **sessão de usuário** (`/auth/*`, `/users/*`, `/v1/profile/*`) usam **Firebase JWT** em vez de API key. Veja [Autenticação](/api-reference/authentication) pra detalhes.
 
 ## Formato de resposta
 
-Todas as respostas sao em **JSON**. Datas seguem o padrao **ISO 8601 (UTC)**.
+Sempre **JSON**. Datas em **ISO 8601 (UTC)**.
 
-### Resposta de sucesso (objeto)
+### Objeto único
 
 ```json
 {
   "id": "ara_msg_k9Bf2XqP",
-  "status": "QUEUED",
-  "createdAt": "2026-04-04T14:30:00Z"
+  "status": "queued",
+  "mode": "LIVE",
+  "sender": "whatsapp:+5511888888888",
+  "receiver": "whatsapp:+5511999999999"
 }
 ```
 
-### Resposta de sucesso (lista paginada)
+### Lista paginada
 
-Toda lista retorna o mesmo envelope:
+Toda lista segue o mesmo envelope:
 
 ```json
 {
   "data": [
-    { "id": "ara_tpl_abc123", "name": "hello_world_v2" }
+    { "id": "ara_tpl_abc", "name": "pedido_confirmado" }
   ],
   "pagination": {
     "page": 0,
@@ -66,79 +58,160 @@ Toda lista retorna o mesmo envelope:
 }
 ```
 
-### Resposta de erro
+### Erro
 
-Todos os erros seguem o mesmo formato:
+Formato canônico:
 
 ```json
 {
   "error": {
     "code": "INSUFFICIENT_CREDITS",
-    "message": "Your wallet does not have enough credits for this operation."
+    "message": "Your wallet does not have enough credits for this operation.",
+    "details": {}
   }
 }
 ```
 
-Consulte a pagina de [Erros](/erros) para a lista completa de codigos.
+Lista completa de códigos em [Erros](/erros).
 
-## Paginacao
+## Paginação
 
-Endpoints que retornam listas aceitam os seguintes query parameters:
+Endpoints que retornam lista aceitam:
 
-| Parametro | Tipo | Default | Descricao |
-|-----------|------|---------|-----------|
-| `page` | integer | `0` | Numero da pagina (zero-indexed). |
-| `size` | integer | `20` | Itens por pagina (maximo 100). |
+| Param | Tipo | Default | Descrição |
+|---|---|---|---|
+| `page` | integer | `0` | Página, zero-indexed. |
+| `size` | integer | `20` | Itens por página, máximo `100`. |
+
+```bash
+curl "https://api.ararahq.com/api/v1/messages?page=2&size=50" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+## Idempotência
+
+POSTs que criam recursos críticos aceitam header `Idempotency-Key`:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Idempotency-Key: order-confirm-abc123" \
+  -H "Content-Type: application/json" \
+  -d '{ "receiver": "...", "templateName": "...", "templateVariables": [...] }'
+```
+
+Comportamento:
+
+- Mesma chave + mesmo body em 24h → retorna **resposta original**, não cria duplicata
+- Mesma chave + body diferente → conflito (409)
+- Sem chave em endpoint que **exige** → 400
+
+Endpoints:
+
+| Endpoint | Header |
+|---|---|
+| `POST /v1/messages` | opcional (recomendado) |
+| `POST /v1/messages/batch` | opcional (recomendado) |
+| `POST /v1/campaigns` | **obrigatório** |
+| `POST /v1/brain/ingest-url` | opcional |
+| `POST /v1/brain/ingest-pdf` | opcional |
 
 ## Rate limits
 
-Requisicoes que excedam o limite recebem `429 Too Many Requests`. O header `Retry-After` indica quantos segundos aguardar.
+Limite global: **100 requisições / segundo / API key**.
 
-## Idempotencia
+Quando exceder, resposta `429 Too Many Requests` com headers:
 
-Endpoints `POST` que criam recursos aceitam o header `Idempotency-Key` para evitar duplicatas em retries:
-
-```bash
-Idempotency-Key: unique-request-id-123
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 3
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1716040331
 ```
 
-Se uma requisicao com a mesma chave ja foi processada, a API retorna a resposta original sem criar um novo recurso.
+Respeite `Retry-After`. SDKs oficiais já fazem retry com backoff exponencial automaticamente.
 
-## Codigos de status HTTP
+## Status codes HTTP
 
-| Codigo | Descricao | Quando |
-|--------|-----------|--------|
-| `200` | OK | Sucesso com body (ex: listar, consultar). |
-| `201` | Created | Recurso criado com sucesso (ex: criar template). |
-| `202` | Accepted | Requisicao aceita para processamento assincrono (ex: enviar mensagem). |
-| `204` | No Content | Sucesso sem body (ex: deletar recurso). |
-| `400` | Bad Request | Input invalido ou malformado. |
-| `401` | Unauthorized | API key invalida ou ausente. |
-| `403` | Forbidden | Autenticado, mas sem permissao para este recurso. |
-| `404` | Not Found | Recurso nao encontrado. |
-| `409` | Conflict | Conflito (duplicata, estado invalido). |
-| `429` | Too Many Requests | Rate limit excedido. |
-| `500` | Internal Server Error | Erro interno. Tente novamente ou contate suporte. |
+| Código | Significado | Quando |
+|---|---|---|
+| `200` | OK | Sucesso com body (consultas, listings) |
+| `201` | Created | Recurso criado (template, campanha, contato) |
+| `202` | Accepted | Aceito pra processamento assíncrono (mensagem na fila) |
+| `204` | No Content | Sucesso sem body (delete, revoke) |
+| `400` | Bad Request | Input malformado |
+| `401` | Unauthorized | API key ausente ou inválida |
+| `402` | Payment Required | Saldo de créditos insuficiente |
+| `403` | Forbidden | Sem permissão pro recurso |
+| `404` | Not Found | Recurso não existe |
+| `409` | Conflict | Conflito (duplicata, idempotency mismatch, estado inválido) |
+| `422` | Unprocessable Entity | Input válido mas regra de negócio quebrada (template não aprovado, janela fechada) |
+| `429` | Too Many Requests | Rate limit excedido |
+| `500` | Internal Server Error | Erro interno — retry seguro |
+| `502` | Bad Gateway | Provider upstream (Meta, AbacatePay) instável — retry seguro |
+| `503` | Service Unavailable | Indisponível — retry seguro |
 
-## Modulos
+## Convenções
+
+### Telefone
+
+Formato **E.164** com prefixo `whatsapp:`:
+
+```
+whatsapp:+5511999999999
+```
+
+Em retorno de webhook inbound, sem prefixo:
+
+```json
+{ "from": "+5511999999999" }
+```
+
+### IDs
+
+Prefixados por tipo, Base62, 7 chars depois do prefixo:
+
+| Prefixo | Tipo |
+|---|---|
+| `ara_msg_` | Mensagem |
+| `ara_tpl_` | Template |
+| `ara_cmp_` | Campanha |
+| `ara_key_` | API key |
+| `ara_num_` | Número |
+| `ara_org_` | Organização |
+| `ara_user_` | Usuário |
+| `ara_conv_` | Conversa |
+
+### Valores monetários
+
+Em **centavos**, sempre inteiros, sempre BRL salvo indicação contrária:
+
+```json
+{ "amountCents": 19990 }   // R$ 199,90
+```
+
+### Booleanos e enums
+
+Booleanos: `true`/`false` minúsculo. Enums em UPPERCASE: `LIVE`, `TEST`, `MARKETING`, `UTILITY`.
+
+## CORS
+
+A API aceita CORS de qualquer origem em `OPTIONS` (preflight), mas **rejeita request real do navegador** (CORS `403`). API key não pode ir pro browser — sempre proxy via seu backend.
+
+## Próximos passos
 
 <CardGroup cols={2}>
+  <Card title="Autenticação detalhada" icon="key" href="/api-reference/authentication">
+    API key vs Firebase JWT, modos, segurança.
+  </Card>
+  <Card title="Erros" icon="circle-exclamation" href="/erros">
+    Lista canônica de códigos.
+  </Card>
   <Card title="Mensagens" icon="paper-plane" href="/api-reference/endpoint/v2/messages">
-    Envio e consulta de mensagens WhatsApp e Email.
+    Endpoint mais usado.
   </Card>
-  <Card title="Templates" icon="bezier-curve" href="/api-reference/endpoint/v2/templates">
-    Criacao e gestao de templates.
-  </Card>
-  <Card title="Contatos" icon="address-book" href="/api-reference/endpoint/v2/contacts">
-    Gestao de contatos com busca e batch upsert.
-  </Card>
-  <Card title="Campanhas" icon="bolt" href="/api-reference/endpoint/v2/campaigns">
-    Disparos em massa para 100k+ destinatarios.
-  </Card>
-  <Card title="API Keys" icon="key" href="/api-reference/endpoint/v2/api-keys">
-    Criacao e revogacao de chaves programaticamente.
-  </Card>
-  <Card title="Flows" icon="diagram-project" href="/api-reference/endpoint/v2/flows">
-    Disparo e teste de automacoes.
+  <Card title="Webhooks" icon="bell" href="/webhooks">
+    Como receber eventos em tempo real.
   </Card>
 </CardGroup>

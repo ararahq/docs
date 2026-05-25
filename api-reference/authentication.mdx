@@ -1,49 +1,47 @@
 ---
 title: 'Autenticação'
-description: 'Como autenticar suas requisições na API da Arara.'
+description: 'API key Bearer pra integrações e Firebase JWT pra sessão de usuário. Como obter, rotacionar, revogar, e configurar IP allowlist em planos enterprise.'
+keywords: ['autenticação', 'api key', 'bearer', 'firebase', 'token', 'oauth']
 ---
 
-## API Keys
+A Arara aceita **dois modelos de autenticação** dependendo de quem está chamando.
 
-Todas as requisicoes exigem uma API key no header `Authorization`:
+| Modelo | Quem usa | Header |
+|---|---|---|
+| **API key Bearer** | Backend, scripts, SDKs, CLI, MCP | `Authorization: Bearer ara_live_...` |
+| **Firebase JWT** | Dashboard, sessão de usuário, login | `Authorization: Bearer <firebase_id_token>` |
 
-```bash
-Authorization: Bearer ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+A maioria dos endpoints da Arara usa **API key**. Firebase JWT é usado apenas em endpoints de sessão (`/auth/*`, `/users/*`, `/v1/profile/*`).
+
+## API key
+
+Formato:
+
+```
+ara_<modo>_<32 caracteres>
 ```
 
-### Ambientes
+| Prefixo | Modo | Comportamento |
+|---|---|---|
+| `ara_live_` | **LIVE** (produção) | Mensagens entregues. Créditos consumidos. |
+| `ara_test_` | **TEST** (sandbox) | Mensagens simuladas. Gratuito, ilimitado. |
 
-A Arara possui dois ambientes, diferenciados pelo prefixo da chave:
+Use **TEST** pra desenvolvimento e CI. **LIVE** só em produção.
 
-| Prefixo | Ambiente | Comportamento |
-|---------|----------|---------------|
-| `ara_live_` | Producao | Mensagens entregues. Creditos consumidos. |
-| `ara_test_` | Sandbox | Mensagens simuladas. Sem custo. |
+### Como obter
 
-Use chaves `ara_test_` para desenvolvimento e testes. Troque para `ara_live_` quando estiver pronto para producao.
+**Via Dashboard**: primeiro login gera automaticamente 1 chave LIVE e 1 chave TEST. Aparecem **uma vez**. Copie e guarde.
 
-## Como obter sua chave
-
-### Via Dashboard
-
-1. Acesse o [Dashboard](https://www.ararahq.com/dashboard)
-2. No primeiro login, uma chave `ara_live_` e gerada automaticamente
-
-<Warning>
-  A chave e exibida apenas uma vez. Guarde-a imediatamente em um local seguro (ex: variavel de ambiente, secrets manager). Voce nao podera ve-la novamente.
-</Warning>
-
-### Via API
-
-Voce pode criar chaves adicionais programaticamente:
+**Via API** (cliente já autenticado pode criar mais):
 
 ```bash
-curl -X POST https://new-api.ararahq.com/api/v2/api-keys \
+curl -X POST https://api.ararahq.com/api/v1/api-keys \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "backend-production",
-    "mode": "LIVE"
+    "name": "backend-produção",
+    "mode": "LIVE",
+    "ipAllowlist": ["52.10.0.0/16"]
   }'
 ```
 
@@ -51,30 +49,91 @@ Resposta `201 Created`:
 
 ```json
 {
-  "id": "ara_key_abc123",
-  "name": "backend-production",
+  "id": "ara_key_abc1234",
+  "name": "backend-produção",
   "key": "ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
   "mode": "LIVE",
-  "createdAt": "2026-04-04T14:30:00Z"
+  "lastFour": "xxxx",
+  "createdAt": "2026-05-18T14:30:00Z"
 }
 ```
 
-<Info>
-  O campo `key` so aparece na resposta de criacao. Nas listagens, a chave e exibida mascarada (ex: `ara_live_****xxxx`).
-</Info>
+<Warning>
+  O campo `key` aparece **apenas na criação**. Listagens posteriores retornam só `lastFour` (mascarado). Se perder, crie outra.
+</Warning>
 
-Consulte a referencia completa em [API Keys](/api-reference/endpoint/v2/api-keys).
+### Listar chaves ativas
 
-## Seguranca
+```bash
+curl "https://api.ararahq.com/api/v1/api-keys?mode=LIVE" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
 
-- Nunca exponha sua chave em codigo frontend, repositorios publicos ou logs
-- Use variaveis de ambiente (`ARARA_API_KEY`) em vez de valores hardcoded
-- Crie chaves separadas para cada ambiente (dev, staging, producao)
-- Revogue chaves comprometidas imediatamente via Dashboard ou API
+Retorna chaves ativas, com `lastFour` pra identificar sem expor o valor.
 
-## Erro de autenticacao
+### Rotacionar
 
-Se a chave for invalida, ausente ou revogada, a API retorna `401 Unauthorized`:
+Cria chave nova com mesmas permissões e marca a anterior pra expirar em 24h:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/api-keys/{id}/rotate \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Útil pra rotação periódica (PCI, SOC2) ou quando suspeita de vazamento.
+
+### Revogar
+
+Invalida imediatamente:
+
+```bash
+curl -X DELETE https://api.ararahq.com/api/v1/api-keys/{id} \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Próxima requisição com essa chave retorna `401`.
+
+## IP allowlist (BUSINESS+)
+
+Restringe quais IPs podem usar a chave:
+
+```bash
+curl -X PATCH https://api.ararahq.com/api/v1/api-keys/{id} \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{ "ipAllowlist": "52.10.0.0/16,203.0.113.5" }'
+```
+
+`ipAllowlist` é string CSV (IPs únicos ou CIDR, separados por vírgula). Chamada de IP fora da lista retorna `401`. Logs ficam em `/v1/api-keys/{id}/events`.
+
+## Firebase JWT
+
+Endpoints `/auth/*`, `/users/*` e `/v1/profile/*` exigem token Firebase. Fluxo:
+
+```
+1. Cliente (web/mobile) faz login no Firebase Auth
+2. Pega ID token: firebase.auth().currentUser.getIdToken()
+3. Envia no header: Authorization: Bearer <id_token>
+4. Arara valida com Google, devolve sessão Arara + apiKey
+```
+
+Detalhe em [Sessão e Usuário](/api-reference/endpoint/v2/auth).
+
+<Note>
+  Você **não precisa do Firebase** pra usar a API — só pra dashboard. Integrações backend usam API key direto.
+</Note>
+
+## Segurança — checklist
+
+- [ ] Chave **nunca** no código (use env var, secrets manager)
+- [ ] Chave **nunca** no frontend (sempre via seu backend)
+- [ ] Chave **nunca** em log (logger redacted: `ara_live_****`)
+- [ ] Chave **nunca** em URL (header ou body — nunca query string)
+- [ ] Chaves separadas por ambiente (dev, staging, prod)
+- [ ] Rotação periódica (90 dias é razoável)
+- [ ] IP allowlist quando possível
+- [ ] Revoga imediato quando dev sai do time
+
+## Erros de auth
 
 ```json
 {
@@ -85,13 +144,21 @@ Se a chave for invalida, ausente ou revogada, a API retorna `401 Unauthorized`:
 }
 ```
 
-Se a chave for valida mas nao tiver permissao para o recurso, a API retorna `403 Forbidden`:
+| Código | HTTP | Causa |
+|---|---|---|
+| `MISSING_API_KEY` | 401 | Header `Authorization` ausente |
+| `INVALID_API_KEY` | 401 | Chave malformada, revogada ou inexistente |
+| `INVALID_API_KEY_MODE` | 401 | Chave TEST tentando agir em LIVE (ou vice-versa) |
+| `IP_NOT_ALLOWED` | 401 | Allowlist bloqueou IP de origem |
+| `FORBIDDEN` | 403 | Chave válida mas sem permissão pro endpoint |
 
-```json
-{
-  "error": {
-    "code": "FORBIDDEN",
-    "message": "Your API key does not have permission to access this resource."
-  }
-}
-```
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="API Keys (CRUD completo)" icon="key" href="/api-reference/endpoint/v2/api-keys">
+    Endpoints de gestão programática.
+  </Card>
+  <Card title="Sessão e Usuário" icon="user" href="/api-reference/endpoint/v2/auth">
+    Firebase JWT pro dashboard.
+  </Card>
+</CardGroup>

@@ -1,0 +1,157 @@
+---
+title: 'Atribuição com pixel'
+description: 'Setup do pixel de conversão dos Smart Links. First-party, server-side, sem cookies de terceiros. Sobrevive ao ITP do Safari, ao Brave Shield e a qualquer privacy update futuro.'
+---
+
+O **clique** já é rastreado automaticamente — o servidor da Arara loga quem clicou. Mas pra saber **se a pessoa converteu** (comprou, cadastrou, ativou trial), você precisa instrumentar o pixel. Esta página mostra os 3 modos de fazer isso.
+
+<Note>
+  Toda atribuição da Arara é **first-party**: o pixel roda no SEU domínio (não em `ararahq.com`). ITP, Brave, uBlock Origin não bloqueiam. Funciona em iOS Safari sem cookies.
+</Note>
+
+## As 3 formas de disparar conversão
+
+<CardGroup cols={3}>
+  <Card title="Pixel JS" icon="code">
+    Tag de script na thank-you page. Mais simples, funciona em qualquer site.
+  </Card>
+  <Card title="Server-side" icon="server">
+    Sua API chama Arara quando confirma pedido. Mais confiável (não depende do navegador).
+  </Card>
+  <Card title="Webhook reverso" icon="rotate">
+    Shopify/WooCommerce/Stripe dispara o evento de pedido, Arara cruza com o clique.
+  </Card>
+</CardGroup>
+
+## Modo 1 — Pixel JS
+
+Cola na thank-you page (após o pedido confirmar):
+
+```html
+<!-- Antes de </body> -->
+<script>
+  (function() {
+    var s = document.createElement('script');
+    s.async = 1;
+    s.src = 'https://pixel.ararahq.com/p.js';
+    s.onload = function() {
+      window.araraPixel('conversion', {
+        orderId: 'ORDER_12345',
+        revenueCents: 19990,        // R$ 199,90
+        currency: 'BRL',
+        items: [
+          { sku: 'camiseta-basica-m', qty: 1, priceCents: 19990 }
+        ]
+      });
+    };
+    document.head.appendChild(s);
+  })();
+</script>
+```
+
+O pixel cruza com o **clique recente** do mesmo navegador (cookie 1st-party, válido 30 dias) e atribui a conversão ao Smart Link de origem.
+
+**Atenção:** se o cliente clicou no Safari iOS, abriu seu site, depois voltou na compra pelo Chrome desktop — o pixel não cruza. Pra fechar esse gap, use o modo server-side.
+
+## Modo 2 — Server-side (recomendado)
+
+Quando você confirma o pedido no seu backend, chama a Arara:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/smart-links/conversion \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "smartLinkCode": "FtFmja",
+    "orderId": "ORDER_12345",
+    "revenueCents": 19990,
+    "currency": "BRL",
+    "customerPhone": "+5511999999999",
+    "items": [
+      { "sku": "camiseta-basica-m", "qty": 1, "priceCents": 19990 }
+    ]
+  }'
+```
+
+Você passa:
+
+- **`smartLinkCode`**: do query param `?ara=FtFmja` que a Arara injeta no redirect (ou armazena no cookie 1st-party do checkout).
+- **`customerPhone`**: chave de cruzamento mais confiável que cookie.
+
+Se passar `customerPhone` E não passar `smartLinkCode`, a Arara busca o clique mais recente desse número nos últimos 30 dias.
+
+<Warning>
+  **Idempotency obrigatório aqui.** Se você dispara no webhook do gateway de pagamento e o gateway dá retry, vai duplicar conversão. Use `Idempotency-Key: order-{orderId}` no header.
+</Warning>
+
+## Modo 3 — Webhook reverso (Shopify/Woo/Stripe)
+
+Se você usa um gateway nativo, conecta direto:
+
+**Shopify**: webhook `orders/paid` → `https://hooks.ararahq.com/shopify/{org_id}`. Setup no dashboard em **Smart Links → Integrações → Shopify**.
+
+**WooCommerce**: plugin oficial em fase de release. Por enquanto use Modo 2.
+
+**Stripe**: webhook `checkout.session.completed` → `https://hooks.ararahq.com/stripe/{org_id}`. Validação via signature do Stripe.
+
+A Arara extrai automaticamente order ID, valor e customer email/phone do payload do gateway. Cruza com clique. Não precisa de código no seu lado.
+
+## Como o `?ara=` aparece no destino
+
+Quando o cliente clica no Smart Link, a Arara redireciona pra `destinationUrl` adicionando o query param:
+
+```
+https://meusite.com.br/produto/camiseta?utm_source=whatsapp&ara=FtFmja
+```
+
+Use isso pra:
+
+1. **Armazenar em cookie/localStorage 1st-party** no carregamento da página (sobrevive a navegação).
+2. **Persistir junto com o pedido** no banco (campo `attribution_code`).
+3. **Passar pro server-side** no submit do checkout.
+
+## Validando que tá funcionando
+
+Dashboard em **Smart Links → {link} → Eventos** mostra cada conversão registrada em tempo real. Se você acabou de implementar e nada aparece:
+
+| Sintoma | Causa provável |
+|---|---|
+| Clique aparece, conversão não | Pixel não carregou ou bloqueado por extensão. Teste em aba anônima. |
+| Conversão duplicada | Faltou idempotency. |
+| Conversão sem revenue | Você não passou `revenueCents`. Sem isso, ROI fica zerado. |
+| Conversão sem cruzamento | `customerPhone` não bateu com clique recente. Verifica formato (E.164: `+5511999999999`). |
+
+## Conversão por evento custom
+
+Além de "conversão de pedido", você pode disparar eventos custom:
+
+```javascript
+window.araraPixel('signup', { plan: 'pro' });
+window.araraPixel('trial_started', { source: 'pricing-page' });
+window.araraPixel('upgrade', { from: 'starter', to: 'pro', mrrCents: 9900 });
+```
+
+Esses eventos aparecem no dashboard como funil. Útil pra SaaS rastrear "WhatsApp → trial → paid".
+
+## Privacy e LGPD
+
+A Arara registra:
+
+- IP do cliente (anonimizado pra /24)
+- User agent
+- Número de WhatsApp (você já tem consentimento)
+- Order ID e valor (informação operacional)
+
+**Não registra:** nome, email, conteúdo do carrinho, dados de cartão. O pixel é minimalista por design.
+
+Pra atender a LGPD, declare no seu Política de Privacidade que usa Arara como ferramenta de atribuição. Template em [Compliance](/concepts/compliance).
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Smart Links overview" icon="link" href="/smart-links">
+    Criando e gerenciando links.
+  </Card>
+  <Card title="Receita: tracking de campanha" icon="bullseye-arrow" href="/cookbooks/marketing-smartlinks">
+    Fluxo completo de marketing com atribuição.
+  </Card>
+</CardGroup>

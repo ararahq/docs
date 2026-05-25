@@ -1,0 +1,223 @@
+---
+title: 'Compliance e LGPD'
+description: 'O que a lei brasileira e a Meta exigem de quem opera WhatsApp Business em escala — opt-in, opt-out, horário, LGPD, ANATEL, dados pessoais, política Meta. Como não tomar multa nem banimento.'
+keywords: ['lgpd', 'anatel', 'compliance', 'opt-in', 'opt-out', 'meta policy', 'cdc']
+---
+
+Operar WhatsApp Business em escala no Brasil envolve **três conjuntos de regras** que se sobrepõem:
+
+1. **LGPD** (Lei 13.709/2018) — dados pessoais
+2. **CDC** (Código de Defesa do Consumidor) — horário, opt-out, abusividade
+3. **Meta Business Policies** — Termos da WhatsApp Business API
+
+Esta página resume o essencial pra você operar dentro das três. Não substitui aconselhamento jurídico — se a operação é grande, contrate advogado.
+
+## Opt-in — o requisito mais quebrado
+
+**Antes de mandar qualquer mensagem**, o cliente precisa ter **consentido explicitamente** em receber WhatsApp da sua marca.
+
+| Conta como opt-in? | Sim/Não |
+|---|---|
+| Cliente assinou checkbox "Aceito receber WhatsApp" no cadastro | ✅ Sim |
+| Cliente forneceu telefone no checkout sem checkbox específico | ❌ Não |
+| Cliente clicou em link de WhatsApp na sua LP e iniciou conversa | ✅ Sim |
+| Você comprou lista de leads | ❌ Não (e ilegal pela LGPD) |
+| Cliente é seu cliente antigo (já comprou) | ❌ Não — precisa renovar consentimento |
+| Cliente concordou só com email | ❌ Não — consentimento é canal-específico |
+
+**Penalidade por não cumprir**: multa LGPD (até 2% do faturamento), banimento Meta, dano reputacional.
+
+### Opt-in conformante
+
+```
+Cadastro:
+☑ Aceito que a Marca X envie atualizações por WhatsApp para o
+   número +55 (11) 99999-9999. Posso descadastrar a qualquer momento.
+
+[Cadastrar]
+```
+
+Detalhe: o checkbox **não pode vir pré-marcado**. Tem que ser ação ativa do usuário.
+
+## Opt-out
+
+Cliente que pediu pra sair (palavras-chave: "Stop", "Parar", "Sair", "Descadastrar", "Cancelar") **não pode receber mais nada** — exceto resposta a mensagem que ele mesmo iniciar.
+
+A Arara processa opt-out automaticamente:
+
+```bash
+# Cliente respondeu "PARAR" → Arara registra automaticamente
+# Mas você também pode registrar via API:
+
+curl -X POST https://api.ararahq.com/api/v1/opt-outs \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{ "phone": "+5511999999999", "reason": "Solicitação verbal por telefone" }'
+
+# Checar antes de enviar:
+curl "https://api.ararahq.com/api/v1/opt-outs/check?phone=+5511999999999" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Mensagem pra cliente em opt-out é **bloqueada antes de sair**. Você não consegue burlar.
+
+## Horário (CDC artigo 33)
+
+Proibido enviar comunicação publicitária/promocional fora do horário:
+
+- **9h às 21h, dias úteis**
+- **10h às 18h, sábados**
+- **Não é permitido domingos e feriados nacionais**
+
+Aplica-se a **mensagens iniciadas pela empresa** (templates MARKETING e UTILITY que não sejam transacional crítica). Resposta dentro da janela 24h e OTP não têm restrição de horário.
+
+A Arara não bloqueia tecnicamente, mas o dashboard avisa quando você dispara fora do horário. Multa CDC vai pra **você**, não pra Arara.
+
+## LGPD — dados pessoais
+
+Operar com número de telefone + histórico de conversa é tratamento de dado pessoal. Você precisa:
+
+### 1. Base legal
+
+Pra cada uso, declare a base legal:
+
+| Uso | Base legal típica |
+|---|---|
+| OTP de login | Execução de contrato |
+| Confirmação de pedido | Execução de contrato |
+| Carrinho abandonado | Legítimo interesse OU Consentimento |
+| Campanha de marketing | **Consentimento explícito** |
+| Brain processando mensagens | Execução de contrato (atendimento) |
+
+### 2. Política de privacidade
+
+Declare na política:
+
+```
+Tratamento de dados via WhatsApp:
+
+Utilizamos a infraestrutura da Arara (CNPJ a preencher) como operador de
+dados para envio de mensagens WhatsApp. Os dados tratados incluem:
+- Número de telefone
+- Histórico de conversa (1 ano)
+- Status de entrega (1 ano)
+- Métricas de atribuição (Smart Links - 30 dias)
+
+Bases legais:
+- Execução de contrato (para mensagens transacionais)
+- Consentimento (para marketing)
+- Legítimo interesse (para recuperação de carrinho de cliente ativo)
+
+Direitos do titular:
+- Acesso aos dados via [contato@suaempresa.com]
+- Eliminação via solicitação ou pelo comando "ELIMINAR DADOS" no chat
+- Portabilidade conforme art. 18 LGPD
+```
+
+### 3. Export e eliminação
+
+A Arara expõe ambos via API:
+
+```bash
+# Exportar todos os dados de um contato
+curl -X POST https://api.ararahq.com/api/v1/lgpd/contact/{phone}/export \
+  -H "Authorization: Bearer ara_live_xxx"
+
+# Eliminar dados de um contato
+curl -X DELETE https://api.ararahq.com/api/v1/lgpd/contact/{phone} \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Cliente que pede direito do titular: você processa via dashboard ou API, em até 15 dias úteis.
+
+### 4. Sua própria conta
+
+Você (titular dos dados da operação) também tem direito:
+
+```bash
+# Exportar todos os dados da sua organização
+curl https://api.ararahq.com/api/v1/profile/export-data \
+  -H "Authorization: Bearer ara_live_xxx"
+
+# Solicitar exclusão de conta
+curl -X POST https://api.ararahq.com/api/v1/profile/delete-account \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{ "confirmation": "EXCLUIR seu_email@dominio.com" }'
+```
+
+## Meta Business Policies — o que dá ban
+
+Mesmo dentro da lei brasileira, a Meta pode banir por:
+
+- **Spam**: alta taxa de bloqueio (>2% em 7d)
+- **Conteúdo proibido**: drogas (mesmo legais), armas, jogos de azar sem licença, conteúdo adulto, automedicação
+- **Phishing**: pedido de senha/cartão/CPF em mensagem
+- **Imitação de marca**: fingir ser outra empresa
+- **Cobrança ameaçadora**: "vai pro SPC", "ação judicial em 24h"
+- **Política/eleição**: comunicação política sem registro adequado
+
+Banimento pode ser:
+- **Temporário** (24-72h): chance de apelação
+- **Permanente**: número perdido + reputação na conta da Arara
+
+Recomendação: rode toda campanha controversa pelo nosso lint primeiro. Ver [Política de templates](/templates/policy).
+
+## ANATEL — telefonia
+
+Apesar de WhatsApp ser internet (não telefonia), em alguns estados há discussão sobre aplicação parcial das regras anti-telemarketing. **Não está consolidado**. Recomendação atual:
+
+- Mantenha lista do "Não me perturbe" (registrações federais) sincronizada com seu opt-out
+- Não use WhatsApp como cold outreach pra leads frios não-opt-in (também ilegal pela LGPD)
+
+## Recovery automation — atenção redobrada
+
+Disparos de "seu Pix vai vencer" via Brain Action **não precisam de consentimento adicional** se foram para o cliente que iniciou o checkout (base: execução de contrato). Mas:
+
+- Disparar pra quem nunca comprou (cross-sell) = consentimento de marketing
+- Disparar pra cliente que opt-out de marketing = mesmo na recuperação, respeite
+
+## Auditoria interna
+
+Toda mensagem enviada pela Arara fica logada por **180 dias** por default (configurável até 1 ano em planos enterprise). Pra auditoria de:
+
+- LGPD (provar consentimento)
+- Meta (responder a apelação de banimento)
+- Cliente final (cliente pediu prova do que foi enviado)
+
+```bash
+curl "https://api.ararahq.com/api/v1/messages?phone=+5511999999999&from=2026-01-01" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+## Penalidades reais
+
+| Origem | Penalidade |
+|---|---|
+| LGPD (ANPD) | Multa de 2% do faturamento (limite R$ 50M/infração) |
+| CDC | Multa de R$ 580 a R$ 9 mil/infração + suspensão da atividade |
+| Meta | Banimento do número (perde aprovações, custo de recomeço) |
+| Cliente final | Indenização por dano moral (jurisprudência: R$ 3-10K/caso) |
+
+Operação descuidada em escala vira **multa estratosférica**. Compliance não é despesa, é hedge.
+
+## Checklist mínimo
+
+Antes de ligar a operação:
+
+- [ ] Política de privacidade atualizada citando WhatsApp e Arara
+- [ ] Checkbox de opt-in no cadastro/checkout (não pré-marcado)
+- [ ] Endpoint interno pra processar opt-out (recebido via webhook `message.received` com keyword)
+- [ ] Horário programado pra disparos respeitar 9-21h
+- [ ] Template MARKETING tem botão "Parar de receber"
+- [ ] Auditoria de export/delete LGPD documentada
+- [ ] Equipe treinada sobre Meta policy (não responder pedido de senha, etc)
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Política de templates" icon="scale-balanced" href="/templates/policy">
+    O que Meta rejeita no conteúdo.
+  </Card>
+  <Card title="Marketing no WhatsApp" icon="bullhorn" href="/marketing">
+    Como operar marketing dentro da lei.
+  </Card>
+</CardGroup>

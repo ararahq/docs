@@ -1,0 +1,242 @@
+---
+title: 'Laravel'
+description: 'Integre a Arara num projeto Laravel em minutos. SDK PHP oficial, queue jobs pra envio assíncrono, webhooks com broadcasting.'
+---
+
+A Arara tem SDK PHP oficial compatível com Laravel 10+. Esta página mostra setup completo, envio sincrono, queue jobs e receber webhooks com signature verification.
+
+<Note>
+  **Requisitos:** PHP 8.2+, Laravel 10+. Compatível com 11.x e 12.x.
+</Note>
+
+## Instalação
+
+```bash
+composer require ararahq/sdk
+```
+
+## Configuração
+
+Adicione as variáveis no `.env`:
+
+```ini
+ARARA_API_KEY=ara_live_xxx
+ARARA_BASE_URL=https://api.ararahq.com/api
+ARARA_WEBHOOK_SECRET=share_a_secret_with_arara_dashboard
+```
+
+Cria um Service Provider pra registrar o SDK como singleton:
+
+```php
+// app/Providers/AraraServiceProvider.php
+namespace App\Providers;
+
+use Arara\Arara;
+use Arara\Config;
+use Illuminate\Support\ServiceProvider;
+
+class AraraServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->singleton(Arara::class, function () {
+            return new Arara(new Config(
+                apiKey: config('services.arara.key'),
+                baseUrl: config('services.arara.base_url'),
+            ));
+        });
+    }
+}
+```
+
+Registra em `config/app.php` (ou `bootstrap/providers.php` no Laravel 11+).
+
+E adiciona a chave em `config/services.php`:
+
+```php
+'arara' => [
+    'key' => env('ARARA_API_KEY'),
+    'base_url' => env('ARARA_BASE_URL'),
+    'webhook_secret' => env('ARARA_WEBHOOK_SECRET'),
+],
+```
+
+## Enviando mensagem em Controller
+
+```php
+// app/Http/Controllers/OrderController.php
+use Arara\Arara;
+
+public function store(Request $request, Arara $sdk)
+{
+    $order = Order::create($request->validated());
+
+    $sdk->messages->send(
+        receiver: 'whatsapp:' . $order->customer->phone,
+        templateName: 'confirmacao_pedido',
+        variables: [
+            $order->customer->first_name,
+            $order->code,
+            $order->total_formatted,
+        ]
+    );
+
+    return response()->json($order, 201);
+}
+```
+
+## Envio assíncrono com Queue
+
+Em produção, **nunca** envie no controller. Use Queue:
+
+```php
+// app/Jobs/SendOrderConfirmation.php
+namespace App\Jobs;
+
+use Arara\Arara;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+
+class SendOrderConfirmation implements ShouldQueue
+{
+    use Dispatchable, Queueable;
+
+    public function __construct(public int $orderId) {}
+
+    public function handle(Arara $sdk): void
+    {
+        $order = Order::with('customer')->findOrFail($this->orderId);
+
+        $sdk->messages->send(
+            receiver: 'whatsapp:' . $order->customer->phone,
+            templateName: 'confirmacao_pedido',
+            variables: [$order->customer->first_name, $order->code, $order->total_formatted]
+        );
+    }
+
+    public function backoff(): array
+    {
+        // retry com backoff: 30s, 2min, 5min
+        return [30, 120, 300];
+    }
+}
+```
+
+Dispara assim:
+
+```php
+SendOrderConfirmation::dispatch($order->id);
+```
+
+## Recebendo webhooks
+
+Cria a rota:
+
+```php
+// routes/api.php
+Route::post('/webhooks/arara', [AraraWebhookController::class, '__invoke'])
+    ->name('webhooks.arara');
+```
+
+E o controller que valida HMAC:
+
+```php
+// app/Http/Controllers/AraraWebhookController.php
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class AraraWebhookController extends Controller
+{
+    public function __invoke(Request $request)
+    {
+        $signature = $request->header('X-Arara-Signature');
+        $body = $request->getContent();
+        $secret = config('services.arara.webhook_secret');
+
+        $expected = hash_hmac('sha256', $body, $secret);
+
+        if (! hash_equals($expected, $signature ?? '')) {
+            abort(401, 'Invalid signature');
+        }
+
+        $event = $request->input('event');
+        $data = $request->input('data');
+
+        match ($event) {
+            'message.status_updated' => $this->handleStatus($data),
+            'message.received' => $this->handleInbound($data),
+            'conversation.needs_human' => $this->handleHandoff($data),
+            default => null,
+        };
+
+        return response()->noContent();
+    }
+
+    private function handleStatus(array $data): void
+    {
+        // atualiza status no banco, broadcast pro front via Pusher/Reverb
+    }
+
+    private function handleInbound(array $data): void
+    {
+        // mensagem recebida — abre ticket no inbox interno
+    }
+
+    private function handleHandoff(array $data): void
+    {
+        // Brain pediu humano — atribui no inbox + notifica atendente
+    }
+}
+```
+
+Como `hash_equals` é constant-time, vc tá protegido contra timing attacks. Não use `==`.
+
+<Warning>
+  Lembre de adicionar a rota ao `VerifyCsrfToken@except` (Laravel 10) ou `bootstrap/app.php` `validateCsrfTokens` (Laravel 11+). Webhooks externos não têm CSRF token.
+</Warning>
+
+## Broadcasting (Pusher / Reverb)
+
+Pra ver mensagens em tempo real no admin:
+
+```php
+// app/Events/MessageStatusChanged.php
+namespace App\Events;
+
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Foundation\Events\Dispatchable;
+
+class MessageStatusChanged implements ShouldBroadcast
+{
+    use Dispatchable, InteractsWithSockets;
+
+    public function __construct(public string $messageId, public string $status) {}
+
+    public function broadcastOn(): Channel
+    {
+        return new Channel('arara.messages');
+    }
+}
+```
+
+E no `handleStatus`:
+
+```php
+broadcast(new MessageStatusChanged($data['messageId'], $data['status']));
+```
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Receitas práticas" icon="book-open" href="/recipes">
+    Carrinho abandonado, OTP, suporte 24/7.
+  </Card>
+  <Card title="SDK PHP completo" icon="php" href="/sdks/php">
+    Referência de todas as classes e métodos.
+  </Card>
+</CardGroup>

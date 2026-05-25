@@ -1,0 +1,215 @@
+---
+title: 'Migrar do Baileys'
+description: 'Sair do Baileys (lib open-source não-oficial baseada em WhatsApp Web) pra API oficial via Arara. Esta migração é mais técnica que mudar de fornecedor — você está trocando arquitetura de socket reverso por API REST contratada.'
+keywords: ['baileys', 'whatsapp-web.js', 'wppconnect', 'migração', 'api oficial']
+---
+
+Baileys é a biblioteca open-source mais usada no mundo pra integrar com WhatsApp via engenharia reversa do WhatsApp Web. Roda na sua infra, autentica via QR Code, e mantém socket aberto. É grátis em licença mas tem **custos ocultos pesados** que justificam migrar pra API oficial.
+
+Esta página aplica também a quem usa `whatsapp-web.js` e `wppconnect` — mesma arquitetura.
+
+<Warning>
+  **Diferença filosófica**: Baileys é **sua responsabilidade integral**. Você é o operador, o administrador, o suporte, e o responsável legal. Na Arara, somos operador homologado pela Meta e respondemos pela SLA.
+</Warning>
+
+## O custo real do Baileys
+
+| Categoria | Aparente | Real |
+|---|---|---|
+| **Licença** | Grátis (MIT) | OK |
+| **Infra** | "Já tenho VPS" | R$ 200-500/mês pra rodar estável 24/7 + monitoring |
+| **Banimento** | "Nunca aconteceu comigo" | Estatística: ~1 ban/3 meses em operação com volume |
+| **Atualização da Meta** | "Atualiza a lib" | Baileys quebra com mudanças do WhatsApp Web. ~1-2 incidentes/mês |
+| **Compliance LGPD** | "Cuido depois" | Sem operador formal, você assume 100% |
+| **Seu time** | "Não custa nada" | 1 dev junior dedicado parcialmente, ~R$ 8-12K/mês equivalente |
+
+Operações sérias que rodaram Baileys 1+ ano normalmente migram porque o **custo de operação interna** ficou maior que o **custo da API oficial**.
+
+## O que você ganha
+
+- **Templates aprovados** (única forma de comunicação iniciada acima da janela 24h)
+- **Volume sustentável** sem medo de ban
+- **Suporte oficial Meta** (responde por casos limites)
+- **Selo verde de marca verificada**
+- **Compliance estruturada** (operador formal pela Arara)
+- **Brain, Smart Links, Recovery** (features que Baileys não tem)
+
+## O que você perde
+
+Honestidade:
+
+- **Custo aparente sobe**: API oficial cobra por mensagem. Baileys "não cobrava".
+- **Janela 24h vira regra**: você não pode mais mandar texto livre pra qualquer um a qualquer hora.
+- **Templates exigem aprovação Meta**: latência de 1-72h pra novo template.
+- **Algumas coisas Baileys faz que API oficial não faz**: stickers customizados, grupos com >256 pessoas, comportamentos de WhatsApp Web exclusivos.
+
+## Diff arquitetural
+
+Baileys roda como **processo persistente** mantendo socket WebSocket com o WhatsApp:
+
+```
+[Seu backend] ←→ [Baileys process] ←socket→ [WhatsApp servers]
+                  (com state local)
+```
+
+Estado fica no processo: se ele morre, perde sessão. Se reinicia, precisa scan QR de novo.
+
+API oficial via Arara é **stateless** do seu lado:
+
+```
+[Seu backend] ←HTTPS→ [Arara API] ←HTTPS→ [Meta Cloud API]
+                       (operador)
+```
+
+Sem socket, sem processo a manter vivo, sem state perdido em restart.
+
+## Diff de código
+
+### Envio
+
+<CodeGroup>
+```typescript Baileys (antes)
+import makeWASocket, { useMultiFileAuthState } from '@whiskeysockets/baileys';
+
+const { state, saveCreds } = await useMultiFileAuthState('./auth');
+const sock = makeWASocket({ auth: state });
+sock.ev.on('creds.update', saveCreds);
+
+// Espera conectar...
+sock.ev.on('connection.update', async ({ connection }) => {
+  if (connection === 'open') {
+    await sock.sendMessage('5511999999999@s.whatsapp.net', {
+      text: 'Olá João, seu pedido foi confirmado!',
+    });
+  }
+});
+```
+
+```typescript Arara (depois)
+import { NodeSDK } from '@ararahq/sdk';
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY, baseUrl: '...' });
+
+// Sem state, sem socket, sem espera
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'pedido_confirmado',
+  templateVariables: ['João', 'ARA-123'],
+});
+```
+</CodeGroup>
+
+### Mensagem recebida
+
+<CodeGroup>
+```typescript Baileys (antes)
+sock.ev.on('messages.upsert', async ({ messages }) => {
+  for (const msg of messages) {
+    if (!msg.message || msg.key.fromMe) continue;
+    const from = msg.key.remoteJid;
+    const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
+    // processa
+  }
+});
+```
+
+```typescript Arara (depois)
+// Webhook HTTP, sem processo persistente
+app.post('/arara/webhook', validateHmac, (req, res) => {
+  const { event, data } = req.body;
+  if (event === 'message.received') {
+    const phone = data.from;
+    const text = data.body;
+    // processa
+  }
+  res.status(204).end();
+});
+```
+</CodeGroup>
+
+### Stickers, locations, reactions
+
+Baileys suporta tudo nativo. API oficial Meta suporta tudo também mas com **tipos estruturados** — não envia binário direto.
+
+| Operação | Baileys | Arara |
+|---|---|---|
+| Sticker | `sendMessage(jid, { sticker: buffer })` | `messages.send({ ..., type: 'sticker', mediaUrl: '...' })` |
+| Location | `sendMessage(jid, { location: { degreesLatitude, degreesLongitude } })` | `messages.send({ ..., location: { latitude, longitude } })` |
+| Reaction | `sendMessage(jid, { react: { text: '👍', key: msg.key } })` | `messages.send({ ..., reaction: { emoji: '👍', messageId: 'ara_msg_xxx' } })` |
+
+## Quando NÃO migrar pra API oficial
+
+Honestidade total — Baileys ainda faz sentido pra:
+
+- **Hobby / projeto pessoal**: você está aprendendo, sem cliente, sem compliance
+- **Operações com grupos enormes**: API oficial é limitada em grupos
+- **Cases muito específicos** que precisam de comportamentos de WhatsApp pessoal (status, broadcast lists "nativas")
+
+Pra qualquer caso comercial que dependa de WhatsApp pra receita, API oficial é o caminho. Baileys é um experimento técnico que escala mal.
+
+## Plano de migração
+
+### 1. Inventário (1 dia)
+
+- Lista todos os comandos do seu backend que usam Baileys
+- Lista todos os tipos de mensagem que você manda (texto, mídia, template-like — mensagens longas e formatadas, etc)
+- Lista as integrações: CRM, e-commerce, etc
+
+### 2. Criação de templates (1-3 dias)
+
+Tudo que você manda **fora da janela 24h** (alguém ainda não respondeu nos últimos 24h) precisa virar template aprovado:
+
+- "Oi João, recebemos seu pedido" → template `pedido_confirmado` UTILITY
+- "Promo Black Friday 50% off" → template `bf_oferta` MARKETING
+- "Código de verificação: 1234" → template `codigo_otp` AUTHENTICATION
+
+Submeta com 1 semana de antecedência. UTILITY aprova rápido, MARKETING pode levar até 72h.
+
+### 3. Refactor do código (2-5 dias dependendo de tamanho)
+
+- Trocar `makeWASocket` por `new NodeSDK(...)`
+- Trocar `sock.sendMessage` por `sdk.messages.send`
+- Trocar `sock.ev.on('messages.upsert')` por endpoint HTTP de webhook
+- Adicionar validação HMAC nos webhooks
+
+### 4. Migração de número (3-7 dias)
+
+Você precisa decidir:
+- **Mesmo número**: vai parar de funcionar no Baileys/WhatsApp Web durante registro Meta (~24-48h offline). Mais fricção, mas cliente reconhece.
+- **Número novo**: roda em paralelo. Migra clientes aos poucos. Mais lento mas mais seguro.
+
+### 5. Cutover
+
+Deploy do código novo, monitora 7 dias, desliga Baileys após estabilidade comprovada.
+
+### 6. Documentação interna
+
+Time precisa entender as novas regras (janela 24h, templates, opt-in). Treinamento de 1h cobre o essencial.
+
+## Pegadinhas
+
+### State management
+
+Baileys mantinha state em arquivos locais. Após migrar, você não precisa mais — mas verifique que removeu volumes Docker, gitignore atualizado, etc.
+
+### Mensagens longas (>4096 chars)
+
+API oficial Meta tem limite. Mensagem que ia inteira via Baileys precisa ser dividida ou virar template com link.
+
+### Grupos
+
+API oficial limita criação programática de grupos pra casos específicos (verificação Meta). Se sua operação dependia disso, valide antes.
+
+### Stickers customizados
+
+Sticker dinâmico gerado on-the-fly (foto + texto custom) tem suporte limitado na API oficial. Sticker de pack existente: tranquilo.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Conceitos WhatsApp" icon="lightbulb" href="/concepts/whatsapp">
+    Janela 24h, templates HSM — o que muda.
+  </Card>
+  <Card title="Migrar do Z-API" icon="arrow-right-arrow-left" href="/migrate/z-api">
+    Outro gateway não-oficial, mesma lógica.
+  </Card>
+</CardGroup>

@@ -1,0 +1,136 @@
+---
+title: 'Catálogo'
+description: 'Conecte seu catálogo de produtos ao Brain. O agente AI responde sobre preço, estoque, ficha técnica e variações usando o seu inventário real.'
+---
+
+A Action **Catálogo** dá ao agente conhecimento real do que você vende. Cliente pergunta "tem essa camiseta em P?", o agente busca, confere estoque e responde — não inventa.
+
+Suportamos três fontes:
+
+- **Shopify** (Admin API + Storefront API)
+- **WooCommerce** (REST API)
+- **JSON estático** (você sobe um arquivo, a gente indexa)
+
+## Quando o agente usa
+
+- Cliente pergunta sobre disponibilidade ou preço de produto específico
+- Cliente pede recomendação ("o que vocês têm pra corrida?")
+- Cliente pede variação ("tem em azul?")
+- Cliente abandona carrinho e o agente reabre conversa lembrando os itens
+
+## Setup — Shopify
+
+<Steps>
+  <Step title="Cria uma Custom App no Shopify">
+    Admin Shopify → **Apps → App and sales channel settings → Develop apps → Create**. Concede `read_products`, `read_inventory`, `read_orders`.
+  </Step>
+  <Step title="Pega o Admin API access token">
+    Aparece **uma vez** após instalar. Guarde antes de fechar.
+  </Step>
+  <Step title="Habilita na Arara">
+    ```bash
+    curl -X PATCH https://api.ararahq.com/api/v1/brain/actions/catalog \
+      -H "Authorization: Bearer ara_live_xxx" \
+      -d '{
+        "enabled": true,
+        "config": {
+          "provider": "shopify",
+          "storeDomain": "minha-loja.myshopify.com",
+          "adminApiAccessToken": "shpat_xxx",
+          "currency": "BRL"
+        }
+      }'
+    ```
+  </Step>
+</Steps>
+
+A Arara sincroniza o catálogo a cada 4h. Pra forçar sync imediato, dispare manualmente no dashboard ou via `POST /v1/brain/actions/catalog/sync`.
+
+## Setup — WooCommerce
+
+```bash
+curl -X PATCH https://api.ararahq.com/api/v1/brain/actions/catalog \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "enabled": true,
+    "config": {
+      "provider": "woocommerce",
+      "siteUrl": "https://minhaloja.com.br",
+      "consumerKey": "ck_xxx",
+      "consumerSecret": "cs_xxx"
+    }
+  }'
+```
+
+Chave gerada em **WooCommerce → Settings → Advanced → REST API → Add Key** com permissão **Read**.
+
+## Setup — JSON estático
+
+Pra catálogos pequenos ou stacks fora do mainstream:
+
+```bash
+curl -X PATCH https://api.ararahq.com/api/v1/brain/actions/catalog \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "enabled": true,
+    "config": {
+      "provider": "json",
+      "products": [
+        {
+          "id": "sku-001",
+          "name": "Camiseta Básica",
+          "description": "100% algodão pima, gola redonda",
+          "price": 79.90,
+          "currency": "BRL",
+          "variants": [
+            { "id": "sku-001-p", "size": "P", "stock": 12 },
+            { "id": "sku-001-m", "size": "M", "stock": 8 },
+            { "id": "sku-001-g", "size": "G", "stock": 0 }
+          ],
+          "imageUrl": "https://...",
+          "tags": ["básico", "verão"]
+        }
+      ]
+    }
+  }'
+```
+
+Tamanho máximo do payload JSON: **2 MB**. Acima disso, use Shopify/Woo ou subdivida em múltiplas Actions com namespaces.
+
+## Fluxo
+
+```
+Cliente:   "Tem aquela camiseta básica em M?"
+  ↓
+Agente:    [busca no catálogo → encontra sku-001-m com estoque 8]
+  ↓
+Agente:    "Sim, temos em M! R$ 79,90.
+            Quer que eu te envie o link de checkout direto?"
+  ↓
+Cliente:   "Sim"
+  ↓
+Agente:    [Stripe ou AbacatePay action → cria checkout]
+  ↓
+Agente:    "Aqui: https://checkout.ararahq.com/c/abc"
+```
+
+## Como o agente busca
+
+Internamente o catálogo é indexado em embeddings (mesmo motor da [knowledge base](/brain#knowledge)). A busca usa o nome do produto, descrição, tags e variantes. Quanto melhor escritas as descrições, melhor a resposta.
+
+Pra produtos muito genéricos ("tem camiseta branca?"), o agente pede mais contexto antes de responder.
+
+## Limitações
+
+- **Estoque em tempo real**: sync a cada 4h. Se você vende rápido, pode oferecer item out-of-stock entre syncs. Configure webhook do Shopify/Woo apontando pra `/v1/brain/actions/catalog/webhook` pra updates imediatos.
+- **Sem carrinho persistido**: o agente lembra do que conversou na sessão, mas não monta carrinho multi-item sem você adicionar lógica via [Smart Links](/smart-links) ou checkout direto.
+- **Preço promocional vs regular**: o agente lê o `price` que você configurou (no Shopify costuma vir o promocional). Pra mostrar "de R$ X por R$ Y", inclua isso na descrição ou customize via Brain prompt.
+
+<CardGroup cols={2}>
+  <Card title="Receita: Loja no Shopify" icon="shop" href="/integracoes/shopify">
+    Setup completo Shopify + Arara.
+  </Card>
+  <Card title="Brain knowledge" icon="brain" href="/brain#knowledge">
+    Catálogo + base de conhecimento da marca.
+  </Card>
+</CardGroup>

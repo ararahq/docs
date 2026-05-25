@@ -1,0 +1,240 @@
+---
+title: 'Multi-organização (agência)'
+description: 'Como operar múltiplas contas Arara — uma por cliente — sem confundir credenciais, sem misturar campanhas, sem violar isolamento. Profiles no CLI, API keys com escopo, sub-domínio próprio por cliente.'
+keywords: ['agência', 'multi-tenant', 'multi-cliente', 'isolamento', 'profiles']
+---
+
+Agência ou consultoria que opera WhatsApp pra múltiplos clientes precisa de **isolamento absoluto**: API key do cliente A nunca toca dados do cliente B, dashboard do cliente C nunca aparece pra equipe do D, e contabilidade fatura cada um separado.
+
+Esta receita mostra os 3 modos suportados.
+
+## Modos suportados
+
+<CardGroup cols={3}>
+  <Card title="1 conta por cliente" icon="layer-group">
+    Cada cliente tem **conta Arara separada**. Você é admin de N contas. Faturamento separado. **Isolamento máximo**.
+  </Card>
+  <Card title="Multi-org dentro de 1 conta" icon="building">
+    Você tem **1 conta** com várias organizações. Cada org é um cliente. Você troca de contexto. Faturamento agregado.
+  </Card>
+  <Card title="Sub-accounts (reseller)" icon="users-rectangle">
+    Você revende. Plano reseller, você cobra cliente, paga Arara em volume agregado.
+  </Card>
+</CardGroup>
+
+## Modo 1 — Conta por cliente (recomendado pra agência consultora)
+
+**Quando usar**: você opera mas o cliente é dono dos dados. Cliente pode auditar, levar pra outra agência, ou rodar parte sozinho.
+
+### Setup
+
+- Cliente cria conta Arara no nome dele (com CNPJ dele)
+- Cliente cria você como **membro com role OWNER** (acesso total)
+- Cliente segue dono administrativo
+- Você opera dia a dia
+
+```bash
+# Cliente convida você
+# Dashboard cliente → Membros → Convidar → email@suaagencia.com → role OWNER
+
+# Você aceita o convite via link, e agora tem acesso àquela organização
+```
+
+### Trocar de contexto via CLI
+
+CLI da Arara suporta **profiles** — um por cliente:
+
+```bash
+# Setup inicial
+arara profile add cliente-x
+# (faz login OAuth pra conta do cliente X)
+
+arara profile add cliente-y
+# (faz login OAuth pra conta do cliente Y)
+
+# Trocar contexto
+arara profile switch cliente-x
+arara org list   # lista as orgs do cliente X
+arara org use cliente-x-org-id
+
+# Manda mensagem teste
+arara send --to +5511999999999 --template ola_mundo
+# Sai da conta do cliente X
+
+# Trocar pra cliente Y
+arara profile switch cliente-y
+arara send --to +5511999999999 --template ola_mundo
+# Sai da conta do cliente Y
+```
+
+Ver [CLI](/cli).
+
+### Trocar de contexto via SDK
+
+Cada cliente, uma instância separada do SDK:
+
+```typescript
+const clientes = new Map<string, NodeSDK>();
+
+clientes.set('cliente-x', new NodeSDK({
+  apiKey: process.env.ARARA_KEY_CLIENTE_X,
+  baseUrl: process.env.ARARA_BASE_URL,
+}));
+
+clientes.set('cliente-y', new NodeSDK({
+  apiKey: process.env.ARARA_KEY_CLIENTE_Y,
+  baseUrl: process.env.ARARA_BASE_URL,
+}));
+
+async function send(clientId: string, params: SendMessageRequest) {
+  const sdk = clientes.get(clientId);
+  if (!sdk) throw new Error(`Cliente ${clientId} não configurado`);
+  return sdk.messages.send(params);
+}
+```
+
+Pra muitos clientes, gera env vars dinamicamente OU armazena keys criptografadas no seu banco (a Arara nunca expõe a key inteira após criação — você guarda).
+
+## Modo 2 — Multi-org dentro de 1 conta (agência operacional)
+
+**Quando usar**: você é a dona da conta, faturamento centralizado, clientes são "internos" (subsidiárias, marcas próprias, white-label).
+
+### Setup
+
+```bash
+# Sua conta principal
+# Dashboard → Organizações → Criar nova organização → "Marca A"
+# Dashboard → Organizações → Criar nova organização → "Marca B"
+```
+
+Cada organização tem:
+- Próprio número WhatsApp
+- Próprias API keys
+- Próprios templates
+- Própria wallet de créditos
+- Próprios membros (você pode estar em todas)
+
+### Trocar entre orgs
+
+```bash
+# Listar as orgs do usuário
+curl https://api.ararahq.com/api/auth/me/organizations \
+  -H "Authorization: Bearer <firebase_token>"
+
+# Cada call subsequente usa API key específica daquela org
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer ara_live_org_a_xxx" \
+  -d '{ "receiver": "...", ... }'
+```
+
+API keys são **per-organization**. Trocar de org = trocar de key.
+
+No CLI:
+
+```bash
+arara org list
+arara org use marca-a
+arara send ...
+
+arara org use marca-b
+arara send ...
+```
+
+## Modo 3 — Sub-accounts (reseller)
+
+**Quando usar**: você vende WhatsApp como produto da sua agência, sob sua marca, com sua margem.
+
+<Note>
+  Modo reseller exige **contrato comercial específico** com a Arara. Plano Enterprise reseller libera sub-accounts API. Fale com [contato@ararahq.com](mailto:contato@ararahq.com).
+</Note>
+
+Resumo do modelo:
+- Você tem 1 conta master
+- Cria sub-accounts via API pra cada cliente
+- Cada sub-account é isolada (números, templates, wallets)
+- Cliente final loga em URL whitelabel (`clientes.suaagencia.com`)
+- Faturamento agregado pra você. Você fatura clientes diretamente.
+
+## Isolamento — o que NUNCA vaza
+
+| Tipo de dado | Isolamento |
+|---|---|
+| Mensagens | 100% por org. Conta X nunca vê msg da Y. |
+| Templates | Por org. Aprovação Meta é por WABA da org. |
+| Contatos | Por org. |
+| API keys | Por org. Revogar key A não afeta B. |
+| Faturas | Por org. PDFs separados. |
+| Webhooks | Por org. URL e secret independentes. |
+| Brain knowledge base | Por org. RAG isolado por inquilino. |
+| Quality score do número | Por org (cada org tem seus próprios números). |
+
+## Segurança
+
+### Não compartilhe API keys entre clientes
+
+Pessoal: cada cliente tem sua chave. Se chave do cliente X vazar, você revoga **só ela** — outros não afetados.
+
+### Use IP allowlist (BUSINESS+)
+
+Restringe quais IPs podem usar cada key:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/api-keys \
+  -d '{
+    "name": "backend-cliente-x",
+    "mode": "LIVE",
+    "ipAllowlist": ["52.x.x.x", "52.y.y.y"]
+  }'
+```
+
+Se a key vazar e tentarem usar de IP fora, falha auth.
+
+### Audit log
+
+Toda ação em cada org fica registrada. Pra ver quem fez o quê:
+
+```bash
+curl "https://api.ararahq.com/api/v1/api-keys/{id}/events" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Retorna timestamp, ator, IP, ação. Útil pra: cliente questionou disparo, você prova o que foi feito.
+
+## Faturamento
+
+### Modo 1 (conta por cliente)
+
+Cliente recebe fatura direto Arara → cliente. Você é parte do contrato como agência operadora mas não vê pagamento.
+
+### Modo 2 (multi-org)
+
+Você recebe **1 fatura agregada** com breakdown por organização. Detalha quanto cada cliente consumiu.
+
+### Modo 3 (reseller)
+
+Você recebe fatura agregada com volume contratado. Fatura cliente final separado com sua margem.
+
+## Métricas multi-org
+
+Métricas agregadas hoje só pelo dashboard. Pra ver performance por org filha programaticamente, troque o token (use a key da org específica) e bata `GET /v1/campaigns`, `GET /v1/contacts/stats` ou `GET /dashboard/metrics` por org. Um endpoint agregado roll-up está na lista pra v3.
+
+## Checklist de produção
+
+- [ ] Decidiu o modo (1, 2 ou 3) baseado no relacionamento comercial
+- [ ] CLI profiles configurados pra cada cliente
+- [ ] Keys distintas por cliente, com IP allowlist se BUSINESS+
+- [ ] Documentação interna do que cada cliente paga
+- [ ] Política de quem da sua agência tem acesso a quê
+- [ ] Audit log monitorado mensal (auditoria de ações)
+- [ ] Fluxo de offboarding: se um cliente sair, você revoga a key e exporta dados pra entrega
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="CLI — profiles" icon="terminal" href="/cli">
+    Configuração detalhada de profiles e org switch.
+  </Card>
+  <Card title="API keys" icon="key" href="/api-reference/endpoint/v2/api-keys">
+    Gestão programática de chaves.
+  </Card>
+</CardGroup>

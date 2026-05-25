@@ -1,0 +1,176 @@
+---
+title: 'Números dedicados e qualidade'
+description: 'Como funciona o quality score do WhatsApp Business, por que seu número pode cair de tier, e como gerenciar números dedicados na Arara — request, warming, sync com Meta e diagnóstico de baixa entregabilidade.'
+keywords: ['números', 'quality score', 'tier', 'green', 'yellow', 'red', 'warming', 'banimento', 'whatsapp business']
+---
+
+O número que envia mensagens é seu **ativo de comunicação** mais frágil. Um banimento da Meta apaga todo o histórico de templates aprovados, todos os contatos consentidos, e o número fica em quarentena.
+
+Esta página explica como a Arara opera números dedicados, o que é quality score e como manter o seu verde.
+
+## Os 3 tipos de número
+
+<CardGroup cols={3}>
+  <Card title="Compartilhado" icon="users">
+    Pool de números da Arara. Você usa pra desenvolvimento, testes, e clientes em onboarding. Free.
+  </Card>
+  <Card title="Dedicado" icon="user-tie">
+    Número exclusivo da sua marca. Cliente vê seu nome no WhatsApp. Requer aprovação Meta. **A partir de R$ 99/mês** dependendo do plano.
+  </Card>
+  <Card title="BYO (Bring Your Own)" icon="phone-arrow-up-right">
+    Você traz um número já registrado no WABA. A Arara migra. Mantém histórico e aprovações.
+  </Card>
+</CardGroup>
+
+<Warning>
+  **Número compartilhado tem 2 limitações importantes:**
+
+  1. **Webhook `message.received` não dispara.** Inbound de números compartilhados não roteia pra org específica — então sua aplicação não fica sabendo quando o cliente responde. Saída (status, template, campaign) continua normal.
+  2. **Campanhas não podem usar número compartilhado.** `POST /v1/campaigns` retorna erro pedindo número dedicado.
+
+  Pra liberar inbound e campanhas, [solicite um número dedicado](#pedir-um-número-dedicado).
+</Warning>
+
+## Quality score — o que é
+
+A Meta classifica cada número em 3 tiers visíveis:
+
+| Tier | Cor | Significa | Limite de mensagens / 24h |
+|---|---|---|---|
+| **High** | Verde | Cliente quer receber. Taxa de bloqueio < 0,5%. | 100K+ |
+| **Medium** | Amarelo | Taxa de bloqueio moderada. Mensagens entregues mas vigilância ativa. | 10K |
+| **Low** | Vermelho | Muitos clientes bloquearam. Risco de banimento. | 1K |
+| **Flagged** | Preto | Banido temporariamente. Sem envio. | 0 |
+
+A Meta atualiza a cada 24h baseado em:
+
+- **Bloqueios**: cliente clicou "Block" — pior sinal.
+- **Reports**: cliente reportou como spam — pior ainda.
+- **Taxa de leitura**: mensagens não lidas reduzem score.
+- **Reclamação no checkout**: cliente clicar "Stop receiving messages" no template.
+
+## Como consultar quality
+
+```bash
+curl https://api.ararahq.com/api/v1/organizations/me/numbers \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Retorna:
+
+```json
+{
+  "data": [
+    {
+      "id": "ara_num_abc",
+      "phone": "+5511999999999",
+      "tier": "HIGH",
+      "quality": "GREEN",
+      "verification": "BUSINESS_VERIFIED",
+      "messagingLimit": "TIER_100K",
+      "lastQualityCheck": "2026-05-18T10:00:00Z",
+      "metrics": {
+        "blockRate7d": 0.0021,
+        "deliveryRate7d": 0.987,
+        "readRate7d": 0.823
+      }
+    }
+  ]
+}
+```
+
+`tier` é o **limite** que a Meta libera. `quality` é a **cor** do quality score. Os dois andam juntos: número GREEN sobe de tier, número RED desce.
+
+## Warming — como subir tier sem queimar
+
+Número novo começa em **TIER_250** (250 mensagens/24h). Subir de tier exige:
+
+1. **Volume crescente progressivo**: dobra a cada 24h se quality continuar verde.
+2. **Baixa taxa de bloqueio**: mantenha < 0,5%.
+3. **Engajamento real**: mensagens com resposta ajudam o score.
+
+A Arara automatiza esse ramp com o endpoint de warming:
+
+```bash
+curl https://api.ararahq.com/api/v1/organizations/me/numbers/warming \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Retorna recomendação por número:
+
+```json
+[
+  {
+    "numberId": "ara_num_abc",
+    "currentTier": "TIER_1K",
+    "recommendedSendRate24h": 800,
+    "daysToNextTier": 3,
+    "rationale": "Quality GREEN há 5 dias, 0.2% bloqueio. Pode subir."
+  }
+]
+```
+
+<Note>
+  Warming não é obrigatório, mas dispara o ramp 30-50% mais rápido que sair atirando volume aleatório. Pra Black Friday, comece o warming 2-3 semanas antes.
+</Note>
+
+## Pedir um número dedicado
+
+Pelo dashboard em **Configurações → Números → Solicitar novo**. Ou via API:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/organizations/me/numbers/request \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "areaCode": "11",
+    "displayName": "Minha Marca",
+    "reason": "Lançamento de campanha de Black Friday",
+    "expectedVolumePerMonth": 50000
+  }'
+```
+
+Nossa operação processa em 2-5 dias úteis. Verificação Meta (Business Verified) leva mais 3-7 dias depois.
+
+## Diagnóstico — meu número caiu de tier
+
+Se você viu o tier descer, abra **Dashboard → Números → {número} → Diagnóstico**. Os 3 motivos mais comuns:
+
+<AccordionGroup>
+  <Accordion title="Disparo muito agressivo de marketing" icon="bullhorn">
+    Você disparou template MARKETING pra base inativa há > 60d, ou pra clientes que nunca consentiram. **Fix**: pausa marketing por 7 dias, dispara só UTILITY (notificações reais). Quality sobe.
+  </Accordion>
+  <Accordion title="Template mal redigido" icon="file-circle-xmark">
+    Template com gatilho de spam (CAPS, "GRÁTIS!!!", "URGENTE"). **Fix**: roda o lint local em [Política de templates](/templates/policy) antes de submeter.
+  </Accordion>
+  <Accordion title="Falta de opt-in real" icon="hand">
+    Você importou base sem consentimento explícito. Clientes não esperavam receber e bloquearam. **Fix**: implementa double opt-in. Ver [Compliance](/concepts/compliance).
+  </Accordion>
+</AccordionGroup>
+
+## Sync com Meta
+
+Mudanças no perfil de negócio (nome, descrição, foto, vertical) precisam ser empurradas pra Meta. A Arara faz sync automático, mas você pode forçar:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/organizations/me/business-profile/sync \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Demora 5-30 min pra propagar nos clientes WhatsApp.
+
+## Múltiplos números, mesma marca
+
+Operação grande pode rodar 5-20 números pra distribuir carga e proteger qualidade. Configuração no dashboard em **Números → Estratégia → Round-robin** ou **Por região**.
+
+A Arara distribui automaticamente. Você só vê o resultado agregado.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Conceito: Qualidade do número" icon="signal" href="/concepts/number-quality">
+    Aprofundamento técnico do quality score.
+  </Card>
+  <Card title="Pricing por tier" icon="dollar-sign" href="/concepts/pricing">
+    Como tier afeta custo por mensagem.
+  </Card>
+</CardGroup>

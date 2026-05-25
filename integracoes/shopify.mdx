@@ -1,0 +1,200 @@
+---
+title: 'Shopify'
+description: 'Conecte sua loja Shopify ao WhatsApp via Arara — carrinho abandonado, confirmação de pedido, rastreio, recuperação de Pix vencido. Setup em ~15 minutos com Custom App.'
+keywords: ['shopify', 'ecommerce', 'carrinho abandonado', 'rastreio', 'whatsapp']
+---
+
+Shopify é o stack onde a Arara mais cresce. Esta página mostra o setup completo: webhook nativo, sync de catálogo pro Brain, fluxo de carrinho abandonado, confirmação de pedido com código de rastreio, recuperação de Pix vencido via AbacatePay.
+
+<Note>
+  **Requisitos:** loja Shopify ativa (qualquer plano), permissão de admin pra criar Custom App. Não precisa do Shopify Plus.
+</Note>
+
+## Quick-start (10 min)
+
+<Steps>
+  <Step title="Cria Custom App no Shopify">
+    Admin Shopify → **Apps → App and sales channel settings → Develop apps → Create**.
+    
+    Concede scopes mínimos:
+    - `read_products`, `read_inventory`
+    - `read_orders`, `read_customers`
+    - `write_orders` (apenas se for atualizar status via Arara)
+  </Step>
+  <Step title="Pega Admin API access token">
+    Aparece **uma vez** depois de instalar a Custom App. Copia antes de fechar.
+  </Step>
+  <Step title="Conecta no dashboard Arara">
+    Dashboard → **Integrações → Shopify → Conectar**.
+    
+    Informa:
+    - Store domain (`minha-loja.myshopify.com`)
+    - Admin API access token (`shpat_xxx`)
+    - Eventos a subscrever (checkbox)
+  </Step>
+  <Step title="Configura templates">
+    A Arara cria automaticamente 4 templates HSM e submete pra Meta:
+    - `shopify_carrinho_abandonado`
+    - `shopify_pedido_confirmado`
+    - `shopify_pedido_enviado`
+    - `shopify_pedido_entregue`
+    
+    Aprovação Meta: 1-4h pra UTILITY.
+  </Step>
+  <Step title="Liga workflows">
+    Quando templates aprovarem, ativa cada workflow no dashboard. Carrinho abandonado vai disparar 1h depois (configurável).
+  </Step>
+</Steps>
+
+## Workflows nativos
+
+### Carrinho abandonado
+
+Quando: Shopify dispara webhook `checkouts/create` sem `orders/create` correspondente em N minutos.
+
+```
+[Cliente adiciona item ao carrinho]
+     ↓
+[Cliente fecha o navegador sem finalizar]
+     ↓
+[1h depois - configurável]
+     ↓
+[Arara envia template shopify_carrinho_abandonado]
+     "Oi {{1}}, vi que você ficou com {{2}} no carrinho.
+      Finalize aqui: {{3}} (com 10% OFF nas próximas 2h)"
+     ↓
+[Cliente clica no link]
+     ↓
+[Cliente volta pro Shopify checkout com cupom aplicado]
+```
+
+Configurável por:
+- Delay (15min, 1h, 4h, 24h)
+- Cupom de desconto (gerado dinamicamente pra cada cliente)
+- Valor mínimo do carrinho (não dispara abaixo de R$ X)
+- Lista de exclusão (clientes que pediram opt-out)
+
+### Confirmação de pedido
+
+Webhook: `orders/paid`
+
+Template `shopify_pedido_confirmado` enviado imediatamente:
+
+```
+"Pedido #{{1}} confirmado! Total: R$ {{2}}.
+ Você vai receber atualizações por aqui.
+ Acompanhar: {{3}}"
+```
+
+### Rastreio
+
+Webhook: `fulfillments/create` (Shopify adiciona código de rastreio)
+
+Template `shopify_pedido_enviado` enviado:
+
+```
+"Seu pedido saiu! Código de rastreio: {{1}}.
+ Acompanhe: {{2}}"
+```
+
+### Entrega
+
+Webhook: `fulfillments/update` quando status muda pra `delivered`
+
+Template `shopify_pedido_entregue`:
+
+```
+"Pedido entregue! Tudo certo com a sua compra?
+ Em caso de problema, responda este chat."
+```
+
+## Sync de catálogo pro Brain
+
+Pra que o agente AI responda sobre produto, configura a Action de catálogo:
+
+```bash
+curl -X PATCH https://api.ararahq.com/api/v1/brain/actions/catalog \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "enabled": true,
+    "config": {
+      "provider": "shopify",
+      "storeDomain": "minha-loja.myshopify.com",
+      "adminApiAccessToken": "shpat_xxx",
+      "currency": "BRL"
+    }
+  }'
+```
+
+Sync inicial: ~5 min pra catálogo de até 5K produtos. Sync incremental: a cada 4h ou via webhook `products/update` (configurável no dashboard).
+
+Ver [Brain — Catálogo](/brain/actions/catalog) pro detalhe.
+
+## Recuperação de Pix vencido (AbacatePay)
+
+Se você cobra Pix via AbacatePay, a Arara recupera automaticamente:
+
+<Steps>
+  <Step title="Ativa AbacatePay no Shopify (gateway)">
+    Configura como método de pagamento alternativo.
+  </Step>
+  <Step title="Conecta AbacatePay na Arara">
+    [Configura AbacatePay Action](/brain/actions/abacate-pix).
+  </Step>
+  <Step title="Liga workflow de recovery">
+    Dashboard → **Recuperação → Endpoint Pix vencido → Ativar**.
+  </Step>
+</Steps>
+
+Fluxo:
+
+```
+[Cliente gera Pix no Shopify checkout]
+     ↓
+[Cliente fecha sem pagar]
+     ↓
+[45 min depois - antes do Pix expirar]
+     ↓
+[Arara checa: cliente continuou no chat? AbacatePay confirmou pagamento?]
+     ↓
+[Se não pagou: dispara reabordagem]
+     "Oi {{1}}, vi que seu Pix tá pra vencer.
+      Quer que eu gere um novo com 5% de desconto?
+      Responda SIM"
+     ↓
+[Cliente: SIM]
+     ↓
+[Brain action negotiate_payment → cria novo Pix com desconto]
+```
+
+Ver [Revenue Recovery](/recovery) pra fluxo completo.
+
+## Atribuição com Smart Links
+
+Pra rastrear quais campanhas WhatsApp resultam em venda no Shopify:
+
+1. Cria Smart Link com `destinationUrl=https://minha-loja.myshopify.com/products/X`
+2. Smart Link adiciona `?ara=CODE` no redirect
+3. Configura webhook `orders/paid` no Shopify → `https://hooks.ararahq.com/shopify/{org_id}`
+4. A Arara cruza `note_attributes` ou cookie 1st-party do checkout com clique do Smart Link
+
+Resultado: dashboard mostra "Campanha X → 47 cliques → 8 pedidos → R$ 2.380 atribuídos".
+
+Ver [Smart Links Attribution](/smart-links/attribution).
+
+## Limitações conhecidas
+
+- **Multi-currency**: Shopify Markets com múltiplas moedas precisa configuração extra. A Arara segue a moeda principal da loja por default.
+- **Subscriptions (Recharge)**: webhooks de cobrança recorrente do app Recharge usam payload diferente. Suporte nativo no roadmap; por enquanto, use Brain Action customizada.
+- **Shopify Plus checkout extensions**: integrações custom podem interferir com captura de telefone. Verifique que o campo `phone` está sendo coletado no checkout.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Receita: Carrinho abandonado" icon="cart-shopping" href="/recipes/abandoned-cart">
+    Fluxo end-to-end detalhado.
+  </Card>
+  <Card title="Revenue Recovery" icon="rotate-right" href="/recovery">
+    Recuperação de Pix vencido.
+  </Card>
+</CardGroup>

@@ -1,0 +1,79 @@
+---
+title: 'Brain Actions'
+description: 'Permita que a IA da Arara execute ações reais no mundo: cobrar via Pix, agendar reunião, listar produtos, criar checkout. Ações são integrações nativas que o agente chama no meio da conversa.'
+keywords: ['brain actions', 'ia', 'pix', 'cobrança', 'agenda', 'catálogo', 'shopify', 'stripe', 'abacatepay']
+---
+
+O Brain não responde só com texto. Ele **executa**.
+
+Brain Actions são integrações nativas que o agente AI da Arara pode invocar durante uma conversa do WhatsApp — sem você precisar escrever código de orquestração. O cliente pede uma fatura, o agente cria o Pix no AbacatePay e envia o link. Pede um horário, o agente checa o Cal.com e confirma. Pergunta sobre produto, o agente busca no catálogo e responde com a ficha.
+
+<Note>
+  Brain Actions só rodam dentro de uma sessão ativa do Brain (canUseAi = true). Se o seu plano não inclui Brain, [adicione o add-on](/billing#brain-addon) primeiro.
+</Note>
+
+## Ações disponíveis
+
+<CardGroup cols={2}>
+  <Card title="AbacatePay (Pix)" icon="qrcode" href="/brain/actions/abacate-pix">
+    Gera Pix, envia o QR Code e confirma o pagamento. Recupera carrinho abandonado sem você ter de orquestrar nada.
+  </Card>
+  <Card title="Cal.com" icon="calendar-check" href="/brain/actions/cal-com">
+    Lista horários disponíveis, agenda a reunião na agenda certa e envia a confirmação. Bom pra consultoria, clínica, prestador de serviço.
+  </Card>
+  <Card title="Catálogo" icon="boxes-stacked" href="/brain/actions/catalog">
+    Responde sobre preço, estoque e ficha técnica do produto buscando no seu catálogo (Shopify, WooCommerce ou JSON estático).
+  </Card>
+  <Card title="Stripe" icon="credit-card" href="/brain/actions/stripe">
+    Cria checkout, processa upgrade de plano e envia o link de pagamento internacional. Bom pra SaaS com pricing em USD.
+  </Card>
+</CardGroup>
+
+## Como funciona
+
+Toda Action segue o mesmo ciclo:
+
+<Steps>
+  <Step title="Você habilita a Action">
+    No dashboard em **Brain → Actions**, ou via `PATCH /v1/brain/actions/{actionType}` configurando os segredos (API key do provider, IDs internos).
+  </Step>
+  <Step title="O agente entende quando chamar">
+    Cada Action declara um schema de quando deve ser invocada (ex: "quando o cliente confirma compra mas não tem método de pagamento"). O modelo decide na conversa.
+  </Step>
+  <Step title="A Arara executa">
+    A Action roda no nosso backend, com os segredos criptografados. O resultado volta como contexto pro modelo.
+  </Step>
+  <Step title="O agente responde no WhatsApp">
+    Texto + link/botão/mídia gerado pela Action. Tudo passa pelo [Guardian Mode](/concepts/guardian) antes de sair.
+  </Step>
+</Steps>
+
+## Configurando via API
+
+```bash
+curl -X PATCH https://api.ararahq.com/api/v1/brain/actions/abacate-pix \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "config": {
+      "apiKey": "abacate_live_xxx",
+      "defaultExpirationMinutes": 60
+    }
+  }'
+```
+
+Os segredos (`apiKey`, tokens OAuth) ficam criptografados — não voltam em nenhum `GET`. Pra rodar trocar você precisa reenviar o valor.
+
+## Por que isso importa
+
+Sem Actions, um agente AI é um chatbot — responde, mas não resolve. Com Actions, a conversa **vira o contrato**: cliente pediu, agente cobrou, pagou na hora. Esse é o desbloqueio real do Revenue OS — fechar receita dentro do canal onde o cliente já está.
+
+<CardGroup cols={2}>
+  <Card title="Habilitar Actions" icon="toggle-on" href="https://ararahq.com/dashboard/brain">
+    Ative as Actions no dashboard.
+  </Card>
+  <Card title="Eval suite" icon="vial" href="/brain#eval">
+    Teste as Actions com casos reais antes de soltar em produção.
+  </Card>
+</CardGroup>

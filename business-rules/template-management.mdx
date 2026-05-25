@@ -24,7 +24,7 @@ O WhatsApp Business exige que mensagens de negócio sejam enviadas usando templa
 
 ### Passo 1: Acesse o Dashboard
 
-1. Faça login no [Dashboard da Arara](https://www.ararahq.com/dashboard)
+1. Faça login no [Dashboard da Arara](https://ararahq.com/dashboard)
 2. Navegue até a seção **"Templates"** no menu lateral
 
 ### Passo 2: Crie um Novo Template
@@ -70,12 +70,12 @@ Depois que seu template foi criado e aprovado, você pode usá-lo na API simples
 
 ```bash curl
 curl -X POST https://api.ararahq.com/api/v1/messages \
-  -H "Authorization: Bearer ara_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Authorization: Bearer ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5511999999999",
+    "receiver": "+5511999999999",
     "templateName": "template_teste_inicio_conversa",
-    "variables": []
+    "templateVariables": []
   }'
 ```
 
@@ -119,10 +119,10 @@ Você pode ver todos os seus templates criados diretamente no dashboard. Cada te
 ## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/messages">
+  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/v2/messages">
     Aprenda a usar templates para enviar mensagens
   </Card>
-  <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/webhook">
+  <Card title="Webhooks" icon="webhook" href="/webhooks">
     Configure webhooks para receber notificações em tempo real
   </Card>
 </CardGroup>

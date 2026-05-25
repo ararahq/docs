@@ -1,29 +1,32 @@
 ---
 title: 'Templates'
-description: 'Crie e gerencie templates de mensagem para WhatsApp e Email.'
+description: 'CRUD de templates HSM aprovados pela Meta — criar, listar, status, analytics, deletar. Inclui regras de categoria, idioma, botões, mídia header, carrossel e OTP.'
+keywords: ['templates', 'hsm', 'meta approval', 'utility', 'marketing', 'authentication', 'carousel', 'otp']
 ---
 
-Templates sao as mensagens pre-aprovadas que voce pode disparar. WhatsApp exige aprovacao da Meta; email nao.
+Templates HSM (Highly Structured Messages) são as mensagens pré-aprovadas que você pode mandar fora da janela 24h. Esta página cobre os endpoints REST. Pro **conceito** (categorias, regras de aprovação, lint, política), ver [Templates HSM](/concepts/templates) e [Política de templates](/templates/policy).
 
-**Base URL:** `https://new-api.ararahq.com/api/v2`
+**Base URL:** `https://api.ararahq.com/api`
 
----
+## Criar template
 
-## Criar um template WhatsApp
-
-`POST /v2/templates`
+`POST /v1/templates`
 
 ```bash
-curl -X POST https://new-api.ararahq.com/api/v2/templates \
+curl -X POST https://api.ararahq.com/api/v1/templates \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "pedido_confirmado",
-    "channel": "whatsapp",
     "category": "UTILITY",
     "language": "pt_BR",
-    "body": "Ola {{1}}, seu pedido #{{2}} foi confirmado.",
-    "variables": ["Joao", "12345"]
+    "body": "Oi {{1}}, seu pedido #{{2}} foi confirmado!\nTotal: R$ {{3}}",
+    "footer": "Acompanhe pelo nosso site",
+    "samples": {
+      "1": "João",
+      "2": "ARA-12345",
+      "3": "147,90"
+    }
   }'
 ```
 
@@ -33,116 +36,151 @@ Resposta (`201 Created`):
 {
   "id": "a7f3c1e2-4b5d-6789-abcd-ef0123456789",
   "name": "pedido_confirmado",
-  "channel": "whatsapp",
+  "formattedName": "pedido_confirmado",
   "category": "UTILITY",
-  "status": "PENDING",
-  "body": "Ola {{1}}, seu pedido #{{2}} foi confirmado.",
+  "originalCategory": "UTILITY",
   "language": "pt_BR",
-  "createdAt": "2026-04-13T18:30:00Z"
+  "providerName": "TWILIO",
+  "providerTemplateId": "HXabc123def456...",
+  "providerStatus": "PENDING",
+  "bodyPreview": "Oi {{1}}, seu pedido #{{2}} foi confirmado!\nTotal: R$ {{3}}",
+  "structureJson": { },
+  "usageGuide": {
+    "message": "Use o objeto 'variables' no envio da mensagem para substituir os placeholders.",
+    "endpoint": "POST /v1/messages"
+  },
+  "variablesSchema": {
+    "1": "João",
+    "2": "ARA-12345",
+    "3": "147,90"
+  },
+  "createdAt": "2026-05-18T14:30:00Z",
+  "updatedAt": null
 }
 ```
 
-### Parametros
-
-| Campo | Tipo | Obrigatorio | Descricao |
-|-------|------|-------------|-----------|
-| `name` | string | sim | Nome unico em snake_case (sem espacos/acentos). |
-| `channel` | string | sim | `whatsapp` ou `email`. |
-| `category` | string | sim | `UTILITY` ou `MARKETING`. Default `UTILITY`. |
-| `body` | string | sim | Texto do template. Use `{{1}}`, `{{2}}`... para variaveis. |
-| `language` | string | nao | Codigo do idioma. Default `pt_BR`. |
-| `footer` | string | nao | Rodape opcional. |
-| `variables` | string[] | nao | Valores de exemplo para cada placeholder (usado na aprovacao da Meta). |
-| `buttons` | array | nao | Lista de botoes (ver abaixo). |
+`providerStatus: PENDING` até a Meta aprovar (1-72h dependendo da categoria — UTILITY mais rápido).
 
 <Note>
-  Apos criar, o template entra em `status: PENDING` ate a Meta aprovar (geralmente 1-5 minutos). So mensagens com template `APPROVED` podem ser disparadas.
+  IDs de template são **UUID puro** (`a7f3c1e2-4b5d-...`), não prefixados.
 </Note>
 
-### Com botoes
+### Parâmetros
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `name` | string | sim | Único na org. snake_case, sem espaços/acentos. |
+| `category` | string | sim | `UTILITY`, `MARKETING` ou `AUTHENTICATION`. |
+| `body` | string | sim | Texto com placeholders `{{1}}`, `{{2}}`... Max 1024 chars. |
+| `language` | string | não | `pt_BR` (default), `en_US`, `es_ES`. |
+| `header` | string | não | Cabeçalho — texto ou URL de mídia. |
+| `headerType` | string | não | `text`, `media`, `document`. |
+| `footer` | string | não | Rodapé. Max 60 chars. Sem variáveis. |
+| `samples` | Map<string, string> | não | Mapa de exemplo por número da variável. Meta usa pra revisar. Ex: `{"1": "João"}`. |
+| `variableExamples` | string[] | não | Legado, compat. Array de exemplos posicionais — use `samples` em produção. |
+| `buttons` | array | não | Até 3 botões (ver abaixo). |
+| `carouselCards` | array | não | 2-10 cards pra template carrossel (ver abaixo). |
+| `otpButtonType` | string | não | `COPY_CODE` ou `ONE_TAP` (só pra `AUTHENTICATION`). |
+| `otpPackageName` | string | não | Android package name. Obrigatório se `otpButtonType: ONE_TAP`. |
+| `otpAppSignature` | string | não | Android app signature hash. Obrigatório se `otpButtonType: ONE_TAP`. |
+
+<Warning>
+  `samples` é um **mapa indexado pelo número da variável** (`{"1": "...", "2": "..."}`), não array. Cliente que enviar array recebe `400`.
+</Warning>
+
+### Com botões
 
 ```json
 {
   "name": "pesquisa_satisfacao",
-  "channel": "whatsapp",
   "category": "MARKETING",
-  "body": "O que achou do atendimento?",
+  "language": "pt_BR",
+  "body": "Como foi sua experiência?",
+  "samples": {},
   "buttons": [
-    { "type": "QUICK_REPLY", "text": "Otimo" },
+    { "type": "QUICK_REPLY", "text": "Ótimo" },
     { "type": "QUICK_REPLY", "text": "Bom" },
     { "type": "QUICK_REPLY", "text": "Pode melhorar" }
   ]
 }
 ```
 
-| Campo do botao | Tipo | Descricao |
-|----------------|------|-----------|
-| `type` | string | `QUICK_REPLY`, `URL` ou `PHONE_NUMBER`. |
-| `text` | string | Texto exibido no botao. |
-| `url` | string | Obrigatorio quando `type=URL`. |
+Tipos de botão:
 
----
+| `type` | Comportamento |
+|---|---|
+| `QUICK_REPLY` | Resposta rápida. Volta como webhook `message.received` com `type: button`. |
+| `URL` | Abre URL. Pode incluir variável: `https://meusite.com/{{1}}`. |
+| `PHONE_NUMBER` | Liga pra número fixo (não pode ser variável). |
+| `SMART_LINK` | Variante Arara: URL curta com tracking. Ver [Smart Links](/smart-links). |
+| `COPY_CODE` | Copia código pra clipboard. Obrigatório em AUTHENTICATION. |
 
-## Criar um template de Email
-
-`POST /v2/templates` com `channel: "email"`.
-
-```bash
-curl -X POST https://new-api.ararahq.com/api/v2/templates \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "welcome_email",
-    "channel": "email",
-    "subject": "Bem-vindo, {{1}}!",
-    "htmlContent": "<h1>Ola {{1}}</h1><p>Sua conta foi criada.</p>"
-  }'
-```
-
-Resposta (`201 Created`):
+### Carrossel (2-10 cards)
 
 ```json
 {
-  "id": "b8c9d0e1-2f3a-4b5c-6d7e-8f9012345678",
-  "name": "welcome_email",
-  "channel": "email",
-  "category": "TRANSACTIONAL",
-  "status": "APPROVED",
-  "subject": "Bem-vindo, {{1}}!",
-  "createdAt": "2026-04-13T18:30:00Z"
+  "name": "produtos_destaque",
+  "category": "MARKETING",
+  "language": "pt_BR",
+  "body": "Confira nossas ofertas:",
+  "samples": {},
+  "carouselCards": [
+    {
+      "mediaUrl": "https://meusite.com/produto-1.jpg",
+      "body": "Camiseta básica - R$ 79",
+      "buttons": [
+        { "type": "URL", "text": "Comprar", "url": "https://meusite.com/p/1" }
+      ]
+    },
+    {
+      "mediaUrl": "https://meusite.com/produto-2.jpg",
+      "body": "Tênis corrida - R$ 299",
+      "buttons": [
+        { "type": "URL", "text": "Comprar", "url": "https://meusite.com/p/2" }
+      ]
+    }
+  ]
 }
 ```
 
-| Campo | Obrigatorio | Descricao |
-|-------|-------------|-----------|
-| `name` | sim | Nome unico. |
-| `channel` | sim | Deve ser `email`. |
-| `subject` | sim | Assunto do email. Pode conter `{{1}}`, `{{2}}`... |
-| `htmlContent` | sim | HTML do email. |
-| `designJson` | nao | JSON do editor visual (se estiver usando). |
-
 <Note>
-  Templates de email nao passam por aprovacao externa — ja sao criados com `status: APPROVED` e podem ser usados imediatamente.
+  Carousel exige: 2-10 cards, **todos com o mesmo número e tipo de botões**, cada card com mídia (imagem ou vídeo).
 </Note>
 
----
+### OTP (AUTHENTICATION)
+
+Templates `AUTHENTICATION` exigem botão `COPY_CODE` ou `ONE_TAP`:
+
+```json
+{
+  "name": "otp_login",
+  "category": "AUTHENTICATION",
+  "language": "pt_BR",
+  "body": "Seu código de verificação é {{1}}",
+  "samples": { "1": "123456" },
+  "otpButtonType": "ONE_TAP",
+  "otpPackageName": "com.minhaempresa.app",
+  "otpAppSignature": "abc123def456..."
+}
+```
 
 ## Listar templates
 
-`GET /v2/templates`
+`GET /v1/templates`
 
-Retorna um **array simples** (sem paginacao) com todos os templates da organizacao.
+Retorna **array direto** (sem paginação). Aceita filtros opcionais por nome ou status.
 
 ```bash
-curl "https://new-api.ararahq.com/api/v2/templates?channel=whatsapp" \
+curl "https://api.ararahq.com/api/v1/templates?status=APPROVED" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-### Query params
+Query params:
 
-| Param | Tipo | Descricao |
-|-------|------|-----------|
-| `channel` | string | Opcional. `whatsapp` ou `email`. Omitir retorna ambos. |
+| Param | Tipo | Descrição |
+|---|---|---|
+| `name` | string | Filtra por nome exato (case-sensitive). |
+| `status` | string | Filtra por providerStatus (`APPROVED`, `PENDING`, `REJECTED`, `PAUSED`). |
 
 Resposta (`200 OK`):
 
@@ -151,109 +189,146 @@ Resposta (`200 OK`):
   {
     "id": "a7f3c1e2-4b5d-6789-abcd-ef0123456789",
     "name": "pedido_confirmado",
-    "channel": "whatsapp",
+    "formattedName": "pedido_confirmado",
     "category": "UTILITY",
-    "status": "APPROVED",
-    "body": "Ola {{1}}, seu pedido #{{2}} foi confirmado.",
-    "language": "pt_BR"
-  },
-  {
-    "id": "b8c9d0e1-2f3a-4b5c-6d7e-8f9012345678",
-    "name": "welcome_email",
-    "channel": "email",
-    "category": "TRANSACTIONAL",
-    "status": "APPROVED",
-    "subject": "Bem-vindo, {{1}}!"
+    "language": "pt_BR",
+    "providerName": "TWILIO",
+    "providerTemplateId": "HXabc...",
+    "providerStatus": "APPROVED",
+    "bodyPreview": "Oi {{1}}, seu pedido #{{2}} foi confirmado!",
+    "createdAt": "2026-05-18T14:30:00Z"
   }
 ]
 ```
 
----
+## Obter template específico
 
-## Analytics do template
-
-`GET /v2/templates/{templateId}/analytics`
-
-Metricas de entrega, leitura e cliques em links encurtados (SmartLinks) do template nos ultimos 30 dias.
+`GET /v1/templates/{id}`
 
 ```bash
-curl https://new-api.ararahq.com/api/v2/templates/a7f3c1e2-4b5d-6789-abcd-ef0123456789/analytics \
+curl https://api.ararahq.com/api/v1/templates/a7f3c1e2-4b5d-6789-abcd-ef0123456789 \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Resposta (`200 OK`):
+Path param `id` é **UUID**.
+
+## Status de aprovação
+
+`GET /v1/templates/{id}/status`
+
+Consulta a Twilio (source of truth) e atualiza o status local. Útil quando você acha que algo mudou e quer status fresh.
+
+```bash
+curl https://api.ararahq.com/api/v1/templates/{id}/status \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Resposta:
 
 ```json
 {
-  "template": {
-    "id": "a7f3c1e2-4b5d-6789-abcd-ef0123456789",
-    "name": "pedido_confirmado",
-    "category": "UTILITY",
-    "status": "APPROVED",
-    "body": "Ola {{1}}, seu pedido #{{2}} foi confirmado."
-  },
-  "delivery": {
-    "total": 1250,
-    "sent": 1240,
-    "delivered": 1230,
-    "read": 890,
-    "failed": 10,
-    "deliveryRate": 99.2,
-    "readRate": 72.4
-  },
-  "links": {
-    "totalLinks": 3,
-    "totalClicks": 412,
-    "linksWithClicks": 3,
-    "uniqueClickers": 287,
-    "clickRate": 23.1
-  },
-  "dailyStats": [
-    { "date": "2026-04-12", "sent": 300, "delivered": 298, "read": 210, "failed": 2 },
-    { "date": "2026-04-13", "sent": 940, "delivered": 932, "read": 680, "failed": 8 }
-  ],
-  "recentClicks": [
-    {
-      "code": "abc123",
-      "url": "https://loja.com/pedido/12345",
-      "clickedAt": "2026-04-13T19:45:12Z",
-      "ipAddress": "189.xxx.xxx.xxx",
-      "userAgent": "Mozilla/5.0 ..."
-    }
-  ]
+  "status": "APPROVED",
+  "rejectionReason": null,
+  "category": "UTILITY"
 }
 ```
 
-### Blocos da resposta
-
-| Bloco | Descricao |
-|-------|-----------|
-| `template` | Metadados do template consultado. |
-| `delivery` | Total enviado, entregue, lido, falho. Taxas em % com 1 casa decimal. |
-| `links` | Cliques agregados nos SmartLinks do template. |
-| `dailyStats` | Serie historica dos ultimos 30 dias, um ponto por dia. |
-| `recentClicks` | Ate 20 cliques mais recentes (para auditoria). |
-
----
-
-## Status do template
+Valores possíveis de `status`:
 
 | Status | Significado |
-|--------|-------------|
-| `PENDING` | Enviado a Meta, aguardando aprovacao. |
-| `APPROVED` | Aprovado. Pronto para disparar. |
-| `REJECTED` | Rejeitado. Veja o motivo nos logs da Meta. |
+|---|---|
+| `PENDING` | Em revisão Meta |
+| `APPROVED` | Aprovado — pronto pra disparar |
+| `REJECTED` | Rejeitado. `rejectionReason` traz motivo da Meta |
+| `PAUSED` | Pausado por alta taxa de bloqueio. Modifique e ressubmeta |
 
-Templates de email comecam direto em `APPROVED`.
+Pra acompanhar **em tempo real sem polling**, escute o webhook `template.updated` (o campo `status` em `data` traz `APPROVED`, `REJECTED`, `PAUSED`, etc). Ver [Eventos](/webhooks/events).
 
----
+## Analytics
+
+`GET /v1/templates/{id}/analytics`
+
+```bash
+curl "https://api.ararahq.com/api/v1/templates/{id}/analytics?period=30d" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Resposta:
+
+```json
+{
+  "templateId": "a7f3c1e2-4b5d-6789-abcd-ef0123456789",
+  "templateName": "pedido_confirmado",
+  "period": "30d",
+  "sent": 1250,
+  "delivered": 1230,
+  "read": 890,
+  "failed": 10,
+  "deliveryRate": "98.4",
+  "readRate": "71.2"
+}
+```
+
+Query params: `period` = `7d`, `30d`, `90d` (default `30d`).
+
+<Note>
+  `deliveryRate` e `readRate` voltam como **string** formatada com 1 casa decimal (ex: `"98.4"`). Parse no cliente como número se quiser fazer cálculo.
+</Note>
+
+## Deletar template
+
+`DELETE /v1/templates/{id}`
+
+```bash
+curl -X DELETE https://api.ararahq.com/api/v1/templates/a7f3c1e2-4b5d-6789-abcd-ef0123456789 \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Resposta (`204 No Content`) — sem body.
+
+<Warning>
+  Deletar template é **irreversível**. Histórico de envios continua nos logs, mas o template some da listagem e não pode ser usado em novos disparos.
+</Warning>
+
+## Limites
+
+| Plano | Templates ativos |
+|---|---|
+| FREE | 3 |
+| ESSENTIAL+ | sem limite prático |
+
+Tentar criar acima do limite no plano FREE retorna `403 PLAN_LIMIT_REACHED` com indicação pra fazer upgrade pra Essential.
+
+## Conta em modo TESTING
+
+Templates **só podem ser criados em conta com `accountStatus: ACTIVE`** (modo produção). Conta ainda em onboarding (`TESTING`) recebe:
+
+```json
+{
+  "error": "Recurso disponível apenas no Modo Produção.",
+  "message": "Por favor, ative sua conta para criar templates."
+}
+```
+
+Status HTTP `403`.
 
 ## Erros
 
 | HTTP | Quando |
-|------|--------|
-| `400` | `channel` fora de `whatsapp`/`email`, campos obrigatorios ausentes. |
-| `401` | Chave invalida. |
-| `404` | Template nao encontrado (no GET analytics). |
-| `409` | `name` ja existe na organizacao. |
-| `422` | Body invalido para a Meta (ex: variaveis em formato errado). |
+|---|---|
+| `400` | `name`/`category`/`language`/`body` ausente; categoria fora de `UTILITY/MARKETING/AUTHENTICATION` |
+| `401` | Chave inválida ou ausente |
+| `403` | Conta ainda em TESTING; ou plano limit atingido |
+| `404` | Template não existe |
+| `422` | Body viola política Meta (ver [Política](/templates/policy)) |
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Política de templates" icon="scale-balanced" href="/templates/policy">
+    O que pode e o que não pode no corpo.
+  </Card>
+  <Card title="Conceito: Templates HSM" icon="lightbulb" href="/concepts/templates">
+    Categorias, idiomas, mídia, ciclo de aprovação.
+  </Card>
+</CardGroup>

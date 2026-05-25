@@ -1,0 +1,218 @@
+---
+title: 'SDK Node.js / TypeScript'
+description: 'SDK oficial Node/TypeScript da Arara — tipagem completa, retry com backoff, validação local de número/template, tipos prontos pra payloads de webhook.'
+---
+
+```bash
+npm install @ararahq/sdk
+```
+
+[![npm](https://img.shields.io/npm/v/@ararahq/sdk)](https://www.npmjs.com/package/@ararahq/sdk)
+
+Compatível com Node 18+, ESM e CJS, Next.js (App Router, Pages Router), Express, Fastify, Hono, Remix. Não roda em Edge Runtime (depende de `axios`).
+
+## Instalação e setup
+
+```typescript
+import { NodeSDK } from '@ararahq/sdk';
+
+const sdk = new NodeSDK({
+  apiKey: process.env.ARARA_API_KEY!,
+  baseUrl: 'https://api.ararahq.com/api',
+  timeout: 10000, // opcional, default 10s
+});
+```
+
+A `apiKey` aceita prefixos `ara_live_` (produção) ou `ara_test_` (sandbox). A `baseUrl` é obrigatória.
+
+## Recursos disponíveis
+
+| Recurso | Acesso | Status |
+|---|---|---|
+| Messages | `sdk.messages` | Estável |
+| Templates | `sdk.templates` | Estável |
+| Users | `sdk.users` | Estável |
+| Organizations | `sdk.organizations` | Estável |
+| API Keys | `sdk.apiKeys` | Estável |
+| Campaigns | — | Em breve (use REST direto via `sdk.api.post(...)`) |
+| Brain | — | Em breve |
+| Payments | — | Em breve |
+
+Pra paridade total, ver [Qual SDK escolher?](/sdks).
+
+## Enviar mensagem
+
+```typescript
+const response = await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'confirmacao_pedido',
+  templateVariables: [
+    'https://meusite.com/nota/123.pdf', // header (mídia opcional)
+    'João',                              // {{1}}
+    'ARA-12345',                         // {{2}}
+  ],
+});
+
+console.log(response.id);         // ara_msg_xxx
+console.log(response.status);     // queued
+```
+
+**Mensagem de sessão (texto livre, dentro de janela 24h):**
+
+```typescript
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  body: 'Oi! Vi sua dúvida e respondo já já.',
+});
+```
+
+## Consultar status
+
+```typescript
+const msg = await sdk.messages.get('ara_msg_xxx');
+console.log(msg.status); // sent | delivered | read | failed
+```
+
+## Templates
+
+```typescript
+// Listar
+const templates = await sdk.templates.list();
+
+// Criar
+await sdk.templates.create({
+  name: 'promo_natal',
+  category: 'MARKETING',
+  language: 'pt_BR',
+  body: 'Oi {{1}}, oferta de Natal: {{2}}% off até {{3}}.',
+  samples: ['João', '30', 'sexta'],
+});
+
+// Status de aprovação
+const status = await sdk.templates.getStatus('promo_natal');
+console.log(status.status); // PENDING | APPROVED | REJECTED | PAUSED
+```
+
+## Webhooks tipados
+
+O SDK exporta tipos pra todos os eventos:
+
+```typescript
+import type {
+  AraraWebhookEvent,
+  MessageStatusWebhookEvent,
+  InboundMessageWebhookEvent,
+  ConversationNeedsHumanWebhookEvent,
+} from '@ararahq/sdk';
+
+function handleWebhook(payload: AraraWebhookEvent) {
+  switch (payload.event) {
+    case 'message.status_updated':
+      // payload.data tipado como MessageStatusData
+      console.log(payload.data.id, payload.data.status);
+      break;
+    case 'message.received':
+      console.log(payload.data.from, payload.data.body);
+      break;
+    case 'conversation.needs_human':
+      console.log(payload.data.conversationId, payload.data.reason);
+      break;
+  }
+}
+```
+
+Pra validar HMAC, ver [Webhooks](/webhooks#hmac).
+
+## Idempotency
+
+POSTs que criam recurso (mensagem, campanha) aceitam `Idempotency-Key`:
+
+```typescript
+import { randomUUID } from 'node:crypto';
+
+await sdk.messages.send(
+  { receiver: '...', templateName: 'X', templateVariables: ['A'] },
+  { idempotencyKey: randomUUID() }
+);
+```
+
+Chave dedupada por 24h. Se sua função Lambda/Vercel der retry, a mensagem não duplica.
+
+## Erros
+
+O SDK lança `AraraError`:
+
+```typescript
+import { AraraError, AraraRateLimitError } from '@ararahq/sdk';
+
+try {
+  await sdk.messages.send({ ... });
+} catch (err) {
+  if (err instanceof AraraRateLimitError) {
+    console.log('Espera', err.retryAfter, 'segundos');
+  } else if (err instanceof AraraError) {
+    console.error(err.code, err.message, err.statusCode);
+  }
+}
+```
+
+Códigos canônicos: `INSUFFICIENT_CREDITS`, `INVALID_API_KEY`, `TEMPLATE_NOT_APPROVED`, `RATE_LIMIT_EXCEEDED`, etc. Lista completa em [Erros](/erros).
+
+## Retry automático
+
+Todos os requests do SDK retentam com backoff exponencial em:
+
+- 429 (rate limit, honra `Retry-After`)
+- 502, 503, 504 (upstream temporário)
+- Network errors (timeout, ECONNRESET)
+
+Não retenta em 4xx outros que 429 (você não fix uma chave inválida retrying).
+
+Pra desabilitar:
+
+```typescript
+const sdk = new NodeSDK({
+  apiKey: '...',
+  baseUrl: '...',
+  retry: { attempts: 0 },
+});
+```
+
+## TypeScript
+
+Tipos exportados:
+
+```typescript
+import type {
+  SDKConfig,
+  SendMessageRequest,
+  MessageResponse,
+  Template,
+  CreateTemplateRequest,
+  TemplateResponse,
+  TemplateStatus,
+  User,
+  UpdateUserRequest,
+  ApiKey,
+  GeneratedApiKey,
+  AraraWebhookEvent,
+  // ...
+} from '@ararahq/sdk';
+```
+
+`strict: true` em tsconfig é suportado.
+
+## Source
+
+GitHub: [github.com/ararahq/arara-node-sdk](https://github.com/ararahq/arara-node-sdk) · MIT
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Receitas em Next.js" icon="js" href="/integracoes/nextjs">
+    Server Actions, route handlers, streaming.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Endpoints REST que o SDK chama por baixo.
+  </Card>
+</CardGroup>

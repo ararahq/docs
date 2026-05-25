@@ -1,0 +1,222 @@
+---
+title: 'Next.js'
+description: 'Integre a Arara num projeto Next.js (App Router) — Server Actions, route handlers, webhooks com signature verification e streaming de status em tempo real.'
+---
+
+A Arara tem SDK Node/TypeScript oficial que roda em **runtime Node** do Next.js (API routes, route handlers, Server Actions). Esta página cobre App Router (Next 14+). Pages Router funciona analogamente.
+
+<Note>
+  **Requisitos:** Node 18+, Next 14+. Para Edge Runtime, use `fetch` direto contra a API REST (o SDK depende do `axios` que não roda em edge).
+</Note>
+
+## Instalação
+
+```bash
+npm install @ararahq/sdk
+```
+
+## Configuração
+
+`.env.local`:
+
+```ini
+ARARA_API_KEY=ara_live_xxx
+ARARA_BASE_URL=https://api.ararahq.com/api
+ARARA_WEBHOOK_SECRET=share_a_secret_with_arara_dashboard
+```
+
+Cria um singleton do SDK (evita reconstruir em hot reload):
+
+```typescript
+// lib/arara.ts
+import { NodeSDK } from '@ararahq/sdk';
+
+declare global {
+  // eslint-disable-next-line no-var
+  var araraInstance: NodeSDK | undefined;
+}
+
+export const arara =
+  globalThis.araraInstance ??
+  new NodeSDK({
+    apiKey: process.env.ARARA_API_KEY!,
+    baseUrl: process.env.ARARA_BASE_URL!,
+  });
+
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.araraInstance = arara;
+}
+```
+
+## Server Action — enviar no submit do form
+
+```typescript
+// app/checkout/actions.ts
+'use server';
+
+import { arara } from '@/lib/arara';
+import { revalidatePath } from 'next/cache';
+
+export async function sendOrderConfirmation(orderId: string, phone: string, customerName: string) {
+  const response = await arara.messages.send({
+    receiver: `whatsapp:${phone}`,
+    templateName: 'confirmacao_pedido',
+    templateVariables: [customerName, orderId],
+  });
+
+  revalidatePath('/admin/orders');
+  return response;
+}
+```
+
+E no client component:
+
+```tsx
+// app/checkout/page.tsx
+'use client';
+
+import { sendOrderConfirmation } from './actions';
+import { useTransition } from 'react';
+
+export default function CheckoutPage() {
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <form action={(formData) => {
+      startTransition(async () => {
+        await sendOrderConfirmation(
+          formData.get('orderId') as string,
+          formData.get('phone') as string,
+          formData.get('name') as string,
+        );
+      });
+    }}>
+      {/* campos */}
+      <button disabled={pending}>{pending ? 'Enviando...' : 'Confirmar pedido'}</button>
+    </form>
+  );
+}
+```
+
+## Route Handler — webhook
+
+```typescript
+// app/api/webhooks/arara/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+export const runtime = 'nodejs'; // não 'edge'
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest) {
+  const body = await req.text();
+  const signature = req.headers.get('x-arara-signature') ?? '';
+  const secret = process.env.ARARA_WEBHOOK_SECRET!;
+
+  const expected = createHmac('sha256', secret).update(body).digest('hex');
+
+  if (
+    expected.length !== signature.length ||
+    !timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+  ) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  }
+
+  const payload = JSON.parse(body);
+
+  switch (payload.event) {
+    case 'message.status_updated':
+      // atualiza status no banco — data.status: queued/sent/delivered/read/failed
+      break;
+    case 'message.received':
+      // mensagem recebida — push pra inbox
+      break;
+    case 'conversation.needs_human':
+      // Brain pediu humano — assign no inbox
+      break;
+  }
+
+  return new NextResponse(null, { status: 204 });
+}
+```
+
+<Warning>
+  O Next.js dá parse automático no body em alguns adaptadores. Como o HMAC depende do **bytes exatos**, sempre use `req.text()` (não `req.json()`). Senão o hash não bate.
+</Warning>
+
+## Tipos do webhook
+
+O SDK exporta os tipos pra evitar `any`:
+
+```typescript
+import type { AraraWebhookEvent } from '@ararahq/sdk';
+
+const payload: AraraWebhookEvent = JSON.parse(body);
+
+if (payload.event === 'message.status_updated') {
+  // payload.data tipado como MessageStatusData
+  console.log(payload.data.messageId, payload.data.status);
+}
+```
+
+## Streaming de status com Server-Sent Events
+
+Pra mostrar status de entrega ao vivo num dashboard interno:
+
+```typescript
+// app/api/messages/[id]/status/route.ts
+import { arara } from '@/lib/arara';
+
+export const runtime = 'nodejs';
+
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const stream = new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder();
+      let lastStatus = '';
+
+      const interval = setInterval(async () => {
+        const msg = await arara.messages.get(params.id);
+        if (msg.status !== lastStatus) {
+          lastStatus = msg.status;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(msg)}\n\n`));
+          if (['delivered', 'read', 'failed'].includes(msg.status)) {
+            controller.close();
+            clearInterval(interval);
+          }
+        }
+      }, 2000);
+    },
+  });
+
+  return new Response(stream, {
+    headers: { 'Content-Type': 'text/event-stream' },
+  });
+}
+```
+
+## Produção: idempotency
+
+Em rotas que disparam envio (Server Action, webhook handler que faz envio reverso), envie `Idempotency-Key`:
+
+```typescript
+import { randomUUID } from 'node:crypto';
+
+await arara.messages.send(
+  { receiver: '...', templateName: 'X', templateVariables: ['A'] },
+  { idempotencyKey: randomUUID() }
+);
+```
+
+A Arara dedupa requisições com a mesma chave nas últimas 24h — se o Vercel der retry no Lambda, a mensagem não duplica.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Receitas práticas" icon="book-open" href="/recipes">
+    Carrinho abandonado no Vercel, OTP, suporte com Brain.
+  </Card>
+  <Card title="SDK Node completo" icon="node" href="/sdks/node">
+    Referência de todas as classes e métodos.
+  </Card>
+</CardGroup>

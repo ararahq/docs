@@ -1,0 +1,57 @@
+---
+title: 'Integrações'
+description: 'Conecte a Arara ao seu stack: Laravel, Next.js, Shopify, WooCommerce, n8n, Zapier. Cada integração tem snippet pronto, validado contra a API real.'
+keywords: ['integrações', 'laravel', 'nextjs', 'shopify', 'woocommerce', 'n8n', 'zapier', 'stack']
+---
+
+A Arara foi construída pra encaixar onde você já está. Não tem framework próprio, não tem GUI proprietária. Só API, SDKs e Webhooks — o resto é integração nativa com o que você usa hoje.
+
+## Frameworks
+
+<CardGroup cols={2}>
+  <Card title="Laravel" icon="php" href="/integracoes/laravel">
+    SDK PHP, queue jobs pra envio assíncrono, broadcasting de webhooks via Pusher/Reverb.
+  </Card>
+  <Card title="Next.js" icon="js" href="/integracoes/nextjs">
+    SDK Node em route handlers, webhooks com signature verification, Server Actions pra envio direto do form.
+  </Card>
+</CardGroup>
+
+## E-commerce
+
+<CardGroup cols={2}>
+  <Card title="Shopify" icon="shop">
+    Carrinho abandonado, confirmação de pedido, rastreio, recuperação Pix via AbacatePay. Em breve.
+  </Card>
+  <Card title="WooCommerce" icon="wordpress">
+    Webhook plugin oficial, suporte ao Subscriptions, integração com Brain pra atendimento. Em breve.
+  </Card>
+</CardGroup>
+
+## Workflow automation
+
+<CardGroup cols={2}>
+  <Card title="n8n" icon="diagram-project">
+    Node oficial pra disparar templates, listar mensagens e receber eventos. Em breve.
+  </Card>
+  <Card title="Zapier / Make" icon="bolt">
+    Webhooks + REST genérico funciona hoje. App nativo no roadmap.
+  </Card>
+</CardGroup>
+
+## Bancos e pagamentos
+
+Pra cobrança dentro do chat, use o Brain com Actions nativas:
+
+<CardGroup cols={2}>
+  <Card title="AbacatePay (Pix)" icon="qrcode" href="/brain/actions/abacate-pix">
+    Pix brasileiro com QR Code direto no WhatsApp.
+  </Card>
+  <Card title="Stripe" icon="credit-card" href="/brain/actions/stripe">
+    Cartão e cobrança internacional.
+  </Card>
+</CardGroup>
+
+## Sua stack não tá aqui?
+
+A API da Arara é REST padrão. Qualquer linguagem com HTTP client funciona. [Veja a referência completa](/api-reference/introduction) ou abra uma issue no [GitHub](https://github.com/ararahq) se quiser uma integração nativa específica.

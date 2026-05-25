@@ -1,0 +1,212 @@
+---
+title: 'SDK PHP / Laravel'
+description: 'SDK PHP oficial da Arara — PHP 8.2+, named arguments, readonly properties, integração nativa com Guzzle. Pronto pra Laravel via service provider.'
+---
+
+```bash
+composer require ararahq/sdk
+```
+
+[![Packagist](https://img.shields.io/packagist/v/ararahq/sdk)](https://packagist.org/packages/ararahq/sdk)
+
+PHP 8.2+ requerido (usa readonly properties, named arguments, enums). Compatível com Laravel 10/11/12, Symfony 6+, vanilla PHP.
+
+## Instalação e setup
+
+```php
+use Arara\Arara;
+use Arara\Config;
+
+$sdk = new Arara(new Config(
+    apiKey: 'ara_live_xxx',
+    baseUrl: 'https://api.ararahq.com/api',
+    timeout: 10,
+));
+```
+
+Em Laravel, registra como singleton no service container — ver [integração Laravel](/integracoes/laravel).
+
+## Recursos disponíveis
+
+| Recurso | Acesso | Status |
+|---|---|---|
+| Messages | `$sdk->messages` | Estável |
+| Templates | `$sdk->templates` | Estável |
+| Users | `$sdk->users` | Estável |
+| Organizations | `$sdk->organizations` | Estável |
+| Campaigns | — | Em breve |
+| Brain | — | Em breve |
+| Payments | — | Em breve |
+
+Pra paridade total, ver [Qual SDK escolher?](/sdks).
+
+## Enviar mensagem
+
+```php
+$response = $sdk->messages->send(
+    receiver: 'whatsapp:+5511999999999',
+    templateName: 'confirmacao_pedido',
+    variables: [
+        'https://meusite.com/nota/123.pdf', // header (mídia opcional)
+        'João',                              // {{1}}
+        'ARA-12345',                         // {{2}}
+    ],
+);
+
+echo $response->id;      // ara_msg_xxx
+echo $response->status;  // queued
+```
+
+**Mensagem de sessão (texto livre, dentro de janela 24h):**
+
+```php
+$response = $sdk->messages->send(
+    receiver: 'whatsapp:+5511999999999',
+    body: 'Oi! Vi sua dúvida e respondo já já.',
+);
+```
+
+## Consultar status
+
+```php
+$msg = $sdk->messages->get('ara_msg_xxx');
+echo $msg->status; // sent | delivered | read | failed
+```
+
+## Templates
+
+```php
+// Listar
+$templates = $sdk->templates->list();
+
+// Criar
+$template = $sdk->templates->create([
+    'name' => 'promo_natal',
+    'category' => 'MARKETING',
+    'language' => 'pt_BR',
+    'body' => 'Oi {{1}}, oferta de Natal: {{2}}% off até {{3}}.',
+    'samples' => ['João', '30', 'sexta'],
+]);
+
+// Status
+$status = $sdk->templates->getStatus('promo_natal');
+echo $status->status; // PENDING | APPROVED | REJECTED | PAUSED
+
+// Deletar
+$sdk->templates->delete('promo_natal');
+```
+
+## Webhooks
+
+O SDK expõe utilidades pra processar webhook:
+
+```php
+use Arara\Utils\WebhookUtils;
+
+$payload = file_get_contents('php://input');
+$data = json_decode($payload, true);
+
+if (WebhookUtils::isMessageStatusEvent($data)) {
+    $status = $data['data']['status'];
+    $messageId = $data['data']['messageId'];
+    // atualiza status no banco
+}
+
+if (WebhookUtils::isInboundMessageEvent($data)) {
+    $from = $data['data']['from'];
+    $body = $data['data']['body'];
+    // abre ticket no inbox
+}
+
+if (WebhookUtils::isRevenueRecoveryEvent($data)) {
+    $phone = $data['data']['customerPhone'];
+    $checkoutUrl = $data['data']['checkoutUrl'];
+    // dispara recovery
+}
+```
+
+Pra validação HMAC, ver [Webhooks](/webhooks#hmac).
+
+## Idempotency
+
+```php
+$response = $sdk->messages->send(
+    receiver: 'whatsapp:+5511999999999',
+    templateName: 'confirmacao_pedido',
+    variables: ['João'],
+    idempotencyKey: \Ramsey\Uuid\Uuid::uuid4()->toString(),
+);
+```
+
+Chave dedupada por 24h.
+
+## Erros
+
+```php
+use Arara\Exceptions\AraraException;
+use Arara\Exceptions\AraraRateLimitException;
+
+try {
+    $sdk->messages->send(...);
+} catch (AraraRateLimitException $e) {
+    sleep($e->retryAfter);
+} catch (AraraException $e) {
+    echo "Error {$e->statusCode}: {$e->code} - {$e->getMessage()}";
+    print_r($e->response);
+}
+```
+
+Tipos disponíveis: `AraraException`, `AraraAuthException`, `AraraValidationException`, `AraraRateLimitException`, `AraraNotFoundException`, `AraraServerException`.
+
+## Retry com Guzzle
+
+Por baixo, o SDK usa Guzzle 7+ com middleware de retry exponencial nativo. Configurável:
+
+```php
+$sdk = new Arara(new Config(
+    apiKey: 'ara_live_xxx',
+    maxRetries: 5,
+    retryMaxWait: 30,
+));
+```
+
+## Laravel
+
+Setup completo (service provider, queue jobs, webhook controller) em [Integração Laravel](/integracoes/laravel).
+
+Resumido:
+
+```php
+// app/Providers/AraraServiceProvider.php
+$this->app->singleton(Arara::class, function () {
+    return new Arara(new Config(
+        apiKey: config('services.arara.key'),
+        baseUrl: config('services.arara.base_url'),
+    ));
+});
+
+// Em qualquer Controller / Job
+public function store(Request $request, Arara $sdk)
+{
+    $sdk->messages->send(
+        receiver: 'whatsapp:' . $request->phone,
+        templateName: 'confirmacao_pedido',
+        variables: [$request->name, $request->orderId],
+    );
+}
+```
+
+## Source
+
+GitHub: [github.com/ararahq/arara-php-sdk](https://github.com/ararahq/arara-php-sdk) · MIT
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Receitas Laravel" icon="php" href="/integracoes/laravel">
+    Service provider, queue jobs, broadcasting.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Endpoints REST por baixo do SDK.
+  </Card>
+</CardGroup>

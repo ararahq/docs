@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Mintlify
+.mintlify/
+
+# Pastas internas (nao vao pra doc publica)
+_internal/
+deck/
+copy/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,204 @@
+---
+title: 'Templates HSM'
+description: 'Templates aprovados pela Meta (HSM — Highly Structured Messages) são a única forma de iniciar conversa fora da janela 24h. Esta página explica categorias, variáveis, mídia, botões e o ciclo de aprovação.'
+keywords: ['template', 'hsm', 'meta', 'aprovação', 'utility', 'marketing', 'authentication', 'whatsapp']
+---
+
+Template HSM é o **contrato pré-aprovado** que você manda quando o cliente não interagiu nas últimas 24h. É o que diferencia comunicação iniciada por você (precisa de template) de resposta dentro da janela (texto livre).
+
+Esta página cobre o que você precisa saber pra criar, submeter e gerenciar templates sem retrabalho.
+
+<Note>
+  Pra regras detalhadas de **o que pode/não pode** no corpo do template (palavras proibidas, formato, mídia), ver [Política de templates](/templates/policy).
+</Note>
+
+## Por que template existe
+
+A Meta limita comunicação iniciada por empresa pra impedir spam. Você não pode acordar e mandar mensagem genérica pra base inteira — primeiro precisa **declarar** o que vai mandar, **categorizar** e **passar pela revisão** da Meta. Aprovou? Pode disparar quantas vezes quiser.
+
+O nome **HSM** (Highly Structured Message) vem dessa estrutura pré-aprovada. Hoje o termo oficial Meta é só "template" — mas você ainda vai ver HSM em documentação técnica.
+
+## As 3 categorias
+
+<CardGroup cols={3}>
+  <Card title="UTILITY" icon="bell">
+    Notificação que o cliente **espera**: pedido confirmado, OTP, lembrete de consulta, status de entrega.
+    
+    **R$ 0,12** · 1-4h aprovação
+  </Card>
+  <Card title="MARKETING" icon="megaphone">
+    Promoção, oferta, lançamento, recuperação de carrinho. Cliente precisa ter consentido explicitamente em marketing.
+    
+    **R$ 0,40** · 12-72h aprovação
+  </Card>
+  <Card title="AUTHENTICATION" icon="key">
+    Apenas OTP/2FA. Formato restrito: precisa botão "Copiar código".
+    
+    **R$ 0,12** · 1-2h aprovação
+  </Card>
+</CardGroup>
+
+<Warning>
+  Categoria errada = template **reclassificado retroativamente** pela Meta após N envios, cobrança recalculada, e queda de qualidade do número. **Na dúvida entre UTILITY e MARKETING, escolha MARKETING.** Custa mais mas evita surpresa.
+</Warning>
+
+## Anatomia de um template
+
+```
+┌──────────────────────────────────────┐
+│ [HEADER]                             │  ← Opcional: texto OU mídia (imagem/vídeo/PDF)
+│ [imagem/PDF dinâmica via variável]   │
+├──────────────────────────────────────┤
+│ [BODY]                               │  ← Obrigatório
+│ Oi {{1}}, seu pedido {{2}}           │     Até 1024 caracteres
+│ foi confirmado!                      │     Variáveis {{1}}, {{2}}...
+│ Total: R$ {{3}}                      │
+├──────────────────────────────────────┤
+│ [FOOTER]                             │  ← Opcional
+│ Acompanhe pelo nosso site            │     Até 60 caracteres, sem variáveis
+├──────────────────────────────────────┤
+│ [BUTTONS]                            │  ← Até 3 botões
+│ [Ver pedido] [Falar com atendente]   │
+└──────────────────────────────────────┘
+```
+
+## Variáveis
+
+Cada `{{n}}` é substituído em tempo de envio. Regras:
+
+- Posicional: `{{1}}` recebe o **primeiro** elemento do array `templateVariables`, `{{2}}` o segundo, e assim por diante
+- Não pode ter `{{1}} {{2}}` adjacente (sem texto entre)
+- Não pode ter variável vazia ou só whitespace
+- Tamanho mínimo de texto fixo entre variáveis: 2-3 palavras
+
+```typescript
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'pedido_confirmado',
+  templateVariables: [
+    'João',     // {{1}}
+    'ARA-123',  // {{2}}
+    '147,90',   // {{3}}
+  ],
+});
+```
+
+## Mídia no header
+
+Se o template tem header de mídia (imagem/vídeo/PDF), a URL vai como **primeiro elemento** do array `templateVariables`:
+
+```typescript
+templateVariables: [
+  'https://meusite.com/imagem.jpg', // header (mídia)
+  'João',                            // {{1}} no body
+  'ARA-123',                         // {{2}} no body
+]
+```
+
+A Arara faz upload prévio pro CDN da Meta automaticamente.
+
+Limites:
+- Imagem: PNG/JPEG, max 5 MB
+- Vídeo: MP4 H.264, max 16 MB, max 16s
+- PDF: max 100 MB, max 100 páginas
+
+## Botões
+
+Até 3 botões por template:
+
+| Tipo | Comportamento |
+|---|---|
+| `QUICK_REPLY` | Resposta rápida. Cliente clica e a Arara recebe webhook `message.received` com `type: button`. |
+| `URL` | Abre URL externa. Pode ter variável: `https://meusite.com/{{1}}`. |
+| `PHONE_NUMBER` | Liga pra número fixo. |
+| `SMART_LINK` | URL curta com tracking 1st-party da Arara. Ver [Smart Links](/smart-links). |
+| `COPY_CODE` | Copia código pra clipboard. Obrigatório em AUTHENTICATION. |
+
+## Criando template
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "name": "pedido_confirmado",
+    "category": "UTILITY",
+    "language": "pt_BR",
+    "body": "Oi {{1}}, seu pedido {{2}} foi confirmado!\nTotal: R$ {{3}}",
+    "footer": "Acompanhe pelo nosso site",
+    "samples": ["João", "ARA-123", "147,90"],
+    "buttons": [
+      { "type": "URL", "text": "Ver pedido", "url": "https://meusite.com/pedido/{{1}}" }
+    ]
+  }'
+```
+
+O campo `samples` é **obrigatório** — exemplo de valores reais que vão substituir as variáveis. Meta usa pra revisar.
+
+## Ciclo de aprovação
+
+```
+[Você submete]
+     ↓
+[Arara faz lint local — pega erros óbvios antes de mandar pra Meta]
+     ↓
+[Arara envia pra Cloud API]
+     ↓
+[Meta processa: 1-72h dependendo da categoria]
+     ↓
+[Resultado vem via webhook `template.updated` com `status: APPROVED` ou `REJECTED`]
+     ↓
+APPROVED                            REJECTED
+     ↓                                 ↓
+Pode mandar quantas vezes            Vê o motivo
+quiser                               Corrige + ressubmete
+```
+
+## Pausa automática
+
+Mesmo aprovado, template pode ser **pausado** pela Meta se:
+
+- Taxa de bloqueio > 2% nos últimos 7 dias
+- Reclamação direta de usuários
+- Mudança de política Meta
+
+Pausa vem via webhook `template.updated` com `status: PAUSED`. Pra reativar, **modifique o corpo** e ressubmeta. Cópia exata vai pausar de novo.
+
+## Múltiplos idiomas
+
+Cada template é amarrado a **um par categoria + idioma**. Pra enviar PT-BR e EN-US, crie **dois templates separados** (mesmo nome, idiomas diferentes).
+
+```bash
+curl -X POST .../v1/templates -d '{
+  "name": "pedido_confirmado",
+  "language": "pt_BR",
+  "body": "Oi {{1}}, seu pedido {{2}} foi confirmado!"
+}'
+
+curl -X POST .../v1/templates -d '{
+  "name": "pedido_confirmado",
+  "language": "en_US",
+  "body": "Hi {{1}}, your order {{2}} is confirmed!"
+}'
+```
+
+Suportados pra mercado BR: `pt_BR`, `en_US`, `es_ES`.
+
+## Limites de quantidade
+
+| Plano | Templates aprovados |
+|---|---|
+| FREE | 3 |
+| PRO | 50 |
+| BUSINESS | 250 |
+| ENTERPRISE | ilimitado |
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Política de templates" icon="scale-balanced" href="/templates/policy">
+    Regras detalhadas do que pode/não pode.
+  </Card>
+  <Card title="API: Templates" icon="code" href="/api-reference/endpoint/v2/templates">
+    Endpoints completos de CRUD.
+  </Card>
+</CardGroup>

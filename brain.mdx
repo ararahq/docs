@@ -1,0 +1,213 @@
+---
+title: 'Brain — o motor de IA da Arara'
+description: 'Agente AI hospedado pela Arara. Atende cliente no WhatsApp 24/7, consulta sua base de conhecimento, executa ações (gerar Pix, agendar, listar produto), escala pra humano quando precisa. Configurável em 10 minutos.'
+keywords: ['brain', 'ia', 'agente', 'whatsapp', 'chatbot', 'rag', 'knowledge base', 'eval']
+---
+
+O **Brain** é o agente de IA da Arara — hospedado, treinado no seu negócio, conectado às tools nativas (AbacatePay, Cal.com, Shopify, Stripe). Não é wrapper de OpenAI: é um motor de produção que entende WhatsApp, janela 24h, templates HSM e Guardian Mode nativamente.
+
+<Note>
+  Brain é **add-on do plano** (R$ 250/mês a partir do PRO). Inclui modelo de raciocínio, RAG sobre sua base de conhecimento, 5K conversas/mês e Guardian. Acima disso, usage-based.
+</Note>
+
+## O que o Brain faz
+
+<CardGroup cols={2}>
+  <Card title="Atende em linguagem natural" icon="message">
+    Cliente pergunta, agente responde no tom da sua marca. Sem árvore de decisão.
+  </Card>
+  <Card title="Executa ações reais" icon="bolt">
+    Não responde só "vou te passar pro atendente". Gera Pix, agenda, lista produto, fecha venda.
+  </Card>
+  <Card title="Escala quando precisa" icon="user-plus">
+    Detecta urgência, reclamação, ou tópico fora do escopo e passa o bastão pro humano com contexto.
+  </Card>
+  <Card title="Aprende sem fine-tuning" icon="brain">
+    Você sobe documento, URL, FAQ — o Brain indexa via RAG. Sem treino, sem custo de modelo customizado.
+  </Card>
+</CardGroup>
+
+## Como começa
+
+<Steps>
+  <Step title="Ativa o Brain no plano">
+    Dashboard → **Cobrança → Add-ons → Brain**. R$ 250/mês.
+  </Step>
+  <Step title="Configura prompt da marca">
+    **Brain → Configuração**. Tom, restrições, exemplos de resposta. 5 min.
+  </Step>
+  <Step title="Sobe knowledge base">
+    Política de devolução, perguntas frequentes, catálogo. Aceita URL, PDF, texto. Indexação em ~2 min.
+  </Step>
+  <Step title="Configura Actions">
+    Liga as integrações que o Brain pode executar: [AbacatePay](/brain/actions/abacate-pix), [Cal.com](/brain/actions/cal-com), [Catálogo](/brain/actions/catalog), [Stripe](/brain/actions/stripe).
+  </Step>
+  <Step title="Testa com eval suite">
+    Define 20-50 casos esperados ("cliente pergunta X → resposta deve conter Y"). Roda eval. Ajusta até passar.
+  </Step>
+  <Step title="Liga em produção">
+    Modo padrão: Brain responde, humano monitora. Modo autopilot: Brain decide quando escalar.
+  </Step>
+</Steps>
+
+## Knowledge base (RAG)
+
+A Arara hospeda um vector store dedicado à sua organização. Você adiciona conhecimento por 3 vias:
+
+```bash
+# Texto puro
+curl -X POST https://api.ararahq.com/api/v1/brain/knowledge \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "type": "FAQ",
+    "content": "Aceitamos devolução em até 7 dias úteis após o recebimento, desde que o produto esteja sem uso..."
+  }'
+
+# URL (a Arara faz crawl)
+curl -X POST https://api.ararahq.com/api/v1/brain/ingest-url \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{ "url": "https://meusite.com.br/ajuda/devolucao", "label": "Política de devolução" }'
+
+# PDF (upload multipart)
+curl -X POST https://api.ararahq.com/api/v1/brain/ingest-pdf \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -F "file=@manual_completo.pdf" \
+  -F "label=Manual operacional"
+```
+
+`type` aceita `GENERAL` (default), `FAQ`, `PRICING`, `TONE`.
+
+Limites:
+- URL: até 200 páginas por crawl
+- PDF: até 100MB, 100 páginas
+- Texto direto: 50KB por entrada
+
+## Eval suite
+
+Antes de soltar em produção, você define casos esperados:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/brain/eval/cases \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "input": "Quero devolver um produto que comprei semana passada",
+    "assertions": {
+      "mustContain": ["7 dias", "sem uso"],
+      "mustNotContain": ["não aceitamos"],
+      "expectedTone": "amigável"
+    }
+  }'
+```
+
+Roda toda a suite contra o Brain configurado:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/brain/eval/run-all \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Pra rodar um caso individual:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/brain/eval/cases/{id}/run \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Retorna pass rate, cases que falharam e onde. Iteração ficou rápida.
+
+## Guardian Mode
+
+Toda resposta do Brain passa pelo Guardian antes de sair:
+
+- PII detection (CPF, RG, cartão, senha)
+- Palavras proibidas (configurável por sessão)
+- Tom inadequado (configurável: "não pode soar agressivo")
+- Validação de promessas ("não pode prometer prazo de entrega menor que X dias")
+
+Configurável via `PATCH /v1/brain/config` no campo `guardrails`:
+
+```bash
+curl -X PATCH https://api.ararahq.com/api/v1/brain/config \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -d '{
+    "guardrails": {
+      "blockOnPII": ["cpf", "rg", "credit_card"],
+      "blockKeywords": ["pague aqui", "última chance"],
+      "requireApprovalAboveCents": 100000,
+      "brandTone": "informal, sem emojis em excesso"
+    }
+  }'
+```
+
+Quando o Guardian bloqueia uma resposta, escala pra humano automaticamente.
+
+## Métricas
+
+Dashboard em **Brain → Métricas** ou via API:
+
+```bash
+curl https://api.ararahq.com/api/v1/brain/metrics \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Retorna:
+
+```json
+{
+  "period": "30d",
+  "attended": 1820,
+  "resolved": 1456,
+  "escalatedToHuman": 364,
+  "resolutionRate": 0.80,
+  "avgResponseTimeSeconds": 8.4,
+  "p95ResponseTimeSeconds": 23.1,
+  "costCents": 18750,
+  "topUnresolvedTopics": ["política de troca", "horário de funcionamento", "rastreio"]
+}
+```
+
+`topUnresolvedTopics` é o sinal mais útil pra evolução: o que o Brain não resolveu sozinho. Adiciona à knowledge base → resolve da próxima vez.
+
+## Handoff pra humano
+
+Quando o Brain decide escalar (ou Guardian bloqueia), a conversa abre como handoff no inbox:
+
+```bash
+curl https://api.ararahq.com/api/v1/brain/handoffs?status=PENDING \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Cada handoff vem com:
+- Contexto completo da conversa
+- Motivo do handoff (`URGENT`, `COMPLAINT`, `OUT_OF_SCOPE`, `GUARDIAN_BLOCK`)
+- Sugestão de resposta (humano pode aceitar/editar)
+
+## Quando NÃO usar Brain
+
+- Conversas com alto risco financeiro/jurídico (acima de R$ 5K). Use modo "assistir": Brain sugere, humano aprova.
+- Mercados altamente regulados (saúde, financeiro, jurídico). Compliance pode exigir humano no loop.
+- Volume baixo (< 100 conversas/mês). Não compensa o add-on — opera no humano direto.
+
+## Configuração avançada — API
+
+| Endpoint | Função |
+|---|---|
+| `GET /v1/brain/config` | Retorna config atual |
+| `PATCH /v1/brain/config` | Atualiza prompt, toggles, guardrails |
+| `GET /v1/brain/prompt-preview` | Preview do prompt final |
+| `GET /v1/brain/prerequisites` | Checa se está pronto pra ligar |
+| `POST /v1/brain/test` | Testa resposta com mensagem-mock |
+| `POST /v1/brain/cost-estimate` | Estima custo mensal por volume |
+| `GET /v1/brain/handoffs` | Lista escaladas pra humano |
+| `POST /v1/brain/handoffs/{id}/resolve` | Marca como resolvido |
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Actions disponíveis" icon="bolt" href="/actions">
+    O que o Brain pode executar.
+  </Card>
+  <Card title="Posicionamento" icon="lightbulb" href="/agents">
+    Brain vs MCP vs SDK — qual usar quando.
+  </Card>
+</CardGroup>

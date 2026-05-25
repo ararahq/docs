@@ -1,0 +1,167 @@
+---
+title: 'Sessão e Usuário'
+description: 'Troque um token Firebase por uma sessão Arara, consulte o usuário autenticado e liste as organizações que ele pertence.'
+---
+
+Endpoints usados pelo Dashboard, CLI e SDKs que precisam de uma **sessão de usuário** (não de uma API key). Os três endpoints abaixo formam o ponto de entrada do fluxo de login.
+
+**Base URL:** `https://api.ararahq.com/api`
+
+<Note>
+  **Autenticação aqui é diferente do resto da API.** Endpoints de `/auth/*` recebem um **ID token do Firebase** no corpo (`POST /auth`) ou no header `Authorization: Bearer <firebase_id_token>` (`GET /auth/me`). Para qualquer outro endpoint da Arara, use sua **API key** (`ara_live_...` / `ara_test_...`). Veja [Autenticação](/api-reference/authentication).
+</Note>
+
+---
+
+## Trocar token Firebase por sessão
+
+`POST /auth`
+
+Recebe um ID token do Firebase (obtido pelo seu app via `firebase.auth().currentUser.getIdToken()`), valida com a Google, cria ou recupera o usuário/organização correspondente e devolve uma sessão Arara junto com a API key da organização.
+
+```bash
+curl -X POST https://api.ararahq.com/api/auth \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjEy..."
+  }'
+```
+
+### Parâmetros
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `token` | string | sim | ID token do Firebase (JWT assinado pela Google). |
+
+Resposta (`200 OK`):
+
+```json
+{
+  "user": {
+    "name": "Maria Silva",
+    "email": "maria@exemplo.com.br",
+    "role": null
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": "7f8a1c2d-4e5f-6789-abcd-ef0123456789",
+  "isAuthenticated": true,
+  "apiKey": "ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+### Campos da resposta
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `user.name` | string | Nome do usuário (vindo do Firebase no primeiro login). |
+| `user.email` | string | Email verificado. |
+| `user.role` | string \| null | Papel do usuário na organização primária. `null` em primeiros logins até a organização ser criada. |
+| `token` | string | Token de sessão Arara. Use no header `Authorization: Bearer <token>` em chamadas subsequentes para `/auth/me` e `/auth/me/organizations`. |
+| `userId` | UUID \| null | ID interno do usuário. |
+| `isAuthenticated` | boolean | Sempre `true` em resposta `200`. |
+| `apiKey` | string \| null | **Aparece apenas no primeiro login** (quando a organização é criada). Copie e guarde — não é exibida novamente. Em logins subsequentes vem `null`; gere novas chaves via [API Keys](/api-reference/endpoint/v2/api-keys). |
+
+<Warning>
+  O campo `apiKey` é exibido **uma única vez**, no primeiro login. Se você perder, crie uma nova via `POST /v2/api-keys`. A Arara não armazena o valor completo da chave.
+</Warning>
+
+---
+
+## Usuário autenticado
+
+`GET /auth/me`
+
+Retorna o nome e email do usuário cuja sessão está no header.
+
+```bash
+curl https://api.ararahq.com/api/auth/me \
+  -H "Authorization: Bearer <firebase_id_token>"
+```
+
+Resposta (`200 OK`):
+
+```json
+{
+  "name": "Maria Silva",
+  "email": "maria@exemplo.com.br",
+  "role": null
+}
+```
+
+### Campos
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `name` | string | Nome do usuário. |
+| `email` | string | Email do usuário. |
+| `role` | string \| null | Papel na organização primária. |
+
+---
+
+## Organizações do usuário
+
+`GET /auth/me/organizations`
+
+Lista todas as organizações que o usuário autenticado pertence — tanto a primária quanto convites aceitos.
+
+```bash
+curl https://api.ararahq.com/api/auth/me/organizations \
+  -H "Authorization: Bearer <firebase_id_token>"
+```
+
+Resposta (`200 OK`):
+
+```json
+{
+  "data": [
+    {
+      "id": "7f8a1c2d-4e5f-6789-abcd-ef0123456789",
+      "slug": "minha-empresa",
+      "name": "Minha Empresa",
+      "role": "OWNER",
+      "mode": "live"
+    },
+    {
+      "id": "8a2b3c4d-5e6f-7890-abcd-ef1234567890",
+      "slug": "agencia-cliente-x",
+      "name": "Agência Cliente X",
+      "role": "MEMBER",
+      "mode": "live"
+    }
+  ]
+}
+```
+
+### Campos
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | UUID | Identificador da organização. |
+| `slug` | string \| null | Slug único usado em URLs (ex: `ararahq.com/minha-empresa`). |
+| `name` | string | Nome exibível. |
+| `role` | string | `OWNER` (admin) ou `MEMBER` (usuário comum). |
+| `mode` | string | `live` se a organização está ativa, `test` se ainda em onboarding. |
+
+A primeira organização do array é a **primária** — onde o usuário foi originalmente registrado.
+
+---
+
+## Erros
+
+| HTTP | Quando |
+|------|--------|
+| `400` | Body sem `token` em `POST /auth`. |
+| `401` | Token Firebase inválido, expirado ou assinado por projeto diferente. |
+| `401` | Header `Authorization` ausente em `GET /auth/me*`. |
+| `500` | Falha ao validar o token contra a Google ou ao persistir o usuário. |
+
+Formato padrão de erro:
+
+```json
+{
+  "error": {
+    "code": "INVALID_FIREBASE_TOKEN",
+    "message": "The provided Firebase ID token is invalid or has expired."
+  }
+}
+```

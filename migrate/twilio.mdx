@@ -1,0 +1,218 @@
+---
+title: 'Migrar do Twilio'
+description: 'Saia do Twilio WhatsApp pra Arara em um final de semana. Mantém número, mantém templates aprovados, custo cai 30-50% em BRL, ganha Brain + Smart Links + Recovery. Diff de código para Node, Python, PHP, Java.'
+keywords: ['twilio', 'migração', 'whatsapp', 'business api', 'baixar custo']
+---
+
+Migrar do Twilio é mais simples do que parece — você mantém o número, mantém os templates aprovados (re-submetemos), e o código muda em ~3 funções. Esta página é o roteiro completo.
+
+<Note>
+  **Quanto tempo leva**: 3-7 dias úteis pra portar o número (Meta exige verificação) + 1-2 dias pra adaptar código + 1 dia em paralelo (Twilio e Arara rodando ao mesmo tempo).
+</Note>
+
+## O que você ganha
+
+| | Twilio WhatsApp | Arara |
+|---|---|---|
+| Preço por MARKETING | US$ 0,0625 + Twilio markup ~50% | R$ 0,40 (Meta + 30% margem) |
+| Preço por UTILITY | US$ 0,0055 + Twilio markup ~50% | R$ 0,12 |
+| Faturamento | USD | **BRL** |
+| Brain (AI nativo) | Não | Sim (R$ 250/mês add-on) |
+| Smart Links 1st-party | Não | Sim |
+| Revenue Recovery | Não | Sim (integração AbacatePay) |
+| Suporte BR | Inglês, fuso US | PT-BR, fuso BR |
+| Templates lint local | Não | Sim |
+| Console | TwilioStudio (genérico) | Dashboard focado em WhatsApp |
+| MCP / agentes AI | Não | 84 tools |
+
+Custo médio cai **30-50%** dependendo do mix UTILITY/MARKETING.
+
+## O que você mantém
+
+- **Número** (porting Meta entre BSPs é instantâneo via solicitação)
+- **Templates aprovados** (re-submetemos com nosso lint; aprovação Meta em 1-72h)
+- **Histórico** (não migramos, mas Twilio mantém o histórico antigo)
+
+## Diff de código
+
+### Envio de template
+
+<CodeGroup>
+```typescript Twilio (antes)
+import twilio from 'twilio';
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+await client.messages.create({
+  from: 'whatsapp:+14155238886',
+  to: 'whatsapp:+5511999999999',
+  contentSid: 'HXabc123...', // template SID
+  contentVariables: JSON.stringify({ '1': 'João', '2': 'ARA-123' }),
+});
+```
+
+```typescript Arara (depois)
+import { NodeSDK } from '@ararahq/sdk';
+const sdk = new NodeSDK({
+  apiKey: process.env.ARARA_API_KEY,
+  baseUrl: 'https://api.ararahq.com/api',
+});
+
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'confirmacao_pedido',
+  templateVariables: ['João', 'ARA-123'],
+});
+```
+</CodeGroup>
+
+Diferenças:
+- **`contentSid` → `templateName`**: na Arara você usa o nome humano do template, não SID interno.
+- **`contentVariables` como JSON → array posicional**: muito mais simples.
+- **Sem `from`**: a Arara sabe qual dos seus números usar baseado no plano.
+
+### Webhook de status
+
+<CodeGroup>
+```typescript Twilio (antes)
+app.post('/twilio/status', (req, res) => {
+  const { MessageSid, MessageStatus } = req.body;
+  // ...
+  res.send('OK');
+});
+```
+
+```typescript Arara (depois)
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+app.post('/arara/webhook', (req, res) => {
+  const signature = req.headers['x-arara-signature'];
+  const body = req.rawBody;
+  const expected = createHmac('sha256', process.env.ARARA_WEBHOOK_SECRET).update(body).digest('hex');
+  
+  if (!timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+    return res.status(401).end();
+  }
+  
+  const { event, data } = JSON.parse(body);
+  if (event === 'message.status_updated') {
+    // data.messageId, data.status (sent | delivered | read | failed)
+  }
+  res.status(204).end();
+});
+```
+</CodeGroup>
+
+Diferenças:
+- **HMAC obrigatório** na Arara (Twilio não tinha por default em todos os planos).
+- **Envelope unificado** `{ event, data }` (Twilio espalhava campos no body).
+- **Status names em lowercase** (Twilio usava `delivered`, `read`; Arara também — fácil).
+
+### Mensagem inbound (cliente respondeu)
+
+<CodeGroup>
+```typescript Twilio (antes)
+app.post('/twilio/inbound', (req, res) => {
+  const { From, Body, MessageSid } = req.body;
+  const phone = From.replace('whatsapp:', '');
+  // processa
+  res.set('Content-Type', 'text/xml');
+  res.send('<Response></Response>'); // resposta TwiML opcional
+});
+```
+
+```typescript Arara (depois)
+// Webhook único — mesma rota acima trata todos os eventos
+if (event === 'message.received') {
+  const phone = data.from; // já sem 'whatsapp:'
+  const body = data.body;
+  // processa
+  // reply via SDK, não via TwiML
+  await sdk.messages.send({ receiver: `whatsapp:${phone}`, body: 'Obrigado!' });
+}
+```
+</CodeGroup>
+
+Diferenças:
+- **Sem TwiML**: você responde via API call, não retornando XML.
+- **Webhook único** pra todos os eventos (status, inbound, etc).
+- **Phone sem prefix** no `data.from`.
+
+## Mapping de campos
+
+| Twilio | Arara | Notas |
+|---|---|---|
+| `MessageSid` | `messageId` | Ambos começam com prefixo identificador. Arara: `ara_msg_*`. |
+| `MessageStatus` | `status` | Valores iguais (sent, delivered, read, failed) |
+| `From` / `To` | `from` / `receiver` | Sem prefix em Arara webhook inbound |
+| `Body` | `body` | igual |
+| `contentSid` | `templateName` | Arara usa nome humano |
+| `contentVariables` | `templateVariables` | Array posicional |
+| `MediaUrl0/1/2` | `templateVariables[0]` (header) | Mídia em template vai como 1ª var |
+| `ProfileName` | `senderName` (em inbound) | igual |
+| `ErrorCode` | `errorCode` | Códigos Meta, iguais |
+
+## Plano de migração
+
+### Semana -2 (preparação)
+
+1. Lista todos os templates ativos no Twilio (export via console ou API)
+2. Lista todos os números em uso
+3. Abre conta na Arara (gratuita)
+4. Importa templates: `POST /v1/templates` pra cada (a Arara faz lint local, depois submete pra Meta com seu Business Manager — você não perde a aprovação)
+
+### Semana -1 (porting)
+
+5. Solicita port do número via dashboard Arara → **Números → Solicitar port da Meta**
+6. Confirma na sua conta Meta Business Manager
+7. Aguarda 3-7 dias úteis. Durante esse período, Twilio continua operando.
+
+### Dia D (cutover)
+
+8. Templates aprovados na Arara (espelhados do Twilio)
+9. Atualiza env vars: `ARARA_API_KEY`, `ARARA_WEBHOOK_SECRET`, `ARARA_BASE_URL`
+10. Atualiza webhook URL na Arara
+11. Faz deploy do código adaptado
+12. Cancela renovação no Twilio (não cancela conta — espera 30 dias pra garantir)
+
+### Dia D+1 a D+30 (vigilância)
+
+13. Monitora dashboard Arara: taxa de entrega, qualidade do número, erros
+14. Webhook de comparação (opcional): rodar Arara em sombra e comparar com Twilio
+15. Após 30 dias estáveis, encerrar conta Twilio
+
+## Pegadinhas que você vai encontrar
+
+### 1. Templates com nome no Twilio diferente do que você quer na Arara
+
+Use o `name` que faz sentido pra você (`pedido_confirmado`, não `HXabc123`). A Arara aceita renomear na importação.
+
+### 2. Twilio tinha botões interativos ricos
+
+A Arara suporta os mesmos tipos (QUICK_REPLY, URL, PHONE, COPY_CODE) + tipo nativo SMART_LINK pra tracking. Adapte na importação.
+
+### 3. Mídia URL temporária Twilio
+
+Twilio servia mídia via URL temporária que expira. Migre as mídias pro seu CDN ou pro nosso (`POST /v1/media/upload`) — Arara não consome URL temporária.
+
+### 4. Conversations vs Messages
+
+Se você usava Twilio Conversations (multi-channel), a Arara é WhatsApp-focused. Outros canais não migram aqui.
+
+### 5. Studio flows
+
+Lógica visual do Twilio Studio não migra. Replique no seu backend ou use [Brain](/brain) com Actions.
+
+## Custo de cutover
+
+Aprox 1 dev × 1 semana pra adaptar código de uma operação média. ROI normalmente paga o trabalho em < 1 mês via redução de custo.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Primeiro envio em 5 min.
+  </Card>
+  <Card title="SDK Node" icon="node" href="/sdks/node">
+    Referência completa.
+  </Card>
+</CardGroup>

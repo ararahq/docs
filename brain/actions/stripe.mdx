@@ -1,0 +1,123 @@
+---
+title: 'Stripe'
+description: 'Deixe o agente AI criar checkout, processar upgrade de plano e enviar link de pagamento internacional direto no WhatsApp. Bom pra SaaS, B2B e cobrança em USD.'
+---
+
+A Action **Stripe** é a Action de pagamento internacional do Brain. Cliente quer pagar com cartão (Visa/Master/Amex), pagar em USD, ou você opera SaaS com pricing recorrente — o agente cria o checkout e envia o link.
+
+<Note>
+  Pra pagamento brasileiro com Pix (alta conversão no WhatsApp), use [AbacatePay](/brain/actions/abacate-pix). Stripe é a escolha pra cartão e cobrança internacional.
+</Note>
+
+## Quando o agente usa
+
+- Cliente quer upgrade de plano SaaS (one-time ou recurring)
+- Cliente pede pra pagar com cartão (não tem Pix)
+- Operação B2B com fatura em USD
+- Upsell de add-on no meio da conversa
+
+## Setup
+
+<Steps>
+  <Step title="Cria uma Restricted Key no Stripe">
+    Dashboard Stripe → **Developers → API keys → Create restricted key**. Permissões: `checkout.sessions:write`, `prices:read`, `products:read`, `customers:write`.
+  </Step>
+  <Step title="Lista os Price IDs que o agente pode oferecer">
+    Stripe → **Products**. Anota o `price_xxx` de cada plano/produto. O agente só pode criar checkout pros prices que você listar.
+  </Step>
+  <Step title="Habilita na Arara">
+    ```bash
+    curl -X PATCH https://api.ararahq.com/api/v1/brain/actions/stripe \
+      -H "Authorization: Bearer ara_live_xxx" \
+      -d '{
+        "enabled": true,
+        "config": {
+          "restrictedKey": "rk_live_xxx",
+          "allowedPrices": [
+            { "id": "price_1Nxx", "label": "Starter mensal", "amount": 29 },
+            { "id": "price_1Ny", "label": "Pro mensal", "amount": 99 },
+            { "id": "price_1Nz", "label": "Enterprise anual", "amount": 999 }
+          ],
+          "successUrl": "https://meusite.com/obrigado",
+          "cancelUrl": "https://meusite.com/checkout-cancelado"
+        }
+      }'
+    ```
+  </Step>
+</Steps>
+
+## Fluxo
+
+```
+Cliente:   "Quero o plano Pro"
+  ↓
+Agente:    [busca em allowedPrices → encontra "Pro mensal" price_1Ny → $99]
+  ↓
+Agente:    [Stripe API → cria checkout session]
+  ↓
+Agente:    "Plano Pro: $99/mês, cartão internacional.
+            Pague aqui: https://checkout.stripe.com/c/cs_test_xxx
+            O link vale 24h."
+```
+
+## Recorrência e webhooks
+
+Pra cobrança recorrente, configure webhook do Stripe apontando pra:
+
+```
+https://api.ararahq.com/api/v1/webhooks/stripe-brain
+```
+
+Eventos suportados:
+
+| Evento Stripe | Comportamento |
+|---|---|
+| `checkout.session.completed` | Agente envia confirmação no chat. |
+| `invoice.paid` | Renovação ok — agente avisa próxima cobrança. |
+| `invoice.payment_failed` | Agente reabre conversa pra atualizar método de pagamento. |
+| `customer.subscription.deleted` | Agente faz fluxo de saída e oferece desconto pra ficar. |
+
+A Arara já valida a `Stripe-Signature` antes de processar.
+
+## Multi-moeda
+
+Se você cobra em moedas diferentes (BRL pra clientes BR, USD pra exterior), liste prices separados na config e o agente escolhe baseado no idioma da conversa e DDD detectado.
+
+```json
+{
+  "allowedPrices": [
+    { "id": "price_BR_pro", "label": "Pro mensal BR", "amount": 99, "currency": "brl" },
+    { "id": "price_US_pro", "label": "Pro mensal US", "amount": 19, "currency": "usd" }
+  ],
+  "currencyByLocale": {
+    "pt": "brl",
+    "en": "usd",
+    "es": "usd"
+  }
+}
+```
+
+## Customer matching
+
+Quando o agente cria o checkout, ele tenta associar com um Stripe Customer existente:
+
+1. Procura por email se já capturado na conversa
+2. Procura por metadata `whatsapp_phone` = número da conversa
+3. Cria novo customer com `whatsapp_phone` na metadata se não achar
+
+Isso garante que renovações e churn aparecem corretamente na sua cohort do Stripe.
+
+## Limitações
+
+- **Sem desconto livre**: o agente só pode aplicar promotion codes que existam no Stripe. Pra negociação livre ("dou 15% se fechar agora"), use a tool `negotiate_payment` do MCP (via AbacatePay) que cria um checkout one-off.
+- **3DS / SCA**: requerido em alguns países. O Stripe Checkout lida automaticamente, mas o cliente vai precisar autenticar no banco. Avisa isso no prompt do Brain.
+- **Sem subscription update via Action**: criar nova é OK, mudar plano de subscription existente precisa fluxo manual ou Stripe Customer Portal.
+
+<CardGroup cols={2}>
+  <Card title="Brain config" icon="brain" href="/brain">
+    Tom, prompt e knowledge base.
+  </Card>
+  <Card title="Receita: SaaS upsell" icon="rocket" href="/recipes/marketing">
+    Fluxo de upsell em chat.
+  </Card>
+</CardGroup>
