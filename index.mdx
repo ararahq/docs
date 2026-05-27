@@ -228,7 +228,7 @@ arara.getMessages().send(SendMessageRequest.builder()
     {[
       'Shopify', 'WooCommerce', 'Next.js', 'Laravel',
       'AbacatePay', 'Cal.com', 'Stripe', 'n8n',
-      'Claude', 'Cursor', 'Windsurf', 'ChatGPT',
+      'Claude Code', 'Cursor', 'Windsurf', 'ChatGPT',
     ].map((name) => (
       <div
         key={name}
@@ -245,6 +245,127 @@ arara.getMessages().send(SendMessageRequest.builder()
         {name}
       </div>
     ))}
+  </div>
+</div>
+
+{/* ──────────────────────────  AGENTE AI EM 30 SEGUNDOS  ────────────────────────── */}
+
+<div style={{ maxWidth: '1100px', margin: '100px auto 0', padding: '0 24px' }}>
+  <div
+    style={{
+      position: 'relative',
+      overflow: 'hidden',
+      borderRadius: '16px',
+      border: '1px solid rgba(28,153,167,0.32)',
+      background: `
+        radial-gradient(ellipse 60% 80% at 100% 0%, rgba(28,153,167,0.18), transparent 60%),
+        linear-gradient(180deg, rgba(28,153,167,0.06) 0%, rgba(8,18,18,0.6) 100%)
+      `,
+      padding: '48px',
+    }}
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.1fr)', gap: '48px', alignItems: 'center' }}>
+      <div>
+        <p style={{ fontSize: '13px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5fbcc7', marginBottom: '16px', fontWeight: 500 }}>
+          Novo · MCP Server
+        </p>
+        <h2 style={{ fontSize: '32px', fontWeight: 600, color: '#fff', margin: 0, lineHeight: 1.15, letterSpacing: '-0.01em' }}>
+          Seu Claude Code vira o operador da sua conta WhatsApp.
+        </h2>
+        <p style={{ marginTop: '20px', fontSize: '16px', lineHeight: 1.6, color: 'rgba(255,255,255,0.7)' }}>
+          84 ferramentas que cobrem toda a Arara — mandar mensagem, criar template, disparar campanha, conversar com o Brain, recuperar Pix vencido. Login via OAuth no browser, zero chave no clipboard.
+        </p>
+        <div style={{ marginTop: '32px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <a
+            href="/mcp"
+            style={{
+              padding: '12px 24px',
+              background: '#1c99a7',
+              color: '#fff',
+              borderRadius: '8px',
+              fontWeight: 500,
+              fontSize: '15px',
+              textDecoration: 'none',
+              border: '1px solid #1c99a7',
+            }}
+          >
+            Instalar agora →
+          </a>
+          <a
+            href="/agents"
+            style={{
+              padding: '12px 24px',
+              background: 'rgba(255,255,255,0.04)',
+              color: '#fff',
+              borderRadius: '8px',
+              fontWeight: 500,
+              fontSize: '15px',
+              textDecoration: 'none',
+              border: '1px solid rgba(255,255,255,0.12)',
+            }}
+          >
+            Casos de uso
+          </a>
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: '#0a0d0d',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '12px',
+          padding: '20px 24px',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontSize: '13px',
+          lineHeight: 1.7,
+        }}
+      >
+        <div style={{ color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>
+          {'# 1. Instala'}
+        </div>
+        <div style={{ color: '#e5e7eb', marginBottom: '20px' }}>
+          $ claude mcp add arara <span style={{ color: '#5fbcc7' }}>--scope</span> user{' '}
+          <span style={{ color: '#5fbcc7' }}>--</span> npx <span style={{ color: '#5fbcc7' }}>-y</span> ararahq-mcp
+        </div>
+        <div style={{ color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>
+          {'# 2. Loga'}
+        </div>
+        <div style={{ color: '#e5e7eb', marginBottom: '20px' }}>
+          <span style={{ color: '#5fbcc7' }}>{'>'}</span> faz login na Arara
+        </div>
+        <div style={{ color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>
+          {'# 3. Opera'}
+        </div>
+        <div style={{ color: '#e5e7eb' }}>
+          <span style={{ color: '#5fbcc7' }}>{'>'}</span> manda o template "boas_vindas"{'\n'}
+          <span style={{ color: 'rgba(255,255,255,0.5)' }}>{'   '}pros 200 leads do mês passado</span>
+        </div>
+      </div>
+    </div>
+
+    <div
+      style={{
+        marginTop: '40px',
+        paddingTop: '32px',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '24px',
+      }}
+    >
+      <div>
+        <p style={{ fontSize: '13px', color: '#5fbcc7', fontWeight: 600, marginBottom: '6px' }}>Claude Code · Claude Desktop</p>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>OAuth nativo, token no keychain do SO. Refresh automático.</p>
+      </div>
+      <div>
+        <p style={{ fontSize: '13px', color: '#5fbcc7', fontWeight: 600, marginBottom: '6px' }}>Cursor · Windsurf</p>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>Mesma config JSON do Claude Desktop. stdio via npx.</p>
+      </div>
+      <div>
+        <p style={{ fontSize: '13px', color: '#5fbcc7', fontWeight: 600, marginBottom: '6px' }}>ChatGPT · n8n · custom</p>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>SSE remoto em <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>mcp.ararahq.com/sse</code>.</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -269,7 +390,7 @@ arara.getMessages().send(SendMessageRequest.builder()
       `arara send`, `arara listen`, `arara api`. Brew, curl, npm. Ver [CLI](/cli).
     </Card>
     <Card title="MCP pra agentes IA" icon="server">
-      84 ferramentas via Model Context Protocol. Claude, Cursor, Windsurf, ChatGPT. Ver [MCP](/mcp).
+      84 ferramentas via Model Context Protocol. Claude Code, Claude Desktop, Cursor, Windsurf, ChatGPT. Ver [MCP](/mcp).
     </Card>
     <Card title="Brain hospedado" icon="brain">
       Agente IA que atende, executa Pix, agenda no Cal.com, lista produto Shopify. Ver [Brain](/brain).
