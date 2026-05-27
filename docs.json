@@ -127,7 +127,7 @@
             "group": "Agentes de IA",
             "pages": [
               "agents",
-              "mcp"
+              "mcp-server"
             ]
           }
         ]
@@ -254,7 +254,11 @@
     },
     {
       "source": "/ai-agents",
-      "destination": "/mcp"
+      "destination": "/mcp-server"
+    },
+    {
+      "source": "/mcp",
+      "destination": "/mcp-server"
     },
     {
       "source": "/api-reference/endpoint/messages",

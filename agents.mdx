@@ -9,7 +9,7 @@ WhatsApp é o canal onde o cliente já está. Agentes de IA são o que tira o hu
 A Arara expõe isso por 3 superfícies:
 
 <CardGroup cols={3}>
-  <Card title="MCP Server" icon="server" href="/mcp">
+  <Card title="MCP Server" icon="server" href="/mcp-server">
     84 ferramentas via Model Context Protocol. Claude Desktop, Cursor, Windsurf, ChatGPT (Custom GPT) conectam via SSE ou stdio.
   </Card>
   <Card title="Brain (motor próprio)" icon="brain" href="/brain">
@@ -63,10 +63,10 @@ Depende do seu setup:
 
 | Você usa | Comece por |
 |---|---|
-| Claude Code / Claude Desktop / Cursor / Windsurf | [Instalar MCP](/mcp#install) — 30 segundos, login via browser |
-| Próprio agente (LangChain, AutoGen, custom) | [API REST](/api-reference/introduction) ou [MCP via stdio](/mcp#stdio) |
+| Claude Code / Claude Desktop / Cursor / Windsurf | [Instalar MCP](/mcp-server#install) — 30 segundos, login via browser |
+| Próprio agente (LangChain, AutoGen, custom) | [API REST](/api-reference/introduction) ou [MCP via stdio](/mcp-server#stdio) |
 | Sem agente ainda | [Brain](/brain) — usa o agente hospedado da Arara, configurado em 10 min |
-| ChatGPT / Custom GPT | [MCP SSE remoto](/mcp#sse) |
+| ChatGPT / Custom GPT | [MCP SSE remoto](/mcp-server#sse) |
 
 ## Guardian Mode — segurança da marca
 
@@ -97,7 +97,7 @@ Não substitui Zapier pra automações genéricas. Substitui pra tudo que toca W
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Conecta seu agente" icon="plug" href="/mcp">
+  <Card title="Conecta seu agente" icon="plug" href="/mcp-server">
     MCP Server, 84 tools, 3 clientes.
   </Card>
   <Card title="Usa o agente da Arara" icon="brain" href="/brain">
