@@ -35,7 +35,7 @@ Toda Action segue o mesmo ciclo:
 
 <Steps>
   <Step title="Você habilita a Action">
-    No dashboard em **Brain → Actions**, ou via `PATCH /v1/brain/actions/{actionType}` configurando os segredos (API key do provider, IDs internos).
+    No dashboard em **Brain → Actions**, ou via `POST /v1/brain/actions` configurando os segredos (API key do provider, IDs internos).
   </Step>
   <Step title="O agente entende quando chamar">
     Cada Action declara um schema de quando deve ser invocada (ex: "quando o cliente confirma compra mas não tem método de pagamento"). O modelo decide na conversa.

@@ -55,45 +55,38 @@ O pixel cruza com o **clique recente** do mesmo navegador (cookie 1st-party, vá
 
 ## Modo 2 — Server-side (recomendado)
 
-Quando você confirma o pedido no seu backend, chama a Arara:
+Primeiro, pegue seu **endpoint de conversão** (único por organização):
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/smart-links/conversion \
-  -H "Authorization: Bearer ara_live_xxx" \
+curl https://api.ararahq.com/api/v1/conversions/endpoint \
+  -H "Authorization: Bearer ara_live_xxx"
+# → { "code": "cnv_...", "hmacSecret": "...", "active": true, "url": "https://api.ararahq.com/l/cnv_..." }
+```
+
+Quando você confirma o pedido no seu backend, POSTa nessa URL:
+
+```bash
+curl -X POST https://api.ararahq.com/l/cnv_xxx \
+  -H "X-Arara-Idempotency-Key: order-12345" \
   -d '{
-    "smartLinkCode": "FtFmja",
-    "orderId": "ORDER_12345",
-    "revenueCents": 19990,
-    "currency": "BRL",
-    "customerPhone": "+5511999999999",
-    "items": [
-      { "sku": "camiseta-basica-m", "qty": 1, "priceCents": 19990 }
-    ]
+    "phone": "+5511999999999",
+    "order_id": "ORDER_12345",
+    "value": 199.90
   }'
 ```
 
-Você passa:
-
-- **`smartLinkCode`**: do query param `?ara=FtFmja` que a Arara injeta no redirect (ou armazena no cookie 1st-party do checkout).
-- **`customerPhone`**: chave de cruzamento mais confiável que cookie.
-
-Se passar `customerPhone` E não passar `smartLinkCode`, a Arara busca o clique mais recente desse número nos últimos 30 dias.
+- **`phone`**: chave de cruzamento — a Arara busca o clique/mensagem mais recente desse número e atribui a conversão.
+- A resposta (202) devolve `ingestId` + `attributedCampaignId`/`attributedMessageId` quando o cruzamento fecha.
+- Assine o body com HMAC-SHA256 do `hmacSecret` no header `X-Arara-Signature` pra proteger o endpoint. Vazou? `POST /v1/conversions/endpoint/regenerate`.
+- Auditoria do que chegou: `GET /v1/conversions/ingests`.
 
 <Warning>
-  **Idempotency obrigatório aqui.** Se você dispara no webhook do gateway de pagamento e o gateway dá retry, vai duplicar conversão. Use `Idempotency-Key: order-{orderId}` no header.
+  **Idempotency obrigatório aqui.** Se você dispara no webhook do gateway de pagamento e o gateway dá retry, vai duplicar conversão. Use `X-Arara-Idempotency-Key: order-{orderId}`.
 </Warning>
 
-## Modo 3 — Webhook reverso (Shopify/Woo/Stripe)
+## Modo 3 — A partir do webhook do seu gateway
 
-Se você usa um gateway nativo, conecta direto:
-
-**Shopify**: webhook `orders/paid` → `https://hooks.ararahq.com/shopify/{org_id}`. Setup no dashboard em **Smart Links → Integrações → Shopify**.
-
-**WooCommerce**: plugin oficial em fase de release. Por enquanto use Modo 2.
-
-**Stripe**: webhook `checkout.session.completed` → `https://hooks.ararahq.com/stripe/{org_id}`. Validação via signature do Stripe.
-
-A Arara extrai automaticamente order ID, valor e customer email/phone do payload do gateway. Cruza com clique. Não precisa de código no seu lado.
+Shopify (`orders/paid`), Stripe (`checkout.session.completed`) e WooCommerce disparam webhooks quando o pedido fecha — no handler desses webhooks, faça o POST do Modo 2 com o telefone e o valor do pedido. São 5 linhas de código no seu backend e funciona com qualquer gateway.
 
 ## Como o `?ara=` aparece no destino
 

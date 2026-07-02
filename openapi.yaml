@@ -701,6 +701,17 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [api-keys]
+      operationId: revokeApiKey
+      summary: Revoga uma API key
+      parameters:
+        - $ref: '#/components/parameters/ApiKeyId'
+      responses:
+        '204':
+          description: Revogada
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /v1/api-keys/{id}/rotate:
     post:
@@ -716,19 +727,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GeneratedApiKey'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /v1/api-keys/{id}/revoke:
-    delete:
-      tags: [api-keys]
-      operationId: revokeApiKey
-      summary: Revoga uma API key
-      parameters:
-        - $ref: '#/components/parameters/ApiKeyId'
-      responses:
-        '204':
-          description: Revogada
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 

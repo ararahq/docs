@@ -92,7 +92,7 @@ Número novo começa em **TIER_250** (250 mensagens/24h). Subir de tier exige:
 A Arara automatiza esse ramp com o endpoint de warming:
 
 ```bash
-curl https://api.ararahq.com/api/v1/organizations/me/numbers/warming \
+curl https://api.ararahq.com/api/v1/organizations/me/numbers/{numberId}/warming \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
