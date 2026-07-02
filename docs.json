@@ -36,18 +36,8 @@
               "concepts/24h-window",
               "concepts/number-quality",
               "concepts/pricing",
-              "concepts/compliance"
-            ]
-          },
-          {
-            "group": "Templates",
-            "pages": [
-              "templates/policy"
-            ]
-          },
-          {
-            "group": "Números",
-            "pages": [
+              "concepts/compliance",
+              "templates/policy",
               "numbers"
             ]
           },
@@ -127,23 +117,19 @@
             "group": "Agentes de IA",
             "pages": [
               "agents",
-              "mcp-server"
+              "mcp-server",
+              "mcp-tools"
             ]
           }
         ]
       },
       {
-        "tab": "Receitas",
+        "tab": "Guias",
         "groups": [
           {
-            "group": "Visão geral",
+            "group": "Receitas",
             "pages": [
-              "recipes"
-            ]
-          },
-          {
-            "group": "Cookbooks",
-            "pages": [
+              "recipes",
               "cookbooks/auth-2fa",
               "cookbooks/marketing-smartlinks",
               "recipes/abandoned-cart",
@@ -159,20 +145,10 @@
               "integracoes",
               "integracoes/laravel",
               "integracoes/nextjs",
-              "integracoes/shopify"
-            ]
-          },
-          {
-            "group": "Marketing",
-            "pages": [
+              "integracoes/shopify",
               "marketing"
             ]
-          }
-        ]
-      },
-      {
-        "tab": "Recursos",
-        "groups": [
+          },
           {
             "group": "Smart Links",
             "pages": [
@@ -200,24 +176,19 @@
         ]
       },
       {
-        "tab": "Changelog",
-        "pages": [
-          "changelog",
-          "roadmap"
-        ]
-      },
-      {
         "tab": "Sobre",
         "groups": [
           {
-            "group": "Operação",
+            "group": "Novidades",
             "pages": [
-              "status"
+              "changelog",
+              "roadmap"
             ]
           },
           {
-            "group": "Comunidade",
+            "group": "Operação",
             "pages": [
+              "status",
               "contributing"
             ]
           }

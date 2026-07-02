@@ -9,7 +9,7 @@ O Brain não responde só com texto. Ele **executa**.
 Brain Actions são integrações nativas que o agente AI da Arara pode invocar durante uma conversa do WhatsApp — sem você precisar escrever código de orquestração. O cliente pede uma fatura, o agente cria o Pix no AbacatePay e envia o link. Pede um horário, o agente checa o Cal.com e confirma. Pergunta sobre produto, o agente busca no catálogo e responde com a ficha.
 
 <Note>
-  Brain Actions só rodam dentro de uma sessão ativa do Brain (canUseAi = true). Se o seu plano não inclui Brain, [adicione o add-on](/billing#brain-addon) primeiro.
+  Brain Actions só rodam dentro de uma sessão ativa do Brain (canUseAi = true). Se o seu plano não inclui Brain, [veja os planos](https://ararahq.com/precos) primeiro.
 </Note>
 
 ## Ações disponíveis
@@ -44,7 +44,7 @@ Toda Action segue o mesmo ciclo:
     A Action roda no nosso backend, com os segredos criptografados. O resultado volta como contexto pro modelo.
   </Step>
   <Step title="O agente responde no WhatsApp">
-    Texto + link/botão/mídia gerado pela Action. Tudo passa pelo [Guardian Mode](/concepts/guardian) antes de sair.
+    Texto + link/botão/mídia gerado pela Action. Tudo passa pelos guarda-rails de envio (bloqueio de PII e opt-outs) antes de sair.
   </Step>
 </Steps>
 

@@ -1,0 +1,179 @@
+---
+title: 'Ferramentas do MCP'
+description: 'Referência das 10 ferramentas, 10 resources e 2 prompts do Arara MCP — o que cada um faz, parâmetros e exemplos.'
+keywords: ['mcp', 'tools', 'send_whatsapp', 'broadcast', 'check_status', 'create_template', 'save_contacts', 'opt_out', 'resources', 'arara']
+---
+
+O MCP tem 3 camadas: **tools** (ações que o agente executa), **resources** (dados que o cliente carrega sozinho, sem tool call) e **prompts** (fluxos prontos pra invocar). Instalação e autenticação: [MCP Server](/mcp-server).
+
+## Enviar
+
+### send_whatsapp
+
+Manda uma mensagem pra **uma** pessoa. É a espinha do MCP: você passa pra quem e o quê, ela resolve o resto.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `to` | string | Número em qualquer formato (`+5511999998888`, `11 99999-8888`) **ou** nome de contato salvo (`"João"`) |
+| `message` | string | O texto, em linguagem natural. Sem template, sem variável. |
+| `from` | string (opcional) | Número de origem em E.164. Omitido = número padrão da org. |
+
+O que ela resolve sozinha:
+
+- **Contato por nome** — busca em seus contatos salvos. Se o nome bater com mais de um, devolve as opções em vez de chutar.
+- **Formato do número** — normaliza qualquer coisa pra E.164, incluindo o nono dígito de celulares brasileiros.
+- **Janela de 24h** — se estiver fechada, a Meta só aceita template aprovado. A tool não inventa template: lista os seus aprovados pra você escolher, ou sugere aprovar um novo com `create_template`.
+- **Conteúdo sensível** — mensagens com CPF, CNPJ, CVV, token ou senha são bloqueadas antes do envio.
+
+```
+manda um whatsapp pra Renata: seu pedido 4412 saiu pra entrega
+```
+
+### broadcast
+
+Manda um **template aprovado** pra várias pessoas de uma vez (até 1.000). Disparo em massa é quase sempre fora da janela de 24h, então a Meta exige template.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `templateName` | string | Nome de um template aprovado (não o ID) |
+| `to` | string[] | Lista de números (qualquer formato) ou nomes de contatos salvos |
+| `variables` | string[] (opcional) | Variáveis posicionais aplicadas a todos, ex: `["promo de junho"]`. Variáveis por pessoa: dashboard. |
+| `name` | string (opcional) | Nome da campanha no dashboard. Omitido = gerado automático. |
+| `from` | string (opcional) | Número de origem em E.164 |
+
+Devolve o ID da campanha e o custo total. Números que não resolver, ele lista — não falha silenciosamente nem derruba o disparo inteiro.
+
+```
+dispara o template promo_junho pra lista de clientes VIP com a variável "20% off"
+```
+
+### check_status
+
+Responde "chegou? respondeu? posso falar agora?".
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `to` | string (opcional) | Pessoa (número ou nome) — pergunta se a janela de 24h está aberta e quantas horas restam |
+| `messageId` | string (opcional) | Mensagem específica — devolve status de entrega e custo |
+
+Passe um dos dois. Com a janela aberta, texto livre via `send_whatsapp`; fechada, só template.
+
+```
+posso mandar texto livre pro +5511999998888 agora?
+```
+
+## Templates
+
+### create_template
+
+Submete um template novo pra aprovação da Meta. Use quando a janela de 24h está fechada e você precisa de uma mensagem com texto fixo aprovado. Aprovação costuma levar de 1 a 5 minutos.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `name` | string | Nome único, minúsculo com underscores (`aviso_entrega`) |
+| `category` | enum | `MARKETING`, `UTILITY` ou `AUTHENTICATION` |
+| `body` | string | Corpo com placeholders posicionais: `Oi {{1}}, seu pedido {{2}} saiu` |
+| `language` | string (opcional) | Default `pt_BR` |
+| `header` | string (opcional) | Texto do cabeçalho ou URL de mídia |
+| `headerType` | enum (opcional) | `text`, `media` ou `document` |
+| `footer` | string (opcional) | Rodapé |
+| `samples` | object (opcional) | Exemplo por variável: `{"1": "João"}` — acelera a aprovação |
+
+<Warning>
+  A Meta reprova template que é só variável (`{{1}}` sem texto fixo). Escreva o texto real da mensagem; variável é pra nome, número de pedido, valor — não pro corpo inteiro.
+</Warning>
+
+### get_template_status
+
+Confere a aprovação de um template na Meta: `APPROVED`, `PENDING` ou `REJECTED` (com o motivo quando reprovado).
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `templateId` | string | ID retornado pelo `create_template` |
+
+## Contatos
+
+### save_contacts
+
+Salva (cria ou atualiza) contatos pra você mandar mensagem **por nome** em vez de decorar número. Até 1.000 por chamada.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `contacts` | array | Lista de `{ name, phone, email?, attributes? }`. Phone em E.164 (`+5511999998888`). |
+
+Devolve quantos foram criados, atualizados e ignorados — com a lista de erros por índice quando algo não passa.
+
+```
+salva esses contatos da planilha: João +5511988887777, Renata +5521977776666
+```
+
+### opt_out
+
+Registra que um cliente **não quer mais receber mensagens** da sua organização. Idempotente — registrar duas vezes é seguro.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `phone` | string | E.164 (`+5511999998888`) |
+| `reason` | string (opcional) | Ex: `"respondeu PARAR"`, `"pediu no suporte"` |
+
+<Warning>
+  Obrigatório por LGPD: todo envio que atinge um contato em opt-out é violação. Use sempre que o cliente responder PARAR/STOP, pedir no suporte ou por escrito. O backend bloqueia envios pra quem está na lista.
+</Warning>
+
+## Auth
+
+### login
+
+Autentica via OAuth device flow: abre uma URL, você aprova com 1 clique, o token vai pro keychain do sistema operacional. Rode uma vez; refresh é automático.
+
+### logout
+
+Limpa o token OAuth do keychain. Depois disso, as tools caem pro `ARARA_API_KEY` do ambiente ou falham com `MissingAuth`.
+
+### whoami
+
+Mostra quem está autenticado: nome, email, role, organização ativa e plano. Útil pra conferir em qual org o agente vai operar antes de disparar qualquer coisa.
+
+## Resources (leitura passiva)
+
+Resources são dados que o cliente MCP carrega automaticamente — o agente lê sem gastar tool call. É aqui que vive tudo que era `list_*` nas versões antigas.
+
+| Resource | URI | O que devolve |
+|---|---|---|
+| Organização | `arara://organization/me` | Nome, plano e configuração da org ativa |
+| Saldo | `arara://wallet/balance` | Saldo atual da carteira |
+| Templates aprovados | `arara://templates/approved` | Templates prontos pra usar em `broadcast` e fora da janela |
+| Números | `arara://numbers` | Seus números de WhatsApp e status |
+| Saúde dos números | `arara://numbers/health` | Quality rating e limites de envio por número |
+| Campanhas recentes | `arara://campaigns/recent` | Últimos disparos com status e custo |
+| Funil de recuperação | `arara://recovery/funnel` | Eventos e conversão do fluxo de recuperação |
+| Contatos recentes | `arara://contacts/recent` | Últimos contatos salvos |
+| Conversas recentes | `arara://conversations/recent` | Últimas conversas com janela aberta/fechada |
+| Opt-outs | `arara://opt-outs` | Quem pediu pra não receber mensagens |
+
+<Note>
+  Alguns clientes MCP ainda não carregam resources automaticamente. No Claude Code e Claude Desktop funciona nativo; no ChatGPT via SSE, peça pro agente "ler o resource arara://templates/approved" explicitamente.
+</Note>
+
+## Prompts
+
+Fluxos prontos que o cliente MCP expõe como atalhos:
+
+| Prompt | Argumentos | O que faz |
+|---|---|---|
+| `send_first_message` | `to`, `message` | Envia via `send_whatsapp` e trata a janela fechada mostrando os templates aprovados |
+| `run_broadcast` | `audience`, `goal` | Escolhe o template certo pelos resources, exclui opt-outs, confere saldo e **pede sua aprovação antes de disparar** |
+
+## O que saiu (e pra onde foi)
+
+Se você usava a v3 (84 tools), o mapa da mudança:
+
+| Antes (v3) | Agora (v4) |
+|---|---|
+| `send_message`, `send_template_to_many`, `reply_in_conversation` | `send_whatsapp` e `broadcast` |
+| `check_window_status`, `get_message_status`, `bulk_window_check` | `check_status` |
+| `list_contacts`, `upsert_contacts`, `get_contact` | `save_contacts` + resource `arara://contacts/recent` |
+| `list_templates`, `get_template_analytics` | resource `arara://templates/approved` |
+| `list_campaigns`, `get_campaign`, `estimate_campaign_cost` | resource `arara://campaigns/recent` (custo vem na resposta do `broadcast`) |
+| `get_wallet_balance`, `get_organization_info` | resources `arara://wallet/balance` e `arara://organization/me` |
+| Brain, Smart Links, API keys, números, A/B test, perfil | [Dashboard](https://ararahq.com/dashboard) — configuração de conta não é trabalho de agente |

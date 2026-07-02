@@ -16,9 +16,9 @@ O modelo aciona automaticamente quando:
 - Cliente confirma intenção de compra e não tem checkout aberto
 - Cliente reabre uma conversa onde houve carrinho abandonado
 - Cliente pede "manda o Pix" ou variações
-- Cliente fechou negociação com desconto (combinação de `negotiate_payment` + `send_message` no MCP)
+- Cliente fechou negociação com desconto
 
-Você pode forçar via `negotiate_payment` (tool MCP) ou desabilitar a invocação automática deixando só manual.
+Você pode desabilitar a invocação automática no dashboard, deixando só manual.
 
 ## Setup
 
@@ -75,7 +75,7 @@ curl https://api.ararahq.com/api/payments/pix/{id}/status \
 
 ## Recuperação proativa
 
-O agente também usa essa Action de forma reversa: roda `find_revenue_leaks` no AbacatePay, descobre Pix vencido sem pagamento, calcula valor em risco e reabre conversa com o cliente — com desconto se você configurar autopilot.
+O agente também usa essa Action de forma reversa: varre o AbacatePay, descobre Pix vencido sem pagamento, calcula valor em risco e reabre conversa com o cliente — com desconto se você configurar autopilot.
 
 Ver [Revenue Recovery](/recovery) pro fluxo completo.
 

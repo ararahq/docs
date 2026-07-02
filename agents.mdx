@@ -10,7 +10,7 @@ A Arara expõe isso por 3 superfícies:
 
 <CardGroup cols={3}>
   <Card title="MCP Server" icon="server" href="/mcp-server">
-    84 ferramentas via Model Context Protocol. Claude Desktop, Cursor, Windsurf, ChatGPT (Custom GPT) conectam via SSE ou stdio.
+    10 ferramentas burro-first via Model Context Protocol. Claude Code, Claude Desktop, Cursor, Windsurf, ChatGPT (Custom GPT) conectam via SSE ou stdio.
   </Card>
   <Card title="Brain (motor próprio)" icon="brain" href="/brain">
     Agente AI hospedado pela Arara, com knowledge base, eval suite, prompt customizável e janela de 24h.
@@ -36,24 +36,24 @@ A diferença é **executar**, não só conversar.
 
 <AccordionGroup>
   <Accordion title="E-commerce com checkout no chat" icon="cart-shopping">
-    Cliente pergunta sobre produto → agente busca no catálogo → confirma estoque → cria checkout → cobra Pix → confirma pagamento → marca pedido. Ciclo completo sem o cliente sair do WhatsApp.
+    Cliente pergunta sobre produto → agente busca no catálogo (Brain Action) → confirma estoque → cria checkout → cobra Pix → confirma pagamento e avisa no WhatsApp. Ciclo completo sem o cliente sair da conversa.
     
-    **Tools usadas:** `list_templates`, `negotiate_payment` (AbacatePay), `send_message`, `list_conversations`, `get_conversation_messages`.
+    **Superfície:** [Brain](/brain) + Actions de catálogo e Pix; a confirmação chega via `send_whatsapp` (MCP).
   </Accordion>
   <Accordion title="Clínica/consultoria com agenda" icon="calendar-check">
     Paciente pede consulta → agente checa Cal.com → propõe slots → confirma → envia link de Zoom + lembrete 1h antes. Recebe confirmação no dia.
     
-    **Tools usadas:** `cal-com` (Action), `send_message`, `list_conversations`, `reply_in_conversation`.
+    **Superfície:** [Brain](/brain) + Action `cal-com`; lembretes via `broadcast` com template aprovado (MCP).
   </Accordion>
   <Accordion title="Suporte 24/7 com escalada" icon="headset">
     Cliente pergunta → Brain responde do conhecimento da empresa → escala pra humano só se urgente ou se Brain não souber. Tier 1 automatizado, tier 2 humano.
     
-    **Tools usadas:** `brain_interact`, `brain_suggest_reply`, `add_brain_knowledge`.
+    **Superfície:** [Brain](/brain) hospedado — knowledge base e handoff configurados no dashboard.
   </Accordion>
-  <Accordion title="Recovery de receita autônomo" icon="rotate-right">
-    Toda manhã o agente roda scan de Pix vencido no AbacatePay → prioriza por LTV → reabre conversa com mensagem contextual → recupera 15-20% da receita perdida.
+  <Accordion title="Operador no Claude Code" icon="terminal">
+    Founder pede "manda um whatsapp pro João avisando que o pedido saiu" → o agente resolve contato, formato e janela de 24h sozinho → responde com custo e status.
     
-    **Tools usadas:** `find_revenue_leaks`, `get_conversation_messages`, `negotiate_payment`, `send_message`.
+    **Tools usadas:** `send_whatsapp`, `check_status`, `broadcast` — [MCP](/mcp-tools).
   </Accordion>
 </AccordionGroup>
 
@@ -63,25 +63,14 @@ Depende do seu setup:
 
 | Você usa | Comece por |
 |---|---|
-| Claude Code / Claude Desktop / Cursor / Windsurf | [Instalar MCP](/mcp-server#install) — 30 segundos, login via browser |
-| Próprio agente (LangChain, AutoGen, custom) | [API REST](/api-reference/introduction) ou [MCP via stdio](/mcp-server#stdio) |
+| Claude Code / Claude Desktop / Cursor / Windsurf | [Instalar MCP](/mcp-server#instalar) — 30 segundos, login via browser |
+| Próprio agente (LangChain, AutoGen, custom) | [API REST](/api-reference/introduction) ou [MCP headless](/mcp-server#headless) |
 | Sem agente ainda | [Brain](/brain) — usa o agente hospedado da Arara, configurado em 10 min |
-| ChatGPT / Custom GPT | [MCP SSE remoto](/mcp-server#sse) |
+| ChatGPT / Custom GPT | [MCP SSE remoto](/mcp-server#sse-remoto) |
 
-## Guardian Mode — segurança da marca
+## Guarda-rails de envio
 
-Todo agente que envia mensagem pela Arara passa pelo **Guardian Mode** antes de qualquer envio. O Guardian roda regras (PII, dados sensíveis, palavras proibidas, tom inadequado pra marca) e bloqueia o envio se detectar problema — sem você precisar instrumentar nada.
-
-```json
-{
-  "blockOnPII": ["cpf", "rg", "credit_card"],
-  "blockKeywords": ["pague aqui", "última chance"],
-  "requireApprovalAbove": 1000,
-  "brandTone": "informal, sem emojis em excesso"
-}
-```
-
-Configurável por sessão via `configure_guardian_policy` (tool MCP) ou no dashboard.
+Todo agente que envia mensagem pela Arara passa por checagens built-in antes de qualquer envio: CPF, RG, CNPJ, CVV, tokens e senhas são bloqueados na origem, e contatos em opt-out são protegidos pelo backend — sem você precisar instrumentar nada.
 
 ## Tools nativas, não Zapier
 
@@ -98,7 +87,7 @@ Não substitui Zapier pra automações genéricas. Substitui pra tudo que toca W
 
 <CardGroup cols={2}>
   <Card title="Conecta seu agente" icon="plug" href="/mcp-server">
-    MCP Server, 84 tools, 3 clientes.
+    MCP Server: 10 tools burro-first, instalado em 30 segundos.
   </Card>
   <Card title="Usa o agente da Arara" icon="brain" href="/brain">
     Brain hospedado, configurado em 10min.

@@ -1,41 +1,35 @@
 ---
 title: 'MCP Server'
-description: '84 ferramentas que transformam Claude Code, Claude Desktop, Cursor, Windsurf ou ChatGPT no operador da sua conta WhatsApp. Login via OAuth, sem chave no clipboard.'
+description: 'Transforme Claude Code, Claude Desktop, Cursor, Windsurf ou ChatGPT no operador da sua conta WhatsApp. 10 ferramentas burro-first: você diz pra quem e o quê, a Arara resolve o resto.'
 keywords: ['mcp', 'model context protocol', 'claude code', 'claude desktop', 'cursor', 'windsurf', 'chatgpt', 'agentes ai', 'tools', 'oauth', 'arara']
 ---
 
-Plugou, autorizou no browser, o agente já consegue mandar mensagem, criar template, disparar campanha, conversar com o Brain, recuperar Pix vencido. Você fala português, o agente faz.
+Plugou, autorizou no browser, o agente já manda mensagem, dispara broadcast e aprova template. Você fala português, o agente faz.
 
 <Note>
   **MCP (Model Context Protocol)** é o protocolo aberto da Anthropic pra conectar LLMs a ferramentas externas. Suportado por Claude Code, Claude Desktop, Cursor, Windsurf, ChatGPT (Custom GPT via SSE) e qualquer SDK que fale MCP em Python/TypeScript.
 </Note>
 
-## O que ele entrega
+## Burro-first
 
-| Domínio | Ferramentas |
+A v4 cortou o MCP de 84 pra **10 ferramentas**. O motivo: agente bom não precisa de um painel de controle inteiro — precisa de poucas ações que aceitam o que um humano sabe de cabeça e resolvem o resto sozinhas.
+
+Na prática: `send_whatsapp` aceita `"João"` ou `"11 99999-9999"` em qualquer formato. O MCP resolve o contato, normaliza pra E.164, corrige o nono dígito e, se a janela de 24h estiver fechada, não inventa template — lista os seus aprovados e te ajuda a escolher (ou aprovar um novo).
+
+| Grupo | Ferramentas |
 |---|---|
-| Mensagens | `send_message`, `send_template_to_many`, `get_message_status`, `list_messages` |
-| Templates | `list_templates`, `create_template`, `get_template_status`, `get_template_analytics`, `delete_template`, `list_paused_templates` |
-| Campanhas | `create_campaign`, `list_campaigns`, `get_campaign`, `estimate_campaign_cost`, `cancel_campaign`, `create_ab_test`, `get_ab_test`, `force_ab_test_winner` |
-| Conversas | `list_conversations`, `get_conversation_messages`, `reply_in_conversation`, `check_window_status`, `bulk_window_check`, `get_lead_stats` |
-| Contatos | `list_contacts`, `get_contact`, `upsert_contacts`, `get_contact_stats` |
-| Números | `list_numbers`, `get_number_health`, `request_new_number`, `list_number_requests`, `sync_number_with_meta`, `update_number`, `get_warming_plan` |
-| Smart Links | `create_smart_link`, `list_smart_links`, `update_smart_link`, `get_smart_link_stats` |
-| Brain (IA) | `brain_interact`, `brain_suggest_reply`, `get_brain_config`, `get_brain_metrics`, `add_brain_knowledge`, `list_brain_knowledge`, `update_brain_knowledge`, `delete_brain_knowledge`, `ingest_url_to_brain` |
-| Recovery (AbacatePay) | `find_revenue_leaks`, `negotiate_payment`, `check_payment_status`, `get_recovery_endpoint`, `list_recovery_events`, `configure_recovery_event`, `test_recovery_event`, `set_recovery_endpoint_active`, `list_recovery_ingests`, `retry_recovery_ingest` |
-| Wallet e conta | `get_wallet_balance`, `list_wallet_transactions`, `get_organization_info`, `get_delivery_metrics`, `get_pricing` |
-| Guardian (brand safety) | `configure_guardian_policy`, `list_policy_violations`, `resolve_policy_violation` |
-| Opt-out e LGPD | `list_opt_outs`, `register_opt_out`, `revoke_opt_out`, `check_opt_out`, `lgpd_export_contact`, `lgpd_delete_contact` |
-| Phone Lookup | `lookup_phone`, `lookup_phones_batch` |
-| API keys | `list_api_keys`, `create_api_key`, `rotate_api_key`, `revoke_api_key` |
-| Business profile | `get_business_profile`, `update_business_profile`, `sync_business_profile` |
-| Auth | `login`, `logout`, `whoami` |
+| Enviar | `send_whatsapp` · `broadcast` · `check_status` |
+| Templates | `create_template` · `get_template_status` |
+| Contatos | `save_contacts` · `opt_out` |
+| Auth | `login` · `logout` · `whoami` |
 
-**Total: 84 ferramentas**, atualizadas a cada release no [`ararahq/ararahq-mcp`](https://github.com/ararahq/ararahq-mcp).
+Leitura (contatos, conversas, templates, saldo, números, campanhas) não é tool: são **resources** que o cliente MCP carrega sozinho, sem gastar chamada. O que cada ferramenta e resource faz, com parâmetros e exemplos: [Ferramentas do MCP](/mcp-tools).
 
-## Instalar {#install}
+Configuração de conta (API keys, perfil do negócio, provisionamento de número, Brain) é trabalho de [dashboard](https://ararahq.com/dashboard), não de agente.
 
-### Claude Code {#claude-code}
+## Instalar
+
+### Claude Code
 
 ```bash
 claude mcp add arara --scope user -- npx -y ararahq-mcp
@@ -49,7 +43,7 @@ faz login na Arara
 
 O Claude vai chamar a tool `login`, abrir o browser, e você aprova com 1 clique. Token vai pro keychain do macOS / Secret Service do Linux / Credential Manager do Windows — nunca no disco.
 
-### Claude Desktop {#claude-desktop}
+### Claude Desktop
 
 Edita `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) ou `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
@@ -66,7 +60,7 @@ Edita `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) 
 
 Reinicia o Claude Desktop, peça "faz login na Arara", aprova no browser.
 
-### Cursor {#cursor}
+### Cursor
 
 `Settings → Models → MCP Servers → Add Server`:
 
@@ -79,7 +73,7 @@ Reinicia o Claude Desktop, peça "faz login na Arara", aprova no browser.
 }
 ```
 
-### Windsurf {#windsurf}
+### Windsurf
 
 `.windsurf/mcp.json` na raiz do projeto:
 
@@ -94,7 +88,7 @@ Reinicia o Claude Desktop, peça "faz login na Arara", aprova no browser.
 }
 ```
 
-### SSE remoto (sem instalar nada) {#sse}
+### SSE remoto
 
 Pra ChatGPT (Custom GPT), n8n, ou qualquer cliente que aceite SSE:
 
@@ -105,7 +99,7 @@ Header: X-Arara-Key: ara_live_xxx
 
 Você gera a `ara_live_` em [Dashboard → API Keys](https://ararahq.com/dashboard/apikeys). Permissão da chave vira a permissão do agente.
 
-### Headless / CI / servidor {#headless}
+### Headless
 
 Sem OAuth, com env var:
 
@@ -114,17 +108,6 @@ ARARA_API_KEY=ara_live_xxx npx ararahq-mcp --stdio
 ```
 
 Use em pipelines, agentes Python/TS custom, n8n self-hosted, qualquer lugar onde abrir browser não é opção.
-
-### stdio local com build próprio {#stdio}
-
-Pra dev / debug do MCP em si:
-
-```sh
-git clone https://github.com/ararahq/ararahq-mcp.git
-cd ararahq-mcp
-npm install && npm run build
-claude mcp add arara --scope user -- node /caminho/absoluto/build/index.js --stdio
-```
 
 ## Autenticação
 
@@ -135,82 +118,31 @@ Dois modos, escolhidos automaticamente nessa ordem:
 | **OAuth (device flow)** | Default no Claude Code, Desktop, Cursor, Windsurf | Você roda `login`, aprova no browser. Token salvo no keychain do SO. Refresh automático. |
 | **API key via env** | CI, servidor, n8n, ChatGPT (SSE), headless | `ARARA_API_KEY=ara_live_xxx` (stdio) ou header `X-Arara-Key` (SSE) |
 
-A precedência interna é: override explícito (parâmetro `apiKey`) → chave da sessão SSE → OAuth do keychain → `ARARA_API_KEY` do env. Se nada existir, a tool falha com `MissingAuth` e te manda rodar `login`.
+A precedência interna é: chave da sessão SSE → OAuth do keychain → `ARARA_API_KEY` do env. Se nada existir, a tool falha com `MissingAuth` e te manda rodar `login`.
 
-<Warning>
-  Chaves de produção (`ara_live_*`) têm escopo da org que as gerou. Use sempre a permissão mínima por caso de uso — uma chave só pra dispatch, outra só pra leitura de métricas. Rotacione com `rotate_api_key` ao primeiro sinal de comprometimento.
-</Warning>
+## 3 coisas pra pedir hoje
 
-## 5 coisas pra pedir hoje
-
-**Métrica semanal**
+**Mandar mensagem sem pensar em formato**
 ```
-Quantas mensagens entregamos essa semana e quanto gastei?
+manda um whatsapp pro João avisando que o pedido dele saiu pra entrega
 ```
-Lê `get_delivery_metrics` + `get_wallet_balance`. Resposta em 2 linhas.
+`send_whatsapp` resolve o contato pelo nome, normaliza o número e envia. Se a janela de 24h estiver fechada, devolve seus templates aprovados pra escolher.
 
-**Campanha com aprovação**
+**Broadcast com template aprovado**
 ```
-Manda a promoção 'black_friday_30off' pros 200 leads mais quentes do mês passado.
+dispara o template promo_junho pra esses 40 números da planilha
 ```
-Roda `list_contacts` → `list_templates` → `estimate_campaign_cost` → pede aprovação → `create_campaign` com `idempotencyKey`.
+`broadcast` resolve os números (qualquer formato), cria a campanha e devolve o custo total. Quem não resolver, ele lista em vez de falhar silenciosamente.
 
-**Resposta on-brand a reclamação**
+**Saber se pode falar agora**
 ```
-O cliente +5511999998888 reclamou. Como respondo?
+o cliente +5511999998888 respondeu? posso mandar texto livre?
 ```
-Roda `get_conversation_messages` → `brain_suggest_reply` no tom da sua marca → mostra → envia em `send_message` quando você aprovar.
+`check_status` responde se a janela de 24h está aberta e quantas horas restam.
 
-**Recovery autônomo**
-```
-Tem dinheiro saindo da minha conta? Recupera o que dá.
-```
-Roda `find_revenue_leaks` no AbacatePay → enriquece com `get_conversation_messages` → propõe oferta por leak → `negotiate_payment`.
+## Guarda-rails de envio
 
-**Smart Link pro bio**
-```
-Cria um Smart Link pro meu Instagram que mande mensagem pro +5511999998888 com texto "vim do insta, quero falar com vocês".
-```
-Roda `create_smart_link`. Devolve URL curta + QR code, tracking de clique e atribuição first-party.
-
-## Guardian Mode {#guardian}
-
-Toda ferramenta que envia mensagem (`send_message`, `send_template_to_many`, `reply_in_conversation`, `create_campaign`) passa pelo **Guardian** antes do dispatch. Regras built-in cobrem CPF, RG, CNPJ, CVV, tokens e senhas — sempre ativas. Você adiciona regras por sessão:
-
-```
-Configure o Guardian pra bloquear envio com CPF, RG ou cartão, e pedir aprovação humana acima de R$ 1.000.
-```
-
-O agente invoca `configure_guardian_policy`. Vale pelo resto da sessão e aparece em `list_policy_violations` se algo for bloqueado.
-
-## Casos de uso reais
-
-<AccordionGroup>
-  <Accordion title="Recovery autônomo de receita" icon="rotate-right">
-    ```
-    Verifica leaks no AbacatePay nas últimas 72h. Pros 3 maiores valores, monta briefing por cliente puxando histórico do WhatsApp e me sugere abordagem.
-    ```
-    Chama `find_revenue_leaks`, depois `get_conversation_messages` por telefone, retorna lista priorizada com proposta de offer.
-  </Accordion>
-  <Accordion title="Triagem de respostas de campanha" icon="filter">
-    ```
-    Dispara a campanha 'reativacao_inativos_60d'. Depois de 2h, traz a triagem de respostas priorizando urgência.
-    ```
-    `create_campaign` → espera → `list_conversations` filtrando por janela aberta → classifica por urgência.
-  </Accordion>
-  <Accordion title="Operação multi-org (agência)" icon="building">
-    ```
-    Lista os 5 clientes com saldo baixo (< R$ 200). Pra cada um, manda mensagem pro contato principal avisando.
-    ```
-    Itera profiles via `get_organization_info`, `get_wallet_balance`, depois `send_message` com template aprovado.
-  </Accordion>
-  <Accordion title="Atendimento com Brain + handoff humano" icon="headset">
-    ```
-    Configura o Brain pra atender perguntas sobre o catálogo. Escala pra humano se cliente mencionar 'reclamação' ou 'cancelar'.
-    ```
-    `add_brain_knowledge` com catálogo, `configure_guardian_policy` com escalation keywords, `brain_interact` no atendimento.
-  </Accordion>
-</AccordionGroup>
+Todo envio passa por checagens built-in antes do dispatch: mensagens contendo CPF, CNPJ, CVV, tokens e senhas são bloqueadas na origem. Contatos em [opt-out](/mcp-tools#opt_out) são protegidos pelo backend — nenhum envio atinge quem pediu pra sair.
 
 ## Segurança
 
@@ -227,7 +159,6 @@ Variáveis de ambiente reconhecidas pelo binário:
 ```sh
 ARARA_API_KEY=ara_live_xxx          # Fallback / headless mode
 ARARA_BASE_URL=https://...          # Override do endpoint (default: https://api.ararahq.com/api)
-ABACATE_API_KEY=xxx                 # Pra AbacatePay tools
 ARARA_MCP_TELEMETRY=off             # Desliga telemetria de uso
 PORT=3333                           # Porta SSE (default 3333)
 MCP_TRANSPORT=sse                   # Força SSE em vez de stdio
@@ -247,10 +178,10 @@ Não são mutuamente exclusivos — agência típica usa SDK pro backend, Brain 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Por que isso importa" icon="lightbulb" href="/agents">
-    Posicionamento detalhado de agentes IA na operação WhatsApp.
+  <Card title="Ferramentas do MCP" icon="wrench" href="/mcp-tools">
+    O que cada uma das 10 ferramentas faz, parâmetros e exemplos.
   </Card>
   <Card title="Source no GitHub" icon="github" href="https://github.com/ararahq/ararahq-mcp">
-    Código aberto MIT, 84 tools, releases versionadas, issues abertas.
+    Código aberto MIT, releases versionadas, issues abertas.
   </Card>
 </CardGroup>

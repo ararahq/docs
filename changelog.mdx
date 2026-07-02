@@ -10,6 +10,11 @@ Histórico de mudanças significativas. Adotamos [SemVer](https://semver.org/lan
   **Política de breaking changes**: anunciadas com **≥ 6 meses de antecedência** via email, banner no dashboard e tag `deprecated` no SDK. Endpoints removidos só após período de sunset.
 </Note>
 
+## Julho 2026
+
+### MCP
+- **v4.0.0 — burro-first.** Corte de 84 pra **10 tools**: `send_whatsapp` aceita nome ou número em qualquer formato e resolve E.164, nono dígito e janela de 24h sozinha; `broadcast` dispara template aprovado pra até 1.000 pessoas; leitura virou 10 resources que o cliente carrega sem tool call. Configuração de conta saiu do MCP — é trabalho de dashboard. Deploy contínuo: push na main publica em [mcp.ararahq.com](https://mcp.ararahq.com). Ver [Ferramentas do MCP](/mcp-tools).
+
 ## Maio 2026
 
 ### Plataforma
