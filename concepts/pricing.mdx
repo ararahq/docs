@@ -1,7 +1,7 @@
 ---
 title: 'Pricing'
-description: 'Quanto custa a Arara em BRL: custo Meta + margem Arara + plano. Fatura simulada, calculadora de custo por volume, comparativo com SMS e gateway pirata. Sem letra miúda.'
-keywords: ['preço', 'custo', 'fatura', 'brl', 'meta pricing', 'whatsapp custo']
+description: 'Quanto custa a Arara em BRL: custo Meta + acréscimo fixo por mensagem (R$ 0,25 no Free, R$ 0,10 no Voo). Tabela por categoria, calculadora de custo por volume, comparativo com SMS e gateway pirata. Sem letra miúda.'
+keywords: ['preço', 'custo', 'fatura', 'brl', 'meta pricing', 'whatsapp custo', 'voo', 'free']
 ---
 
 A regra geral: **3 atores cobram**. Esta página mostra cada um com número real em BRL.
@@ -9,88 +9,82 @@ A regra geral: **3 atores cobram**. Esta página mostra cada um com número real
 ```
 Meta (Cloud API) cobra por mensagem entregue
        ↓
-Arara cobra Meta + ~30% margem + valor do plano
+Arara repassa o custo Meta + acréscimo fixo por mensagem
+       (R$ 0,25 no Free · R$ 0,10 no Voo)
        ↓
 Você fatura pro cliente final (opcional)
 ```
 
 <Note>
-  Toda conversão USD → BRL nesta página usa câmbio R$ 5,00 (atualização periódica). Sua fatura usa câmbio do dia do fechamento. Pode variar ~5%.
+  Os preços abaixo são **fixos em BRL** pra números brasileiros — o custo Meta já vem convertido e embutido, sua fatura não flutua com câmbio. Números internacionais têm custo Meta diferente por país; use a [estimativa via API](#estimativa-via-api).
 </Note>
 
 ## Custo por mensagem (categoria)
 
-Meta cobra **por mensagem entregue** desde meados de 2025. Falhas (template rejeitado, número inválido, fora da janela) não custam.
+Meta cobra **por mensagem entregue**. Falhas (template rejeitado, número inválido, fora da janela) não custam.
 
-| Categoria | Custo Meta (USD) | Margem Arara | Total final (BRL) |
-|---|---|---|---|
-| **UTILITY** | $ 0,0050 | 30% | **~R$ 0,12** |
-| **AUTHENTICATION** | $ 0,0050 | 30% | **~R$ 0,12** |
-| **MARKETING** | $ 0,0590 | 30% | **~R$ 0,40** |
-| **Service (sessão 24h)** | $ 0 (incluso) | — | **R$ 0** |
+| Categoria | Free | Voo |
+|---|---|---|
+| **MARKETING** — promo, cupom, broadcast | R$ 0,65 | **R$ 0,45** |
+| **UTILITY** — pedido, boleto, agendamento | R$ 0,30 | **R$ 0,15** |
+| **AUTHENTICATION** — OTP, 2FA, verificação | R$ 0,30 | **R$ 0,15** |
+| **Sessão (janela 24h)** — você respondendo | R$ 0,25 | **R$ 0,10** |
 
-Mensagens **dentro da janela 24h** (service messages — você respondendo cliente que iniciou) são **grátis**. Você só paga por mensagem fora da janela.
+Na **janela de 24h** (cliente te chamou, você responde texto livre) a Meta não cobra — você paga só o acréscimo Arara. Fora da janela, só template aprovado, com o custo Meta da categoria embutido.
 
 ## Planos
 
-O plano cobre **valor fixo mensal** + créditos pré-pagos pra mensagens.
+Dois planos. Sem tier intermediário, sem "fale com vendas".
 
-| Plano | R$/mês | Créditos inclusos | Sobreposição | Recursos |
-|---|---|---|---|---|
-| **FREE** | 0 | R$ 30 em créditos teste | n/a | 3 templates, número compartilhado, 5K msg/mês teste |
-| **PRO** | 199 | R$ 200 em créditos | + R$ 0,40/MARKETING, R$ 0,12/UTILITY | 50 templates, 1 número dedicado, A/B test, conversas inbox |
-| **BUSINESS** | 499 | R$ 600 em créditos | mesmas tarifas | 250 templates, 5 números dedicados, IP allowlist, time multi-membro |
-| **ENTERPRISE** | a partir 1.499 | R$ 2.000 em créditos | tarifas negociadas | Templates ilimitados, ~20 números, Brain incluso, SLA dedicado |
+| | Free | Voo |
+|---|---|---|
+| **Assinatura** | R$ 0 | R$ 349/mês |
+| **Pra quem** | Dev integrando por API | Operação completa |
+| **Número WhatsApp** | 1 próprio (BYON) | Incluído, provisionado pela Arara |
+| **API + SDKs + webhooks** | Sim | Sim |
+| **Mensagens e templates** | Sem cap | Sem cap |
+| **Campanhas, inbox, contatos, lembretes, Brain** | — | Sim |
+| **Mensagem** | Meta + R$ 0,25 | Meta + R$ 0,10 |
 
-Add-ons:
-- **Brain (IA)**: R$ 250/mês (incluído no Enterprise). 5K conversas/mês, depois usage.
-- **Seat extra (time)**: R$ 79/seat (BUSINESS e acima).
-- **Número dedicado extra**: incluído no plano, números adicionais via solicitação.
+Saldo de mensagens é **wallet pré-paga** (Pix ou cartão) e não expira. Quem assinou os planos antigos (Essential, Pro, Business) segue nas condições contratadas — essa tabela vale pra contas novas.
 
 ## Calculadora
 
-Cenário 1 — **E-commerce médio**:
+Cenário 1 — **E-commerce médio** (Voo):
 - 8.000 mensagens UTILITY/mês (confirmações, rastreio)
 - 4.000 mensagens MARKETING/mês (carrinho abandonado, campanhas)
-- Plano PRO
 
 ```
-Plano PRO:                                  R$  199
-8.000 × R$ 0,12 (UTILITY):                  R$  960
-4.000 × R$ 0,40 (MARKETING):                R$ 1.600
-Créditos inclusos (PRO):                   -R$  200
+Plano Voo:                                  R$   349
+8.000 × R$ 0,15 (UTILITY):                  R$ 1.200
+4.000 × R$ 0,45 (MARKETING):                R$ 1.800
                                            ─────────
-Fatura mensal:                              R$ 2.559
+Fatura mensal:                              R$ 3.349
 ```
 
-Cenário 2 — **SaaS B2B**:
+Cenário 2 — **SaaS B2B** (Voo):
 - 1.500 mensagens AUTHENTICATION/mês (OTP login)
 - 500 mensagens UTILITY/mês (alertas)
-- Sem marketing
-- Plano PRO
 
 ```
-Plano PRO:                                  R$  199
-1.500 × R$ 0,12 (AUTH):                     R$  180
-500 × R$ 0,12 (UTILITY):                    R$   60
-Créditos inclusos (PRO):                   -R$  200
+Plano Voo:                                  R$   349
+1.500 × R$ 0,15 (AUTH):                     R$   225
+500 × R$ 0,15 (UTILITY):                    R$    75
                                            ─────────
-Fatura mensal:                              R$  239
+Fatura mensal:                              R$   649
 ```
 
-Cenário 3 — **Operação Black Friday**:
-- 80.000 mensagens MARKETING em 5 dias
-- 20.000 mensagens UTILITY (pedidos, rastreio)
-- Plano BUSINESS
+Cenário 3 — **Dev prototipando** (Free):
+- 300 mensagens UTILITY/mês em teste de integração
 
 ```
-Plano BUSINESS:                             R$  499
-80.000 × R$ 0,40 (MARKETING):               R$32.000
-20.000 × R$ 0,12 (UTILITY):                 R$ 2.400
-Créditos inclusos (BUSINESS):              -R$  600
+Assinatura:                                 R$     0
+300 × R$ 0,30 (UTILITY):                    R$    90
                                            ─────────
-Fatura do mês:                              R$34.299
+Fatura mensal:                              R$    90
 ```
+
+O delta de mensagem entre Free e Voo (R$ 0,15 na UTILITY/AUTH, R$ 0,20 no MARKETING) paga o plano sozinho a partir de ~2.000 mensagens/mês. Acima disso, Voo é mais barato **e** inclui a operação inteira.
 
 ## Estimativa via API
 
@@ -99,7 +93,7 @@ curl "https://api.ararahq.com/api/v1/wallet/calculate?amountCents=10000" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Retorna quantas mensagens cada R$ 100 compra por categoria + janela 24h.
+Retorna quantas mensagens cada R$ 100 compra por categoria + janela 24h, já no preço do seu plano.
 
 ## Comparativo
 
@@ -107,19 +101,19 @@ Retorna quantas mensagens cada R$ 100 compra por categoria + janela 24h.
 
 | | SMS | WhatsApp via Arara |
 |---|---|---|
-| Custo por envio | R$ 0,12 - 0,15 (entregue ou não) | R$ 0,12 - 0,40 (só entregue) |
+| Custo por envio | R$ 0,12 - 0,15 (entregue ou não) | R$ 0,15 - 0,65 (só entregue) |
 | Taxa de abertura | ~50% | ~98% |
 | CTR | ~1% | ~8-10% |
 | Resposta possível | Não | Sim (janela 24h) |
 | **CAC efetivo** | Alto (poucos convertem) | Baixo (alto CTR) |
 
-WhatsApp custa 1-3x mais por envio, converte 8-10x mais. CAC efetivo menor.
+WhatsApp custa 1-4x mais por envio, converte 8-10x mais. CAC efetivo menor.
 
 ### vs Z-API / gateway pirata
 
 | | Gateway pirata ("grátis") | Arara |
 |---|---|---|
-| Custo aparente | R$ 100-300/mês fixo | R$ 199 + uso |
+| Custo aparente | R$ 100-300/mês fixo | Free + uso, ou R$ 349 tudo incluso |
 | Custo real (incluindo banimento) | **R$ X.000 quando o número quebra** + 30 dias parado | Previsível |
 | Risco de banimento | Alto | Quase zero |
 | Templates aprovados | Não tem | Sim |
@@ -134,7 +128,6 @@ Dashboard → **Cobrança → Faturas**. Cada fatura tem:
 - Resumo: plano + créditos consumidos + saldo
 - Detalhamento por categoria
 - Cohort por template (quanto cada template custou)
-- Câmbio do dia do fechamento
 
 ## Wallet e auto-recharge
 
@@ -153,7 +146,7 @@ Configuração: dashboard → **Cobrança → Auto-recarga** ou via PATCH no end
   <Card title="Marketing no WhatsApp" icon="bullhorn" href="/marketing">
     Como otimizar custo de marketing.
   </Card>
-  <Card title="API: Wallet" icon="wallet" href="/api-reference/introduction">
-    Endpoints de billing e wallet.
+  <Card title="Planos e limites" icon="scale-balanced" href="/business-rules/planos-e-limites">
+    O que cada plano libera, em detalhe.
   </Card>
 </CardGroup>
