@@ -1,7 +1,7 @@
 ---
 title: 'Ferramentas do MCP'
-description: 'Referência das 10 ferramentas, 10 resources e 2 prompts do Arara MCP — o que cada um faz, parâmetros e exemplos.'
-keywords: ['mcp', 'tools', 'send_whatsapp', 'broadcast', 'check_status', 'create_template', 'save_contacts', 'opt_out', 'resources', 'arara']
+description: 'Referência das 14 ferramentas, 10 resources e 2 prompts do Arara MCP — o que cada um faz, parâmetros e exemplos.'
+keywords: ['mcp', 'tools', 'send_whatsapp', 'broadcast', 'check_status', 'create_template', 'buttons', 'smart_link', 'create_smart_link', 'list_campaigns', 'get_campaign', 'save_contacts', 'opt_out', 'resources', 'arara']
 ---
 
 O MCP tem 3 camadas: **tools** (ações que o agente executa), **resources** (dados que o cliente carrega sozinho, sem tool call) e **prompts** (fluxos prontos pra invocar). Instalação e autenticação: [MCP Server](/mcp-server).
@@ -78,10 +78,15 @@ Submete um template novo pra aprovação da Meta. Use quando a janela de 24h est
 | `headerType` | enum (opcional) | `text`, `media` ou `document` |
 | `footer` | string (opcional) | Rodapé |
 | `samples` | object (opcional) | Exemplo por variável: `{"1": "João"}` — acelera a aprovação |
+| `buttons` | array (opcional) | Até 2 botões: `{ type, text, url?, phone? }`. Tipos: `QUICK_REPLY`, `URL`, `PHONE_NUMBER`, `SMART_LINK`, `COPY_CODE` |
 
 <Warning>
   A Meta reprova template que é só variável (`{{1}}` sem texto fixo). Escreva o texto real da mensagem; variável é pra nome, número de pedido, valor — não pro corpo inteiro.
 </Warning>
+
+<Note>
+  Botão `SMART_LINK`: passe em `url` o **destino real** (ex: `https://wa.me/5583991768778?text=Quero%20saber%20mais`). A Arara encurta e **conta cada clique** — o número aparece no `get_campaign`. É como você descobre qual copy converteu num teste A/B.
+</Note>
 
 ### get_template_status
 
@@ -90,6 +95,51 @@ Confere a aprovação de um template na Meta: `APPROVED`, `PENDING` ou `REJECTED
 | Parâmetro | Tipo | Descrição |
 |---|---|---|
 | `templateId` | string | ID retornado pelo `create_template` |
+
+## Campanhas
+
+### list_campaigns
+
+Lista as campanhas da organização, mais recentes primeiro, com status e contagens. Para o relatório completo de uma, use `get_campaign`.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `status` | string (opcional) | Filtra por status: `COMPLETED`, `AB_TESTING`, `INGESTING`, `CANCELED`, `FAILED` |
+| `page` | number (opcional) | Página (default `0`) |
+| `size` | number (opcional) | Tamanho da página (default `20`) |
+
+### get_campaign
+
+Relatório completo de uma campanha: enviados, entregues, lidos, **cliques**, conversões e custo — com o percentual de cada etapa. É como você sabe qual copy performou, incluindo o clique nos smart-links do template.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `campaignId` | string | ID da campanha (do `broadcast` ou do `list_campaigns`) |
+
+```
+me mostra o relatório da campanha promo_junho: quantos clicaram?
+```
+
+## Smart Links
+
+### create_smart_link
+
+Cria um smart-link de WhatsApp (click-to-chat) **rastreável**: um link curto + QR que abre a conversa no seu número já com um texto pronto. Cada clique é contado — use na bio, num anúncio ou numa campanha pra saber de onde o lead veio.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `name` | string | Nome interno, pra identificar a origem (`bio-instagram`) |
+| `phoneNumber` | string | Número que recebe a conversa, em E.164 (`+5583991768778`) |
+| `defaultText` | string (opcional) | Texto que já vem preenchido pro cliente enviar |
+| `qrCodeColor` | enum (opcional) | `BLACK`, `BLUE` ou `GREEN` (default `BLACK`) |
+
+<Note>
+  Diferente do botão `SMART_LINK` de template (que vive dentro de uma mensagem), este é um link **avulso** — pra colar onde quiser.
+</Note>
+
+### list_smart_links
+
+Lista os smart-links de WhatsApp da organização, com a contagem de cliques de cada um.
 
 ## Contatos
 
@@ -174,6 +224,7 @@ Se você usava a v3 (84 tools), o mapa da mudança:
 | `check_window_status`, `get_message_status`, `bulk_window_check` | `check_status` |
 | `list_contacts`, `upsert_contacts`, `get_contact` | `save_contacts` + resource `arara://contacts/recent` |
 | `list_templates`, `get_template_analytics` | resource `arara://templates/approved` |
-| `list_campaigns`, `get_campaign`, `estimate_campaign_cost` | resource `arara://campaigns/recent` (custo vem na resposta do `broadcast`) |
+| `list_campaigns`, `get_campaign`, `estimate_campaign_cost` | `list_campaigns` e `get_campaign` **voltaram** como tools (relatório completo, com cliques e conversões). Estimativa de custo vem na resposta do `broadcast`. |
 | `get_wallet_balance`, `get_organization_info` | resources `arara://wallet/balance` e `arara://organization/me` |
-| Brain, Smart Links, API keys, números, A/B test, perfil | [Dashboard](https://ararahq.com/dashboard) — configuração de conta não é trabalho de agente |
+| Smart Links | Voltaram como tools: `create_smart_link` e `list_smart_links`. |
+| Brain, API keys, números, A/B test, perfil | [Dashboard](https://ararahq.com/dashboard) — o resto da configuração de conta não é trabalho de agente |

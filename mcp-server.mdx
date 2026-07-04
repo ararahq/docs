@@ -1,6 +1,6 @@
 ---
 title: 'MCP Server'
-description: 'Transforme Claude Code, Claude Desktop, Cursor, Windsurf ou ChatGPT no operador da sua conta WhatsApp. 10 ferramentas: você diz pra quem e o quê, a Arara resolve o resto.'
+description: 'Transforme Claude Code, Claude Desktop, Cursor, Windsurf ou ChatGPT no operador da sua conta WhatsApp. 14 ferramentas: você diz pra quem e o quê, a Arara resolve o resto.'
 keywords: ['mcp', 'model context protocol', 'claude code', 'claude desktop', 'cursor', 'windsurf', 'chatgpt', 'agentes ai', 'tools', 'oauth', 'arara']
 ---
 
@@ -12,18 +12,20 @@ Plugou, autorizou no browser, o agente já manda mensagem, dispara broadcast e a
 
 ## Você diz o quê. A Arara resolve o resto.
 
-A v4 cortou o MCP de 84 pra **10 ferramentas**. O motivo: agente bom não precisa de um painel de controle inteiro — precisa de poucas ações que aceitam o que um humano sabe de cabeça e resolvem o resto sozinhas.
+A v4 cortou o MCP de 84 pra um punhado de **14 ferramentas** enxutas. O motivo: agente bom não precisa de um painel de controle inteiro — precisa de poucas ações que aceitam o que um humano sabe de cabeça e resolvem o resto sozinhas.
 
 Na prática: `send_whatsapp` aceita `"João"` ou `"11 99999-9999"` em qualquer formato. O MCP resolve o contato, normaliza pra E.164, corrige o nono dígito e, se a janela de 24h estiver fechada, não inventa template — lista os seus aprovados e te ajuda a escolher (ou aprovar um novo).
 
 | Grupo | Ferramentas |
 |---|---|
 | Enviar | `send_whatsapp` · `broadcast` · `check_status` |
-| Templates | `create_template` · `get_template_status` |
+| Templates | `create_template` (com botões/smart-link) · `get_template_status` |
+| Campanhas | `list_campaigns` · `get_campaign` (relatório com cliques) |
+| Smart Links | `create_smart_link` · `list_smart_links` |
 | Contatos | `save_contacts` · `opt_out` |
 | Auth | `login` · `logout` · `whoami` |
 
-Leitura (contatos, conversas, templates, saldo, números, campanhas) não é tool: são **resources** que o cliente MCP carrega sozinho, sem gastar chamada. O que cada ferramenta e resource faz, com parâmetros e exemplos: [Ferramentas do MCP](/mcp-tools).
+Leitura leve (contatos, conversas, saldo, números) vive em **resources** que o cliente MCP carrega sozinho, sem gastar chamada. O relatório de campanha, por precisar de um id, é tool (`get_campaign`). O que cada ferramenta e resource faz, com parâmetros e exemplos: [Ferramentas do MCP](/mcp-tools).
 
 Configuração de conta (API keys, perfil do negócio, provisionamento de número, Brain) é trabalho de [dashboard](https://ararahq.com/dashboard), não de agente.
 
@@ -179,7 +181,7 @@ Não são mutuamente exclusivos — agência típica usa SDK pro backend, Brain 
 
 <CardGroup cols={2}>
   <Card title="Ferramentas do MCP" icon="wrench" href="/mcp-tools">
-    O que cada uma das 10 ferramentas faz, parâmetros e exemplos.
+    O que cada uma das 14 ferramentas faz, parâmetros e exemplos.
   </Card>
   <Card title="Source no GitHub" icon="github" href="https://github.com/ararahq/ararahq-mcp">
     Código aberto MIT, releases versionadas, issues abertas.
