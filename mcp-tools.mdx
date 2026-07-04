@@ -1,7 +1,7 @@
 ---
 title: 'Ferramentas do MCP'
-description: 'Referência das 14 ferramentas, 10 resources e 2 prompts do Arara MCP — o que cada um faz, parâmetros e exemplos.'
-keywords: ['mcp', 'tools', 'send_whatsapp', 'broadcast', 'check_status', 'create_template', 'buttons', 'smart_link', 'create_smart_link', 'list_campaigns', 'get_campaign', 'save_contacts', 'opt_out', 'resources', 'arara']
+description: 'Referência das 15 ferramentas, 10 resources e 2 prompts do Arara MCP — o que cada um faz, parâmetros e exemplos.'
+keywords: ['mcp', 'tools', 'send_whatsapp', 'broadcast', 'broadcast_ab', 'ab test', 'check_status', 'create_template', 'buttons', 'smart_link', 'create_smart_link', 'list_campaigns', 'get_campaign', 'save_contacts', 'opt_out', 'resources', 'arara']
 ---
 
 O MCP tem 3 camadas: **tools** (ações que o agente executa), **resources** (dados que o cliente carrega sozinho, sem tool call) e **prompts** (fluxos prontos pra invocar). Instalação e autenticação: [MCP Server](/mcp-server).
@@ -45,6 +45,29 @@ Devolve o ID da campanha e o custo total. Números que não resolver, ele lista 
 
 ```
 dispara o template promo_junho pra lista de clientes VIP com a variável "20% off"
+```
+
+### broadcast_ab
+
+Dispara uma campanha com **teste A/B numa chamada só**: você escolhe dois templates aprovados (A e B), a Arara manda pra uma **fatia** dos leads, mede a melhor, e dispara o **resto pela vencedora sozinha** (autopilot). É "uma decisão": os defaults já vêm prontos.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `templateName` | string | Template da variante A (o principal) |
+| `variantBTemplateName` | string | Template da variante B (a copy que compete) |
+| `to` | string[] | Lista de números ou nomes de contatos salvos |
+| `variables` | string[] (opcional) | Variáveis posicionais aplicadas a todos |
+| `name` | string (opcional) | Nome da campanha no dashboard |
+| `samplePct` | number (opcional) | % dos leads que entra no teste. Default `20` |
+| `decisionWindowMinutes` | number (opcional) | Minutos até decidir. Default `240` (4h) |
+| `metric` | enum (opcional) | `DELIVERED`, `READ`, `CLICKED` ou `CONVERTED`. Default `CLICKED` |
+| `autopilot` | boolean (opcional) | Dispara o resto pela vencedora sozinho. Default `true` |
+| `from` | string (opcional) | Número de origem em E.164 |
+
+O split A/B dentro da fatia é 50/50. Os dois templates precisam estar aprovados. Acompanhe o resultado com `get_campaign` (o campo de cliques mostra quem está ganhando).
+
+```
+testa a copy acad_v1 contra a acad_v2 nesses 300 leads: 20% no teste, decide em 4h por clique
 ```
 
 ### check_status
