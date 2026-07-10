@@ -31,7 +31,7 @@ Você pode desabilitar a invocação automática no dashboard, deixando só manu
   </Step>
   <Step title="Configura via API (alternativa)">
     ```bash
-    curl -X PATCH https://api.ararahq.com/api/v1/brain/actions/abacate-pix \
+    curl -X PATCH https://api.ararahq.com/v1/brain/actions/abacate-pix \
       -H "Authorization: Bearer ara_live_xxx" \
       -d '{
         "enabled": true,
@@ -69,7 +69,7 @@ Quando o AbacatePay confirma o pagamento (webhook `pix.paid`), a Arara dispara o
 Pra ver o status manualmente:
 
 ```bash
-curl https://api.ararahq.com/api/payments/pix/{id}/status \
+curl https://api.ararahq.com/payments/pix/{id}/status \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

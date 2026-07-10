@@ -26,7 +26,7 @@ Você precisa de **4 templates UTILITY**. A Arara cria automaticamente na integr
 ### 1. Pedido confirmado
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/templates \
+curl -X POST https://api.ararahq.com/v1/templates \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "name": "pedido_confirmado",
@@ -43,7 +43,7 @@ curl -X POST https://api.ararahq.com/api/v1/templates \
 ### 2. Pedido enviado (com rastreio)
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/templates \
+curl -X POST https://api.ararahq.com/v1/templates \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "name": "pedido_enviado",
@@ -60,7 +60,7 @@ curl -X POST https://api.ararahq.com/api/v1/templates \
 ### 3. Pedido entregue
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/templates \
+curl -X POST https://api.ararahq.com/v1/templates \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "name": "pedido_entregue",
@@ -74,7 +74,7 @@ curl -X POST https://api.ararahq.com/api/v1/templates \
 ### 4. Falha no pagamento
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/templates \
+curl -X POST https://api.ararahq.com/v1/templates \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "name": "pagamento_falhou",
@@ -205,7 +205,7 @@ Depois do template, **a janela 24h está aberta**. Cliente pode responder com d�
 Janela aberta é oportunidade. **3-5 dias após entrega**, você pode mandar template MARKETING (consentimento de opt-in pra marketing requerido):
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/templates \
+curl -X POST https://api.ararahq.com/v1/templates \
   -d '{
     "name": "upsell_pos_compra",
     "category": "MARKETING",

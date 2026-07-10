@@ -41,7 +41,7 @@ Black Friday é o stress test anual da sua operação WhatsApp. Volume 10-20x ma
 Antes de tudo, "aquece" a base — mensagem soft pra preparar pro pico.
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/templates \
+curl -X POST https://api.ararahq.com/v1/templates \
   -d '{
     "name": "bf_aquecimento",
     "category": "MARKETING",
@@ -61,7 +61,7 @@ Quem responder SIM vira **cohort VIP**. Esses receberão a oferta primeiro, com 
 
 ```bash
 # 1. Criar campanha
-curl -X POST https://api.ararahq.com/api/v1/campaigns \
+curl -X POST https://api.ararahq.com/v1/campaigns \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Idempotency-Key: bf26-main" \
   -d '{
@@ -71,7 +71,7 @@ curl -X POST https://api.ararahq.com/api/v1/campaigns \
   }'
 
 # 2. Adicionar A/B test
-curl -X POST https://api.ararahq.com/api/v1/campaigns/{campaign_id}/ab-test \
+curl -X POST https://api.ararahq.com/v1/campaigns/{campaign_id}/ab-test \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "variantATemplateName": "bf_lancamento_v1",
@@ -106,7 +106,7 @@ Pra campanha de venda, **`CONVERTED` se você tem pixel configurado**. Senão, `
 ## Estimando custo antes
 
 ```bash
-curl "https://api.ararahq.com/api/v1/campaigns/estimate?templateName=bf_lancamento_v1&count=50000" \
+curl "https://api.ararahq.com/v1/campaigns/estimate?templateName=bf_lancamento_v1&count=50000" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -135,7 +135,7 @@ Quem viu mas não comprou. A segmentação roda do seu lado:
 Aí monta a lista de contatos e dispara nova campanha:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/campaigns \
+curl -X POST https://api.ararahq.com/v1/campaigns \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Idempotency-Key: bf26-reabordagem" \
   -d '{
@@ -154,7 +154,7 @@ Tom da reabordagem: **escassez real**. "Última hora" se for verdade. Não inven
 Mesma lógica: segmenta do seu lado e dispara no horário desejado. A API não aceita `scheduledAt` em campanha — agende o cron do seu lado e bata o `POST /v1/campaigns` na hora.
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/campaigns \
+curl -X POST https://api.ararahq.com/v1/campaigns \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Idempotency-Key: bf26-ultimo-dia" \
   -d '{
@@ -170,12 +170,12 @@ Cliente vai responder. Em volume de 50K disparos, espera **5-15% de respostas** 
 
 ```bash
 # Garante Brain ligado
-curl -X PATCH https://api.ararahq.com/api/v1/brain/config \
+curl -X PATCH https://api.ararahq.com/v1/brain/config \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{ "active": true }'
 
 # Sobe knowledge específico da BF (FAQ)
-curl -X POST https://api.ararahq.com/api/v1/brain/knowledge \
+curl -X POST https://api.ararahq.com/v1/brain/knowledge \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "type": "FAQ",
@@ -207,7 +207,7 @@ Durante o disparo, **dashboard aberto** com:
 A Arara expõe via API:
 
 ```bash
-curl https://api.ararahq.com/api/v1/campaigns/{campaign_id} \
+curl https://api.ararahq.com/v1/campaigns/{campaign_id} \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

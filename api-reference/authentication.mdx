@@ -35,7 +35,7 @@ Use **TEST** pra desenvolvimento e CI. **LIVE** só em produção.
 **Via API** (cliente já autenticado pode criar mais):
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/api-keys \
+curl -X POST https://api.ararahq.com/v1/api-keys \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -65,7 +65,7 @@ Resposta `201 Created`:
 ### Listar chaves ativas
 
 ```bash
-curl "https://api.ararahq.com/api/v1/api-keys?mode=LIVE" \
+curl "https://api.ararahq.com/v1/api-keys?mode=LIVE" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -76,7 +76,7 @@ Retorna chaves ativas, com `lastFour` pra identificar sem expor o valor.
 Cria chave nova com mesmas permissões e marca a anterior pra expirar em 24h:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/api-keys/{id}/rotate \
+curl -X POST https://api.ararahq.com/v1/api-keys/{id}/rotate \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -87,7 +87,7 @@ curl -X POST https://api.ararahq.com/api/v1/api-keys/{id}/rotate \
 Invalida imediatamente:
 
 ```bash
-curl -X DELETE https://api.ararahq.com/api/v1/api-keys/{id} \
+curl -X DELETE https://api.ararahq.com/v1/api-keys/{id} \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -98,7 +98,7 @@ Próxima requisição com essa chave retorna `401`.
 Restringe quais IPs podem usar a chave:
 
 ```bash
-curl -X PATCH https://api.ararahq.com/api/v1/api-keys/{id} \
+curl -X PATCH https://api.ararahq.com/v1/api-keys/{id} \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{ "ipAllowlist": "52.10.0.0/16,203.0.113.5" }'
 ```

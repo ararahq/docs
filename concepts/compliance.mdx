@@ -49,12 +49,12 @@ A Arara processa opt-out automaticamente:
 # Cliente respondeu "PARAR" → Arara registra automaticamente
 # Mas você também pode registrar via API:
 
-curl -X POST https://api.ararahq.com/api/v1/opt-outs \
+curl -X POST https://api.ararahq.com/v1/opt-outs \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{ "phone": "+5511999999999", "reason": "Solicitação verbal por telefone" }'
 
 # Checar antes de enviar:
-curl "https://api.ararahq.com/api/v1/opt-outs/check?phone=+5511999999999" \
+curl "https://api.ararahq.com/v1/opt-outs/check?phone=+5511999999999" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -119,11 +119,11 @@ A Arara expõe ambos via API:
 
 ```bash
 # Exportar todos os dados de um contato
-curl -X POST https://api.ararahq.com/api/v1/lgpd/contact/{phone}/export \
+curl -X POST https://api.ararahq.com/v1/lgpd/contact/{phone}/export \
   -H "Authorization: Bearer ara_live_xxx"
 
 # Eliminar dados de um contato
-curl -X DELETE https://api.ararahq.com/api/v1/lgpd/contact/{phone} \
+curl -X DELETE https://api.ararahq.com/v1/lgpd/contact/{phone} \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -135,11 +135,11 @@ Você (titular dos dados da operação) também tem direito:
 
 ```bash
 # Exportar todos os dados da sua organização
-curl https://api.ararahq.com/api/v1/profile/export-data \
+curl https://api.ararahq.com/v1/profile/export-data \
   -H "Authorization: Bearer ara_live_xxx"
 
 # Solicitar exclusão de conta
-curl -X POST https://api.ararahq.com/api/v1/profile/delete-account \
+curl -X POST https://api.ararahq.com/v1/profile/delete-account \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{ "confirmation": "EXCLUIR seu_email@dominio.com" }'
 ```
@@ -184,7 +184,7 @@ Toda mensagem enviada pela Arara fica logada por **180 dias** por default (confi
 - Cliente final (cliente pediu prova do que foi enviado)
 
 ```bash
-curl "https://api.ararahq.com/api/v1/messages?phone=+5511999999999&from=2026-01-01" \
+curl "https://api.ararahq.com/v1/messages?phone=+5511999999999&from=2026-01-01" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

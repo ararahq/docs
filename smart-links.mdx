@@ -21,7 +21,7 @@ UTM clássico responde **"de qual canal veio"**. Smart Link responde **"qual cli
 ## Criando um Smart Link
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/smart-links/whatsapp \
+curl -X POST https://api.ararahq.com/v1/smart-links/whatsapp \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "destinationUrl": "https://meusite.com.br/produto/camiseta-basica?utm_source=whatsapp",
@@ -63,7 +63,7 @@ Onde `{{2}}` recebe o `shortUrl` no payload. Cada cliente recebe um Smart Link d
 Ou use o tipo de botão `SMART_LINK` (ver [Política de templates](/templates/policy)):
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/templates \
+curl -X POST https://api.ararahq.com/v1/templates \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "name": "produto_quente",
@@ -85,7 +85,7 @@ A `{{2}}` da URL recebe o slug do produto na hora do envio. Arara faz o wrap em 
 ## Listando
 
 ```bash
-curl https://api.ararahq.com/api/v1/smart-links/whatsapp \
+curl https://api.ararahq.com/v1/smart-links/whatsapp \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

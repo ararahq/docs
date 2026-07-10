@@ -58,7 +58,7 @@ O pixel cruza com o **clique recente** do mesmo navegador (cookie 1st-party, vá
 Primeiro, pegue seu **endpoint de conversão** (único por organização):
 
 ```bash
-curl https://api.ararahq.com/api/v1/conversions/endpoint \
+curl https://api.ararahq.com/v1/conversions/endpoint \
   -H "Authorization: Bearer ara_live_xxx"
 # → { "code": "cnv_...", "hmacSecret": "...", "active": true, "url": "https://api.ararahq.com/l/cnv_..." }
 ```

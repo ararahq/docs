@@ -45,7 +45,7 @@ Operações com ticket médio > R$ 50 normalmente recuperam **8-15% do que se pe
   <Step title="Pega o endpoint da sua org">
     A Arara cria um endpoint único por organização — ele recebe todos os eventos. No dashboard em **Recuperação**, ou via API:
     ```bash
-    curl https://api.ararahq.com/api/v1/recovery/endpoint \
+    curl https://api.ararahq.com/v1/recovery/endpoint \
       -H "Authorization: Bearer ara_live_xxx"
     ```
     Retorna `{ code, hmacSecret, active, url }`. O `url` (`https://ararahq.com/l/{code}`) é o que você configura como destino dos webhooks do parceiro.
@@ -53,7 +53,7 @@ Operações com ticket médio > R$ 50 normalmente recuperam **8-15% do que se pe
   <Step title="Vincula um template a cada tipo de evento">
     Cada `eventType` (`pix.expired`, `payment.failed`, `cart.abandoned`, etc) aponta pra um template:
     ```bash
-    curl -X PUT https://api.ararahq.com/api/v1/recovery/events/pix.expired \
+    curl -X PUT https://api.ararahq.com/v1/recovery/events/pix.expired \
       -H "Authorization: Bearer ara_live_xxx" \
       -d '{
         "templateId": "ara_tpl_abc123",
@@ -70,7 +70,7 @@ Operações com ticket médio > R$ 50 normalmente recuperam **8-15% do que se pe
   <Step title="Liga o endpoint">
     Por default o endpoint sobe `active: false` (dry-run: registra o ingest mas não envia). Ative quando estiver confiante:
     ```bash
-    curl -X PATCH https://api.ararahq.com/api/v1/recovery/endpoint \
+    curl -X PATCH https://api.ararahq.com/v1/recovery/endpoint \
       -H "Authorization: Bearer ara_live_xxx" \
       -d '{ "active": true }'
     ```
@@ -82,7 +82,7 @@ Operações com ticket médio > R$ 50 normalmente recuperam **8-15% do que se pe
 Configs por evento:
 
 ```bash
-curl https://api.ararahq.com/api/v1/recovery/events \
+curl https://api.ararahq.com/v1/recovery/events \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -103,7 +103,7 @@ curl https://api.ararahq.com/api/v1/recovery/events \
 Stats agregados:
 
 ```bash
-curl "https://api.ararahq.com/api/v1/recovery/stats?period=30D" \
+curl "https://api.ararahq.com/v1/recovery/stats?period=30D" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -114,7 +114,7 @@ curl "https://api.ararahq.com/api/v1/recovery/stats?period=30D" \
 Pra validar o setup sem esperar um pagamento falhar, dispare um teste:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/recovery/events/pix.expired/test \
+curl -X POST https://api.ararahq.com/v1/recovery/events/pix.expired/test \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

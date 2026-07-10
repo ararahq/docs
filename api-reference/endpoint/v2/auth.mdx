@@ -5,7 +5,7 @@ description: 'Troque um token Firebase por uma sessão Arara, consulte o usuári
 
 Endpoints usados pelo Dashboard, CLI e SDKs que precisam de uma **sessão de usuário** (não de uma API key). Os três endpoints abaixo formam o ponto de entrada do fluxo de login.
 
-**Base URL:** `https://api.ararahq.com/api`
+**Base URL:** `https://api.ararahq.com`
 
 <Note>
   **Autenticação aqui é diferente do resto da API.** Endpoints de `/auth/*` recebem um **ID token do Firebase** no corpo (`POST /auth`) ou no header `Authorization: Bearer <firebase_id_token>` (`GET /auth/me`). Para qualquer outro endpoint da Arara, use sua **API key** (`ara_live_...` / `ara_test_...`). Veja [Autenticação](/api-reference/authentication).
@@ -20,7 +20,7 @@ Endpoints usados pelo Dashboard, CLI e SDKs que precisam de uma **sessão de usu
 Recebe um ID token do Firebase (obtido pelo seu app via `firebase.auth().currentUser.getIdToken()`), valida com a Google, cria ou recupera o usuário/organização correspondente e devolve uma sessão Arara junto com a API key da organização.
 
 ```bash
-curl -X POST https://api.ararahq.com/api/auth \
+curl -X POST https://api.ararahq.com/auth \
   -H "Content-Type: application/json" \
   -d '{
     "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjEy..."
@@ -74,7 +74,7 @@ Resposta (`200 OK`):
 Retorna o nome e email do usuário cuja sessão está no header.
 
 ```bash
-curl https://api.ararahq.com/api/auth/me \
+curl https://api.ararahq.com/auth/me \
   -H "Authorization: Bearer <firebase_id_token>"
 ```
 
@@ -105,7 +105,7 @@ Resposta (`200 OK`):
 Lista todas as organizações que o usuário autenticado pertence — tanto a primária quanto convites aceitos.
 
 ```bash
-curl https://api.ararahq.com/api/auth/me/organizations \
+curl https://api.ararahq.com/auth/me/organizations \
   -H "Authorization: Bearer <firebase_id_token>"
 ```
 

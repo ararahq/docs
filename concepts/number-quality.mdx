@@ -50,7 +50,7 @@ A Meta atualiza baseado em sinais agregados:
 ## Consultar quality
 
 ```bash
-curl https://api.ararahq.com/api/v1/organizations/me/numbers \
+curl https://api.ararahq.com/v1/organizations/me/numbers \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -83,7 +83,7 @@ Subir de tier exige **volume crescente**, mas crescer rápido demais derruba qua
 A Arara expõe recomendação baseada em quality atual:
 
 ```bash
-curl https://api.ararahq.com/api/v1/organizations/me/numbers/warming \
+curl https://api.ararahq.com/v1/organizations/me/numbers/warming \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -141,7 +141,7 @@ Dashboard → **Números → {número} → Diagnóstico** mostra:
 Via API:
 
 ```bash
-curl https://api.ararahq.com/api/v1/organizations/me/numbers/{id}/diagnostic \
+curl https://api.ararahq.com/v1/organizations/me/numbers/{id}/diagnostic \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -164,7 +164,7 @@ A Arara distribui automaticamente. Dashboard agregado mostra performance combina
 ## Como pedir um número novo
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/organizations/me/numbers/request \
+curl -X POST https://api.ararahq.com/v1/organizations/me/numbers/request \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "areaCode": "11",

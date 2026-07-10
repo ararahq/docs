@@ -33,7 +33,7 @@ Em modo TEST, **qualquer número é válido** — a Arara simula o envio. Use se
 
 <CodeGroup>
 ```bash cURL
-curl -X POST https://api.ararahq.com/api/v1/messages \
+curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -49,7 +49,7 @@ import { NodeSDK } from '@ararahq/sdk';
 
 const sdk = new NodeSDK({
   apiKey: process.env.ARARA_API_KEY!,
-  baseUrl: 'https://api.ararahq.com/api',
+  baseUrl: 'https://api.ararahq.com',
 });
 
 const response = await sdk.messages.send({
@@ -133,7 +133,7 @@ func main() {
         "templateVariables": []string{"seu_nome"},
     })
     req, _ := http.NewRequest("POST",
-        "https://api.ararahq.com/api/v1/messages",
+        "https://api.ararahq.com/v1/messages",
         bytes.NewReader(body))
     req.Header.Set("Authorization", "Bearer "+os.Getenv("ARARA_API_KEY"))
     req.Header.Set("Content-Type", "application/json")
@@ -161,7 +161,7 @@ Response esperada (`202 Accepted`):
 ## 3. Consultar status (1 min)
 
 ```bash
-curl https://api.ararahq.com/api/v1/messages/ara_msg_k9Bf2XqP \
+curl https://api.ararahq.com/v1/messages/ara_msg_k9Bf2XqP \
   -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 

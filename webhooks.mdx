@@ -22,7 +22,7 @@ Dashboard → **Configurações → Webhooks → URL** + secret.
 Ou via API:
 
 ```bash
-curl -X PATCH https://api.ararahq.com/api/organizations/me/webhook \
+curl -X PATCH https://api.ararahq.com/organizations/me/webhook \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "url": "https://meusite.com.br/api/webhooks/arara",
@@ -146,7 +146,7 @@ Se seu endpoint não responder **2xx em 10 segundos**, a Arara retenta com backo
 Após 7 tentativas falhadas em 24h, o webhook é **desabilitado** e você recebe email + sino no dashboard. Pra reativar:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/organizations/me/webhook/reenable \
+curl -X POST https://api.ararahq.com/organizations/me/webhook/reenable \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

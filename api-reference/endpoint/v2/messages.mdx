@@ -6,7 +6,7 @@ keywords: ['mensagens', 'send message', 'whatsapp', 'template', 'batch']
 
 O endpoint mais usado. Aceita template HSM (qualquer hora) ou texto livre (dentro da janela 24h). Suporta lote de até 1000 mensagens, agendamento, mídia, mensagem interativa e localização.
 
-**Base URL:** `https://api.ararahq.com/api`
+**Base URL:** `https://api.ararahq.com`
 
 ---
 
@@ -16,7 +16,7 @@ O endpoint mais usado. Aceita template HSM (qualquer hora) ou texto livre (dentr
 
 <CodeGroup>
 ```bash cURL
-curl -X POST https://api.ararahq.com/api/v1/messages \
+curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -79,7 +79,7 @@ Resposta (`202 Accepted`):
 Cliente respondeu nas últimas 24h? Você pode mandar texto livre em vez de template:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/messages \
+curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "receiver": "whatsapp:+5511999999999",
@@ -90,7 +90,7 @@ curl -X POST https://api.ararahq.com/api/v1/messages \
 Antes de mandar, **valida a janela**:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/conversations/window-status \
+curl -X POST https://api.ararahq.com/v1/conversations/window-status \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{ "phones": ["+5511999999999"] }'
 ```
@@ -102,7 +102,7 @@ Se `status: CLOSED`, manda template em vez de body. Detalhes em [Janela 24h](/co
 URL da mídia vai como **primeiro elemento** de `templateVariables`:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/messages \
+curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "receiver": "whatsapp:+5511999999999",
@@ -120,7 +120,7 @@ Suportado: imagem (JPEG/PNG, max 5MB), vídeo (MP4 H.264, max 16MB, max 16s), PD
 ## Mensagem agendada
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/messages \
+curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "receiver": "whatsapp:+5511999999999",
@@ -137,7 +137,7 @@ Mensagem fica em `status: scheduled` até o horário.
 Botões de resposta rápida ou listas selecionáveis dentro da janela 24h:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/messages \
+curl -X POST https://api.ararahq.com/v1/messages \
   -d '{
     "receiver": "whatsapp:+5511999999999",
     "interactive": {
@@ -159,7 +159,7 @@ Quando cliente clica, vem como webhook `message.received` com `type: button` e o
 `POST /v1/messages/batch`
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/messages/batch \
+curl -X POST https://api.ararahq.com/v1/messages/batch \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Idempotency-Key: batch-pedidos-20260518" \
   -d '{
@@ -206,7 +206,7 @@ Pra > 1000 destinatários, use [Campanhas](/api-reference/endpoint/v2/campaigns)
 `GET /v1/messages/{id}`
 
 ```bash
-curl https://api.ararahq.com/api/v1/messages/ara_msg_k9Bf2XqP \
+curl https://api.ararahq.com/v1/messages/ara_msg_k9Bf2XqP \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

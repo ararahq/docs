@@ -9,7 +9,7 @@ A API da Arara é REST padrão, JSON in/out, autenticação Bearer. Esta página
 ## Base URL
 
 ```
-https://api.ararahq.com/api
+https://api.ararahq.com
 ```
 
 Não há SemVer no path. Mudanças incompatíveis viram **endpoint novo** (ex: `/v1/messages/batch` adicionado sem quebrar `/v1/messages`). Deprecations são anunciadas no [changelog](/changelog) com ≥ 6 meses de aviso antes de remover.
@@ -84,7 +84,7 @@ Endpoints que retornam lista aceitam:
 | `size` | integer | `20` | Itens por página, máximo `100`. |
 
 ```bash
-curl "https://api.ararahq.com/api/v1/messages?page=2&size=50" \
+curl "https://api.ararahq.com/v1/messages?page=2&size=50" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -93,7 +93,7 @@ curl "https://api.ararahq.com/api/v1/messages?page=2&size=50" \
 POSTs que criam recursos críticos aceitam header `Idempotency-Key`:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/messages \
+curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Idempotency-Key: order-confirm-abc123" \
   -H "Content-Type: application/json" \
