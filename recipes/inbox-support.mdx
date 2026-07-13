@@ -38,11 +38,11 @@ Cliente manda mensagem → entra na fila do inbox → primeiro atendente dispon�
 
 ```bash
 # Listar conversas (a lista filtra por status no client/dashboard)
-curl https://api.ararahq.com/api/v1/conversations \
+curl https://api.ararahq.com/v1/conversations \
   -H "Authorization: Bearer ara_live_xxx"
 
 # Responder (atendente envia o reply via dashboard ou API)
-curl -X POST https://api.ararahq.com/api/v1/conversations/reply \
+curl -X POST https://api.ararahq.com/v1/conversations/reply \
   -d '{
     "conversationId": "ara_conv_xyz",
     "text": "Oi João, posso te ajudar! Qual é o número do pedido?"
@@ -63,7 +63,7 @@ Brain atende primeiro. Resolve o que dá pra resolver (FAQ, status de pedido, ca
 
 ```bash
 # Brain ativo (regras de saída ficam dentro de exitTriggers ou no dashboard)
-curl -X PATCH https://api.ararahq.com/api/v1/brain/config \
+curl -X PATCH https://api.ararahq.com/v1/brain/config \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "active": true,
@@ -76,7 +76,7 @@ curl -X PATCH https://api.ararahq.com/api/v1/brain/config \
   }'
 
 # Handoffs pendentes (escalações)
-curl "https://api.ararahq.com/api/v1/brain/handoffs?status=PENDING" \
+curl "https://api.ararahq.com/v1/brain/handoffs?status=PENDING" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

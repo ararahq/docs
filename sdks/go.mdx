@@ -58,7 +58,7 @@ func main() {
     body, _ := json.Marshal(req)
     httpReq, _ := http.NewRequest(
         "POST",
-        "https://api.ararahq.com/api/v1/messages",
+        "https://api.ararahq.com/v1/messages",
         bytes.NewReader(body),
     )
     httpReq.Header.Set("Authorization", "Bearer "+os.Getenv("ARARA_API_KEY"))

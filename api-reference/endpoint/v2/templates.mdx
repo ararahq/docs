@@ -6,14 +6,14 @@ keywords: ['templates', 'hsm', 'meta approval', 'utility', 'marketing', 'authent
 
 Templates HSM (Highly Structured Messages) são as mensagens pré-aprovadas que você pode mandar fora da janela 24h. Esta página cobre os endpoints REST. Pro **conceito** (categorias, regras de aprovação, lint, política), ver [Templates HSM](/concepts/templates) e [Política de templates](/templates/policy).
 
-**Base URL:** `https://api.ararahq.com/api`
+**Base URL:** `https://api.ararahq.com`
 
 ## Criar template
 
 `POST /v1/templates`
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/templates \
+curl -X POST https://api.ararahq.com/v1/templates \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -171,7 +171,7 @@ Templates `AUTHENTICATION` exigem botão `COPY_CODE` ou `ONE_TAP`:
 Retorna **array direto** (sem paginação). Aceita filtros opcionais por nome ou status.
 
 ```bash
-curl "https://api.ararahq.com/api/v1/templates?status=APPROVED" \
+curl "https://api.ararahq.com/v1/templates?status=APPROVED" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -206,7 +206,7 @@ Resposta (`200 OK`):
 `GET /v1/templates/{id}`
 
 ```bash
-curl https://api.ararahq.com/api/v1/templates/a7f3c1e2-4b5d-6789-abcd-ef0123456789 \
+curl https://api.ararahq.com/v1/templates/a7f3c1e2-4b5d-6789-abcd-ef0123456789 \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -219,7 +219,7 @@ Path param `id` é **UUID**.
 Consulta a Twilio (source of truth) e atualiza o status local. Útil quando você acha que algo mudou e quer status fresh.
 
 ```bash
-curl https://api.ararahq.com/api/v1/templates/{id}/status \
+curl https://api.ararahq.com/v1/templates/{id}/status \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -249,7 +249,7 @@ Pra acompanhar **em tempo real sem polling**, escute o webhook `template.updated
 `GET /v1/templates/{id}/analytics`
 
 ```bash
-curl "https://api.ararahq.com/api/v1/templates/{id}/analytics?period=30d" \
+curl "https://api.ararahq.com/v1/templates/{id}/analytics?period=30d" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -280,7 +280,7 @@ Query params: `period` = `7d`, `30d`, `90d` (default `30d`).
 `DELETE /v1/templates/{id}`
 
 ```bash
-curl -X DELETE https://api.ararahq.com/api/v1/templates/a7f3c1e2-4b5d-6789-abcd-ef0123456789 \
+curl -X DELETE https://api.ararahq.com/v1/templates/a7f3c1e2-4b5d-6789-abcd-ef0123456789 \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

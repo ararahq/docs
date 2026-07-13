@@ -89,7 +89,7 @@ O delta de mensagem entre Free e Voo (R$ 0,15 na UTILITY/AUTH, R$ 0,20 no MARKET
 ## Estimativa via API
 
 ```bash
-curl "https://api.ararahq.com/api/v1/wallet/calculate?amountCents=10000" \
+curl "https://api.ararahq.com/v1/wallet/calculate?amountCents=10000" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -134,7 +134,7 @@ Dashboard → **Cobrança → Faturas**. Cada fatura tem:
 Saldo é em **créditos pré-pagos** (R$ depositados via Pix ou cartão). Quando saldo cai abaixo do threshold, auto-recharge dispara cartão e completa.
 
 ```bash
-curl https://api.ararahq.com/api/v1/wallet/auto-recharge \
+curl https://api.ararahq.com/v1/wallet/auto-recharge \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

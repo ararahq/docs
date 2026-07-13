@@ -6,7 +6,7 @@ keywords: ['campaigns', 'campanhas', 'broadcast', 'disparo em massa']
 
 Campanhas são o jeito certo de disparar em massa. Diferente de loops em `POST /v1/messages`, a campanha **valida saldo antecipado, enfileira tudo, processa em background com rate limit respeitado, e expõe métricas agregadas**.
 
-**Base URL:** `https://api.ararahq.com/api`
+**Base URL:** `https://api.ararahq.com`
 
 <Note>
   Pra **1 mensagem**: [`POST /v1/messages`](/api-reference/endpoint/v2/messages).<br/>
@@ -19,7 +19,7 @@ Campanhas são o jeito certo de disparar em massa. Diferente de loops em `POST /
 `POST /v1/campaigns`
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/campaigns \
+curl -X POST https://api.ararahq.com/v1/campaigns \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Idempotency-Key: bf26-main" \
   -H "Content-Type: application/json" \
@@ -77,7 +77,7 @@ Resposta (`200 OK`):
 `GET /v1/campaigns/{id}`
 
 ```bash
-curl https://api.ararahq.com/api/v1/campaigns/7b3789fb-4c5d-6789-abcd-ef0123456789 \
+curl https://api.ararahq.com/v1/campaigns/7b3789fb-4c5d-6789-abcd-ef0123456789 \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -112,7 +112,7 @@ Resposta (`200 OK`):
 `GET /v1/campaigns`
 
 ```bash
-curl "https://api.ararahq.com/api/v1/campaigns?page=0&size=20" \
+curl "https://api.ararahq.com/v1/campaigns?page=0&size=20" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -152,7 +152,7 @@ Resposta usa o envelope `content / totalElements / totalPages` do Spring Page:
 Calcula custo sem criar a campanha — bom pra UX "Confirma envio? Total R$ X".
 
 ```bash
-curl "https://api.ararahq.com/api/v1/campaigns/estimate?templateName=bf_oferta_geral&count=50000" \
+curl "https://api.ararahq.com/v1/campaigns/estimate?templateName=bf_oferta_geral&count=50000" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -194,7 +194,7 @@ Pra acompanhar **mensagem por mensagem em tempo real**, escute o webhook `messag
 `POST /v1/campaigns/{id}/cancel`
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/campaigns/7b3789fb-.../cancel \
+curl -X POST https://api.ararahq.com/v1/campaigns/7b3789fb-.../cancel \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

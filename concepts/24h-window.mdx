@@ -46,7 +46,7 @@ Não tem atalho. Você não pode "abrir janela" mandando primeiro texto livre.
 Antes de mandar texto livre, você pode checar se a janela está aberta:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/conversations/window-status \
+curl -X POST https://api.ararahq.com/v1/conversations/window-status \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{ "phones": ["+5511999999999", "+5511888888888"] }'
 ```

@@ -56,7 +56,7 @@ A Arara hospeda um vector store dedicado à sua organização. Você adiciona co
 
 ```bash
 # Texto puro
-curl -X POST https://api.ararahq.com/api/v1/brain/knowledge \
+curl -X POST https://api.ararahq.com/v1/brain/knowledge \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "type": "FAQ",
@@ -64,12 +64,12 @@ curl -X POST https://api.ararahq.com/api/v1/brain/knowledge \
   }'
 
 # URL (a Arara faz crawl)
-curl -X POST https://api.ararahq.com/api/v1/brain/ingest-url \
+curl -X POST https://api.ararahq.com/v1/brain/ingest-url \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{ "url": "https://meusite.com.br/ajuda/devolucao", "label": "Política de devolução" }'
 
 # PDF (upload multipart)
-curl -X POST https://api.ararahq.com/api/v1/brain/ingest-pdf \
+curl -X POST https://api.ararahq.com/v1/brain/ingest-pdf \
   -H "Authorization: Bearer ara_live_xxx" \
   -F "file=@manual_completo.pdf" \
   -F "label=Manual operacional"
@@ -87,7 +87,7 @@ Limites:
 Antes de soltar em produção, você define casos esperados:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/brain/eval/cases \
+curl -X POST https://api.ararahq.com/v1/brain/eval/cases \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "input": "Quero devolver um produto que comprei semana passada",
@@ -102,14 +102,14 @@ curl -X POST https://api.ararahq.com/api/v1/brain/eval/cases \
 Roda toda a suite contra o Brain configurado:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/brain/eval/run-all \
+curl -X POST https://api.ararahq.com/v1/brain/eval/run-all \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
 Pra rodar um caso individual:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/brain/eval/cases/{id}/run \
+curl -X POST https://api.ararahq.com/v1/brain/eval/cases/{id}/run \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -127,7 +127,7 @@ Toda resposta do Brain passa pelo Guardian antes de sair:
 Configurável via `PATCH /v1/brain/config` no campo `guardrails`:
 
 ```bash
-curl -X PATCH https://api.ararahq.com/api/v1/brain/config \
+curl -X PATCH https://api.ararahq.com/v1/brain/config \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "guardrails": {
@@ -146,7 +146,7 @@ Quando o Guardian bloqueia uma resposta, escala pra humano automaticamente.
 Dashboard em **Brain → Métricas** ou via API:
 
 ```bash
-curl https://api.ararahq.com/api/v1/brain/metrics \
+curl https://api.ararahq.com/v1/brain/metrics \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -173,7 +173,7 @@ Retorna:
 Quando o Brain decide escalar (ou Guardian bloqueia), a conversa abre como handoff no inbox:
 
 ```bash
-curl https://api.ararahq.com/api/v1/brain/handoffs?status=PENDING \
+curl https://api.ararahq.com/v1/brain/handoffs?status=PENDING \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

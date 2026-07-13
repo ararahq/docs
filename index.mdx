@@ -109,7 +109,7 @@ mode: 'custom'
 
 <CodeGroup>
 ```bash cURL
-curl -X POST https://api.ararahq.com/api/v1/messages \
+curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_test_xxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -124,7 +124,7 @@ import { NodeSDK } from '@ararahq/sdk';
 
 const sdk = new NodeSDK({
   apiKey: process.env.ARARA_API_KEY!,
-  baseUrl: 'https://api.ararahq.com/api',
+  baseUrl: 'https://api.ararahq.com',
 });
 
 await sdk.messages.send({

@@ -27,7 +27,7 @@ A Action **Stripe** é a Action de pagamento internacional do Brain. Cliente que
   </Step>
   <Step title="Habilita na Arara">
     ```bash
-    curl -X PATCH https://api.ararahq.com/api/v1/brain/actions/stripe \
+    curl -X PATCH https://api.ararahq.com/v1/brain/actions/stripe \
       -H "Authorization: Bearer ara_live_xxx" \
       -d '{
         "enabled": true,
@@ -65,7 +65,7 @@ Agente:    "Plano Pro: $99/mês, cartão internacional.
 Pra cobrança recorrente, configure webhook do Stripe apontando pra:
 
 ```
-https://api.ararahq.com/api/v1/webhooks/stripe-brain
+https://api.ararahq.com/v1/webhooks/stripe-brain
 ```
 
 Eventos suportados:

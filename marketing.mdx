@@ -84,7 +84,7 @@ A Arara expõe esses filtros no `POST /v1/contacts/batch` (cada contato aceita `
 Você sobe duas variantes de template, define a métrica (entregue, lido, clicado, convertido) e a Arara dispara pra uma amostra (20% default), espera a janela de decisão (4h default) e promove a vencedora pro resto.
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/campaigns/{campaign_id}/ab-test \
+curl -X POST https://api.ararahq.com/v1/campaigns/{campaign_id}/ab-test \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "variantATemplateName": "blackfriday_v1",

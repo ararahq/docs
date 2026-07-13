@@ -52,7 +52,7 @@ A Meta atualiza a cada 24h baseado em:
 ## Como consultar quality
 
 ```bash
-curl https://api.ararahq.com/api/v1/organizations/me/numbers \
+curl https://api.ararahq.com/v1/organizations/me/numbers \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -92,7 +92,7 @@ Número novo começa em **TIER_250** (250 mensagens/24h). Subir de tier exige:
 A Arara automatiza esse ramp com o endpoint de warming:
 
 ```bash
-curl https://api.ararahq.com/api/v1/organizations/me/numbers/{numberId}/warming \
+curl https://api.ararahq.com/v1/organizations/me/numbers/{numberId}/warming \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -119,7 +119,7 @@ Retorna recomendação por número:
 Pelo dashboard em **Configurações → Números → Solicitar novo**. Ou via API:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/organizations/me/numbers/request \
+curl -X POST https://api.ararahq.com/v1/organizations/me/numbers/request \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "areaCode": "11",
@@ -152,7 +152,7 @@ Se você viu o tier descer, abra **Dashboard → Números → {número} → Diag
 Mudanças no perfil de negócio (nome, descrição, foto, vertical) precisam ser empurradas pra Meta. A Arara faz sync automático, mas você pode forçar:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/organizations/me/business-profile/sync \
+curl -X POST https://api.ararahq.com/v1/organizations/me/business-profile/sync \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

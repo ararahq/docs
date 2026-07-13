@@ -6,7 +6,7 @@ keywords: ['api keys', 'chaves', 'auth', 'rotate', 'revoke', 'audit', 'ip allowl
 
 Gerencie as chaves que suas aplicações usam pra autenticar na API.
 
-**Base URL:** `https://api.ararahq.com/api`
+**Base URL:** `https://api.ararahq.com`
 
 <Warning>
   A chave plain text é exibida **uma única vez**, no momento da criação (campo `plainTextKey`). A Arara não armazena o valor completo — se perder, crie uma nova e revogue a antiga.
@@ -17,7 +17,7 @@ Gerencie as chaves que suas aplicações usam pra autenticar na API.
 `POST /v1/api-keys`
 
 ```bash
-curl -X POST "https://api.ararahq.com/api/v1/api-keys?mode=LIVE" \
+curl -X POST "https://api.ararahq.com/v1/api-keys?mode=LIVE" \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -66,7 +66,7 @@ A response é **minimal por design** — só o valor plain text da chave nova. P
 Retorna **array direto** com todas as chaves ativas (não-revogadas) do user autenticado.
 
 ```bash
-curl https://api.ararahq.com/api/v1/api-keys \
+curl https://api.ararahq.com/v1/api-keys \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -113,7 +113,7 @@ Resposta (`200 OK`):
 `PATCH /v1/api-keys/{id}`
 
 ```bash
-curl -X PATCH https://api.ararahq.com/api/v1/api-keys/7f8a1c2d-4e5f-6789-abcd-ef0123456789 \
+curl -X PATCH https://api.ararahq.com/v1/api-keys/7f8a1c2d-4e5f-6789-abcd-ef0123456789 \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "name": "novo-nome",
@@ -137,7 +137,7 @@ Resposta: **`204 No Content`** sem body.
 Cria chave nova com mesmas permissões e marca a anterior pra expirar em 24h.
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/api-keys/{id}/rotate \
+curl -X POST https://api.ararahq.com/v1/api-keys/{id}/rotate \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -150,7 +150,7 @@ Resposta (`200 OK`) traz a nova chave (campo `plainTextKey`) e o ID da chave que
 `DELETE /v1/api-keys/{id}`
 
 ```bash
-curl -X DELETE https://api.ararahq.com/api/v1/api-keys/7f8a1c2d-4e5f-6789-abcd-ef0123456789 \
+curl -X DELETE https://api.ararahq.com/v1/api-keys/7f8a1c2d-4e5f-6789-abcd-ef0123456789 \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -163,7 +163,7 @@ Próxima requisição com a chave revogada retorna `401`.
 `GET /v1/api-keys/{id}/stats`
 
 ```bash
-curl https://api.ararahq.com/api/v1/api-keys/{id}/stats \
+curl https://api.ararahq.com/v1/api-keys/{id}/stats \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -192,7 +192,7 @@ Resposta:
 Retorna eventos de auditoria da chave (criação, rotação, revogação, mudança de IP allowlist).
 
 ```bash
-curl https://api.ararahq.com/api/v1/api-keys/{id}/events \
+curl https://api.ararahq.com/v1/api-keys/{id}/events \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -217,7 +217,7 @@ Resposta:
 Plano Business+ permite restringir IPs autorizados pra cada chave. Aceita IP único ou CIDR:
 
 ```bash
-curl -X PATCH https://api.ararahq.com/api/v1/api-keys/{id} \
+curl -X PATCH https://api.ararahq.com/v1/api-keys/{id} \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{ "ipAllowlist": "52.10.0.0/16" }'
 ```

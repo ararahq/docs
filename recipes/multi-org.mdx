@@ -118,11 +118,11 @@ Cada organização tem:
 
 ```bash
 # Listar as orgs do usuário
-curl https://api.ararahq.com/api/auth/me/organizations \
+curl https://api.ararahq.com/auth/me/organizations \
   -H "Authorization: Bearer <firebase_token>"
 
 # Cada call subsequente usa API key específica daquela org
-curl -X POST https://api.ararahq.com/api/v1/messages \
+curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_org_a_xxx" \
   -d '{ "receiver": "...", ... }'
 ```
@@ -179,7 +179,7 @@ Pessoal: cada cliente tem sua chave. Se chave do cliente X vazar, você revoga *
 Restringe quais IPs podem usar cada key:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/api-keys \
+curl -X POST https://api.ararahq.com/v1/api-keys \
   -d '{
     "name": "backend-cliente-x",
     "mode": "LIVE",
@@ -194,7 +194,7 @@ Se a key vazar e tentarem usar de IP fora, falha auth.
 Toda ação em cada org fica registrada. Pra ver quem fez o quê:
 
 ```bash
-curl "https://api.ararahq.com/api/v1/api-keys/{id}/events" \
+curl "https://api.ararahq.com/v1/api-keys/{id}/events" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

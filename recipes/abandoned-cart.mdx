@@ -54,7 +54,7 @@ Capture o evento quando o cliente abandona (ex: passou 30min sem voltar ao check
 // WooCommerce — exemplo simplificado
 add_action('woocommerce_cart_abandoned', function($cart) {
     $customer = wp_get_current_user();
-    wp_remote_post('https://api.ararahq.com/api/webhook/cart', [
+    wp_remote_post('https://api.ararahq.com/webhook/cart', [
         'headers' => [
             'Authorization' => 'Bearer ' . ARARA_API_KEY,
             'Content-Type' => 'application/json',
@@ -74,7 +74,7 @@ add_action('woocommerce_cart_abandoned', function($cart) {
 ### Stack custom (Node/Next.js)
 
 ```typescript
-await fetch('https://api.ararahq.com/api/webhook/cart', {
+await fetch('https://api.ararahq.com/webhook/cart', {
   method: 'POST',
   headers: {
     'Authorization': `Bearer ${process.env.ARARA_API_KEY}`,
@@ -108,7 +108,7 @@ Cancelar lembrete depois que o cliente finalizou: **não há endpoint pra cancel
 A Arara cria automaticamente na integração, mas se quer customizar:
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/templates \
+curl -X POST https://api.ararahq.com/v1/templates \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "name": "carrinho_abandonado_v1",
@@ -130,7 +130,7 @@ A Arara não tem agendador interno de "wait 4h, depois manda template B". O flux
 
 ```bash
 # Vincula um template por tipo de evento (ver /recovery)
-curl -X PUT https://api.ararahq.com/api/v1/recovery/events/cart.abandoned \
+curl -X PUT https://api.ararahq.com/v1/recovery/events/cart.abandoned \
   -H "Authorization: Bearer ara_live_xxx" \
   -d '{
     "templateId": "ara_tpl_carrinho_v1",

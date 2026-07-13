@@ -6,7 +6,7 @@ keywords: ['contacts', 'contatos', 'crm', 'base', 'upsert', 'batch']
 
 Os contatos são o CRM leve da Arara — phone como chave única, com nome, email e atributos customizáveis. Útil pra segmentar campanhas e enriquecer conversas com contexto.
 
-**Base URL:** `https://api.ararahq.com/api`
+**Base URL:** `https://api.ararahq.com`
 
 <Note>
   A criação individual de contato (`POST /v1/contacts`) **não existe**. Pra inserir um contato isolado, use o endpoint batch com array de 1 item.
@@ -17,7 +17,7 @@ Os contatos são o CRM leve da Arara — phone como chave única, com nome, emai
 `GET /v1/contacts`
 
 ```bash
-curl "https://api.ararahq.com/api/v1/contacts?q=joão&page=0&size=20" \
+curl "https://api.ararahq.com/v1/contacts?q=joão&page=0&size=20" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -60,7 +60,7 @@ Resposta:
 Phone em E.164 **com `+`** no path (sem prefixo `whatsapp:`):
 
 ```bash
-curl https://api.ararahq.com/api/v1/contacts/+5511999999999 \
+curl https://api.ararahq.com/v1/contacts/+5511999999999 \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
@@ -73,7 +73,7 @@ Não existir retorna `404`.
 Cria ou atualiza contatos. Body é **array direto** (não wrapped em objeto):
 
 ```bash
-curl -X POST https://api.ararahq.com/api/v1/contacts/batch \
+curl -X POST https://api.ararahq.com/v1/contacts/batch \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '[
@@ -125,7 +125,7 @@ Comportamento upsert:
 `GET /v1/contacts/stats`
 
 ```bash
-curl https://api.ararahq.com/api/v1/contacts/stats \
+curl https://api.ararahq.com/v1/contacts/stats \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 

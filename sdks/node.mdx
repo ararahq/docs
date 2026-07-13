@@ -18,12 +18,12 @@ import { NodeSDK } from '@ararahq/sdk';
 
 const sdk = new NodeSDK({
   apiKey: process.env.ARARA_API_KEY!,
-  baseUrl: 'https://api.ararahq.com/api',
+  baseUrl: 'https://api.ararahq.com',
   timeout: 10000, // opcional, default 10s
 });
 ```
 
-A `apiKey` aceita prefixos `ara_live_` (produção) ou `ara_test_` (sandbox). A `baseUrl` é obrigatória.
+A `apiKey` aceita prefixos `ara_live_` (produção) ou `ara_test_` (sandbox). A `baseUrl` é opcional — o default é `https://api.ararahq.com`.
 
 ## Recursos disponíveis
 
