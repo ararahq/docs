@@ -20,56 +20,44 @@ O plano FREE dá acesso ao Console e à API com o seguinte limite:
 
 ## Comportamento da API ao atingir o limite
 
-Quando a cota diária é esgotada, a API retorna **HTTP 402** em qualquer chamada de envio de mensagem:
+Quando a cota diária é esgotada, a API retorna **HTTP 403** em qualquer chamada de envio de mensagem:
 
 ```json
 {
   "error": {
-    "code": "QUOTA_EXCEEDED",
-    "message": "Cota diária de mensagens esgotada. Faça upgrade para continuar enviando.",
-    "details": {
-      "upgrade_url": "https://www.ararahq.com/pricing"
-    }
+    "code": "PLAN_LIMIT_REACHED",
+    "message": "Limite diário de mensagens do plano FREE atingido.",
+    "feature": "MESSAGES_PER_DAY",
+    "current": 50,
+    "max": 50,
+    "currentPlan": "FREE",
+    "upgradeTo": "DECOLAGEM"
   }
 }
 ```
 
-Os envios são **retomados automaticamente** no início do próximo dia — nenhuma ação é necessária da sua parte.
+Os envios são **retomados automaticamente** no início do próximo dia (meia-noite, horário de Brasília) — nenhuma ação é necessária da sua parte.
 
 <Warning>
-  Mensagens que falham por `QUOTA_EXCEEDED` **consomem a cota** antes de retornar o erro. Isso garante atomicidade: a contagem é registrada no momento da tentativa, não da entrega.
+  Uma mensagem recusada pelo cap **não** consome cota: o cap conta as mensagens já enviadas hoje e recusa a nova **antes** de registrá-la. Só envio aceito conta.
 </Warning>
 
-## Consultando a cota em tempo real
+## Consultando o plano e os limites
 
-Use o endpoint abaixo para verificar o consumo atual da sua organização:
+O plano atual e seus limites vêm de:
 
 ```bash
-GET /v1/organizations/me/quota
+GET /v1/organizations/me/plan
 Authorization: Bearer ara_live_xxx
 ```
 
-**Resposta:**
+A resposta traz o plano (`current`), os preços por categoria e as `features` (limites do plano em texto legível).
 
-```json
-{
-  "plan": "FREE",
-  "outbound_today": 38,
-  "outbound_limit": 50,
-  "percentage_used": 76.0
-}
-```
-
-| Campo | Descrição |
-|-------|-----------|
-| `plan` | Tipo de plano da organização |
-| `outbound_today` | Mensagens enviadas no dia atual |
-| `outbound_limit` | Limite diário do plano (`null` em planos pagos) |
-| `percentage_used` | Percentual de uso (`null` em planos pagos) |
+Não há um endpoint público que devolva o consumo diário em tempo real: o cap é aplicado no servidor. Quando você o atinge, o próprio erro `403 PLAN_LIMIT_REACHED` já informa `current` (quantas foram enviadas hoje) e `max` (o teto).
 
 ## Alertas no Console
 
-O Console exibe um banner automático com base no `percentage_used`:
+O Console (dashboard) exibe um banner automático conforme você se aproxima do limite diário:
 
 - **80–99%** — aviso âmbar: "X% do limite diário usado"
 - **100%** — alerta vermelho: envios pausados até amanhã ou upgrade
