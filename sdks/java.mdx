@@ -76,7 +76,7 @@ MessageResponse response = arara.getMessages().send(
 );
 
 System.out.println(response.getId());     // ara_msg_xxx
-System.out.println(response.getStatus()); // queued
+System.out.println(response.getStatus()); // PENDING
 ```
 
 **Mensagem de sessão (texto livre, dentro de janela 24h):**
@@ -94,7 +94,7 @@ MessageResponse response = arara.getMessages().send(
 
 ```java
 MessageResponse msg = arara.getMessages().get("ara_msg_xxx");
-System.out.println(msg.getStatus()); // sent | delivered | read | failed
+System.out.println(msg.getStatus()); // SENT | DELIVERED | READ | FAILED
 ```
 
 ## Templates

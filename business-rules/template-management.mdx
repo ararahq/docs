@@ -46,13 +46,13 @@ Você pode adicionar variáveis dinâmicas ao seu template usando a sintaxe `{{1
 Olá {{1}}! Seu pedido {{2}} foi confirmado no valor de {{3}}.
 ```
 
-Quando você enviar a mensagem via API, você passará os valores no array `variables`:
+Quando você enviar a mensagem via API, você passará os valores no array `templateVariables`:
 
 ```json
 {
   "receiver": "whatsapp:+5511999999999",
   "templateName": "template_teste_inicio_conversa",
-  "variables": ["João", "#12345", "R$ 100,00"]
+  "templateVariables": ["João", "#12345", "R$ 100,00"]
 }
 ```
 
@@ -73,7 +73,7 @@ curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver": "+5511999999999",
+    "receiver": "whatsapp:+5511999999999",
     "templateName": "template_teste_inicio_conversa",
     "templateVariables": []
   }'

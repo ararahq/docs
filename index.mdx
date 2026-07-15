@@ -110,7 +110,7 @@ mode: 'custom'
 <CodeGroup>
 ```bash cURL
 curl -X POST https://api.ararahq.com/v1/messages \
-  -H "Authorization: Bearer ara_test_xxx" \
+  -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
     "receiver": "whatsapp:+5511999999999",
@@ -138,7 +138,7 @@ await sdk.messages.send({
 from arara_api_sdk import AraraClient
 from arara_api_sdk.models.message import SendMessageRequest
 
-with AraraClient(api_key="ara_test_xxx") as client:
+with AraraClient(api_key="ara_live_xxx") as client:
     client.messages.send(SendMessageRequest(
         receiver="whatsapp:+5511999999999",
         template_name="hello_world",
@@ -150,7 +150,7 @@ with AraraClient(api_key="ara_test_xxx") as client:
 use Arara\Arara;
 use Arara\Config;
 
-$sdk = new Arara(new Config(apiKey: 'ara_test_xxx'));
+$sdk = new Arara(new Config(apiKey: 'ara_live_xxx'));
 
 $sdk->messages->send(
     receiver: 'whatsapp:+5511999999999',
@@ -160,7 +160,7 @@ $sdk->messages->send(
 ```
 
 ```java Java
-Arara arara = Arara.builder().apiKey("ara_test_xxx").build();
+Arara arara = Arara.builder().apiKey("ara_live_xxx").build();
 
 arara.getMessages().send(SendMessageRequest.builder()
     .receiver("whatsapp:+5511999999999")
@@ -511,13 +511,13 @@ arara.getMessages().send(SendMessageRequest.builder()
 
   <CardGroup cols={3}>
     <Card title="Quickstart" icon="rocket" href="/quickstart">
-      Do zero ao primeiro envio em 5 minutos. Modo TEST gratuito.
+      Do zero ao primeiro envio real de WhatsApp.
     </Card>
     <Card title="Conceitos WhatsApp" icon="lightbulb" href="/concepts/whatsapp">
       Janela 24h, templates HSM, qualidade do número, pricing.
     </Card>
     <Card title="Autenticação" icon="key" href="/api-reference/authentication">
-      API key Bearer ou Firebase JWT. Modo LIVE vs TEST.
+      API key Bearer (`ara_live_`) ou Firebase JWT.
     </Card>
     <Card title="Receitas práticas" icon="book-open" href="/recipes">
       Carrinho abandonado, OTP, Black Friday, suporte 24/7.

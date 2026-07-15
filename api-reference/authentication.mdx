@@ -18,19 +18,14 @@ A maioria dos endpoints da Arara usa **API key**. Firebase JWT é usado apenas e
 Formato:
 
 ```
-ara_<modo>_<32 caracteres>
+ara_live_<32 caracteres>
 ```
 
-| Prefixo | Modo | Comportamento |
-|---|---|---|
-| `ara_live_` | **LIVE** (produção) | Mensagens entregues. Créditos consumidos. |
-| `ara_test_` | **TEST** (sandbox) | Mensagens simuladas. Gratuito, ilimitado. |
-
-Use **TEST** pra desenvolvimento e CI. **LIVE** só em produção.
+As chaves são sempre **LIVE** (`ara_live_...`) — mensagens são entregues de verdade e créditos consumidos. Não há chave de sandbox nem modo de teste.
 
 ### Como obter
 
-**Via Dashboard**: primeiro login gera automaticamente 1 chave LIVE e 1 chave TEST. Aparecem **uma vez**. Copie e guarde.
+**Via Dashboard**: primeiro login gera automaticamente 1 chave LIVE. Aparece **uma vez**. Copie e guarde.
 
 **Via API** (cliente já autenticado pode criar mais):
 
@@ -135,22 +130,21 @@ Detalhe em [Sessão e Usuário](/api-reference/endpoint/v2/auth).
 
 ## Erros de auth
 
+Autenticação usa o envelope **simplificado** do Spring, **sem** `error.code`. Ramifique pelo **status HTTP**, não por um código:
+
 ```json
 {
-  "error": {
-    "code": "INVALID_API_KEY",
-    "message": "The provided API key is invalid or has been revoked."
-  }
+  "timestamp": "2026-05-18T14:30:00Z",
+  "status": 401,
+  "error": "Unauthorized",
+  "path": "/v1/messages"
 }
 ```
 
-| Código | HTTP | Causa |
-|---|---|---|
-| `MISSING_API_KEY` | 401 | Header `Authorization` ausente |
-| `INVALID_API_KEY` | 401 | Chave malformada, revogada ou inexistente |
-| `INVALID_API_KEY_MODE` | 401 | Chave TEST tentando agir em LIVE (ou vice-versa) |
-| `IP_NOT_ALLOWED` | 401 | Allowlist bloqueou IP de origem |
-| `FORBIDDEN` | 403 | Chave válida mas sem permissão pro endpoint |
+| HTTP | Causa |
+|---|---|
+| `401` | Chave bem-formada porém inválida, revogada ou expirada. |
+| `403` | Header `Authorization` ausente ou malformado; ou chave válida sem permissão pro endpoint (IP fora da allowlist). |
 
 ## Próximos passos
 

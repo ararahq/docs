@@ -64,7 +64,7 @@ Resposta (`202 Accepted`):
 ```json
 {
   "id": "ara_msg_k9Bf2XqP",
-  "status": "queued",
+  "status": "PENDING",
   "mode": "LIVE",
   "sender": "whatsapp:+5511888888888",
   "receiver": "whatsapp:+5511999999999",
@@ -130,7 +130,7 @@ curl -X POST https://api.ararahq.com/v1/messages \
   }'
 ```
 
-Mensagem fica em `status: scheduled` até o horário.
+Mensagem fica em `status: SCHEDULED` até o horário.
 
 ## Mensagem interativa (janela aberta)
 
@@ -184,13 +184,13 @@ Resposta (`202 Accepted`):
     {
       "id": "ara_msg_a",
       "receiver": "whatsapp:+5511999999999",
-      "status": "queued",
+      "status": "PENDING",
       "cost": 0.12
     },
     {
       "id": "ara_msg_b",
       "receiver": "whatsapp:+5511888888888",
-      "status": "queued",
+      "status": "PENDING",
       "cost": 0.12
     }
   ]
@@ -215,7 +215,7 @@ Resposta (`200 OK`):
 ```json
 {
   "id": "ara_msg_k9Bf2XqP",
-  "status": "delivered",
+  "status": "DELIVERED",
   "mode": "LIVE",
   "sender": "whatsapp:+5511888888888",
   "receiver": "whatsapp:+5511999999999",
@@ -238,37 +238,43 @@ Em produção, **prefira webhook** (`message.status`) em vez de polling. Ver [Ev
 | `reaction` | object | * | Reação a mensagem prévia (emoji) |
 | `replyTo` | string | não | ID de mensagem original pra citar (reply) |
 | `scheduled_at` | string (ISO 8601) | não | Agendamento futuro |
-| `mode` | string | não | `LIVE` ou `TEST`. Default: modo da chave |
 
 `*` — exatamente um entre `templateName`, `body`, `interactive`, `location`, `reaction`.
 
 ## Status
 
+Respostas síncronas (`POST`/`GET /v1/messages`) retornam o status em **UPPERCASE**:
+
 | Status | Significado |
 |---|---|
-| `queued` | Criada, aguardando worker |
-| `scheduled` | Agendada, aguardando horário |
-| `processing` | Worker pegou |
-| `sent` | Provider confirmou envio |
-| `delivered` | Chegou no destinatário (2 ticks cinza) |
-| `read` | Cliente leu (2 ticks azuis) |
-| `failed` | Falhou definitivamente |
-| `canceled` | Cancelada antes do envio |
+| `PENDING` | Criada, aguardando worker |
+| `SCHEDULED` | Agendada, aguardando horário |
+| `PROCESSING` | Worker pegou |
+| `SENT` | Provider confirmou envio |
+| `DELIVERED` | Chegou no destinatário (2 ticks cinza) |
+| `READ` | Cliente leu (2 ticks azuis) |
+| `FAILED` | Falhou definitivamente |
+| `CANCELED` | Cancelada antes do envio |
+
+<Note>
+  Payloads de **webhook** (`message.status_updated`) usam os mesmos estados em **minúsculo** (`queued`, `sent`, `delivered`, `read`, `failed`, `scheduled`, `processing`, `canceled`).
+</Note>
 
 ## Erros
 
-| HTTP | Código | Quando |
+Erros de negócio saem no envelope canônico (`{ "error": { "code", "message", "details" } }`). Validação de body (`@Valid`) e autenticação usam o envelope **simplificado** do Spring (sem `code`) — ramifique pelo status. Ver [Erros](/erros).
+
+| HTTP | Código / Envelope | Quando |
 |---|---|---|
-| `400` | `MISSING_REQUIRED_FIELD` | `receiver` ausente |
-| `400` | `INVALID_PHONE_NUMBER` | Formato E.164 inválido |
-| `401` | `INVALID_API_KEY` | Chave inválida/revogada |
-| `402` | `INSUFFICIENT_CREDITS` | Saldo insuficiente |
-| `404` | `TEMPLATE_NOT_FOUND` | Template não existe na sua org |
-| `422` | `TEMPLATE_NOT_APPROVED` | Template ainda em revisão Meta |
-| `422` | `OUTSIDE_SESSION_WINDOW` | Tentou body fora da janela 24h |
-| `422` | `INVALID_TEMPLATE_VARIABLES` | Número de variáveis não bate |
-| `422` | `NUMBER_BLOCKED` | Destinatário em opt-out |
-| `429` | `RATE_LIMIT_EXCEEDED` | > 100 req/s |
+| `400` | simplificado (sem `code`) | `receiver` ausente ou E.164 inválido (`@Valid`). |
+| `400` | `INVALID_JSON` | JSON malformado. |
+| `401` | simplificado (sem `code`) | Chave inválida, revogada ou expirada. |
+| `402` | `INSUFFICIENT_FUNDS` | Saldo insuficiente. |
+| `403` | `ACCOUNT_NOT_ACTIVATED` / `NO_DEDICATED_NUMBER` / `PLAN_FEATURE_LOCKED` | Conta em onboarding, sem número dedicado, ou feature travada no plano. |
+| `409` | `CONFLICT` | Template não encontrado no envio, ou conflito de estado. |
+| `422` | `UNPROCESSABLE_ENTITY` | Regra de negócio: template não aprovado, variáveis incompatíveis, ou fora da janela 24h (`details.diagnostic: "63016"`). |
+| `422` | `NUMBER_BLOCKED` | Destinatário em opt-out. |
+| `429` | `ORGANIZATION_SUSPENDED` | Org suspensa por taxa de falha alta; ou rate limit global (respeite `Retry-After`). |
 
 ## Idempotência
 

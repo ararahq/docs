@@ -4,7 +4,7 @@ A Arara é um CPaaS brasileiro de WhatsApp (API oficial Meta). Este arquivo é a
 
 ## Infraestrutura
 
-- Base URL: `https://api.ararahq.com/api` (todos os paths abaixo são relativos a ela)
+- Base URL: `https://api.ararahq.com` (todos os paths abaixo são relativos a ela)
 - Auth: header `Authorization: Bearer ara_live_xxx` (API key gerada em https://ararahq.com/dashboard/apikeys)
 - Content-Type: `application/json`
 - Telefones: E.164 (`+5511999998888`)
@@ -15,11 +15,11 @@ A Arara é um CPaaS brasileiro de WhatsApp (API oficial Meta). Este arquivo é a
 ## Mensagens
 
 - `POST /v1/messages` — envia 1 mensagem. Fora da janela de 24h só template aprovado; dentro, texto livre.
-  Template: `{ "receiver": "+5511999998888", "templateName": "confirmacao_compra", "variables": ["#123"], "sender?": "+55...", "scheduled_at?": "ISO 8601" }`
-  Janela aberta: `{ "receiver": "+55...", "type": "text", "body": "..." }` — `type` também aceita `interactive`, `location`, `reaction`
+  Template: `{ "receiver": "whatsapp:+5511999998888", "templateName": "confirmacao_compra", "templateVariables": ["#123"], "sender?": "whatsapp:+55...", "scheduled_at?": "ISO 8601" }`
+  Janela aberta: `{ "receiver": "whatsapp:+55...", "type": "text", "body": "..." }` — `type` também aceita `interactive`, `location`, `reaction`
   Resposta 202: `{ "id": "ara_msg_...", "status": "PENDING", ... }`
 - `POST /v1/messages/batch` — envio em lote
-- `GET /v1/messages/{id}` — status (`PENDING`, `SENT_TO_PROVIDER`, `DELIVERED`, `READ`, `FAILED`) e custo
+- `GET /v1/messages/{id}` — status (`PENDING`, `SENT`, `DELIVERED`, `READ`, `FAILED`) e custo
 - `POST /v1/conversations/window-status` — `{ "phones": ["+55..."] }` → janela 24h aberta? horas restantes?
 
 ## Templates
@@ -116,13 +116,17 @@ A Arara é um CPaaS brasileiro de WhatsApp (API oficial Meta). Este arquivo é a
 - `GET /v1/stream` — SSE de eventos da conta em tempo real
 - `GET /health` — status da API (público)
 
-## Erros comuns (422 / status FAILED)
+## Erros comuns
 
-- `ararahq-63016` — janela de 24h fechada. Solução: use `templateName` com template aprovado.
-- `ararahq-insufficient-funds` — saldo insuficiente na wallet.
-- `ararahq-template-mismatch` — variáveis do payload não batem com o template.
-- `ararahq-invalid-number` — destino sem WhatsApp ou formato inválido.
-- `ararahq-media-invalid` — arquivo acima do limite (16MB vídeo, 100MB doc/imagem).
+Síncronos (envelope `{ error: { code } }`):
+- Janela de 24h fechada → `422 UNPROCESSABLE_ENTITY`, `details.diagnostic: "63016"`. Solução: use `templateName` com template aprovado.
+- Saldo insuficiente → `402 INSUFFICIENT_FUNDS`.
+- Template inexistente ou não aprovado no envio → `409 CONFLICT`.
+- Destinatário em opt-out ou bloqueado → `422 NUMBER_BLOCKED`.
+- Conta sem número dedicado → `403 NO_DEDICATED_NUMBER`.
+
+Assíncronos (status `FAILED` via webhook `message.status_updated`, campo `errorDetails`):
+- Número sem WhatsApp ou formato inválido; variáveis do payload não batem com o template; arquivo de mídia acima do limite (16MB vídeo, 100MB doc/imagem).
 
 ## Ferramentas prontas
 
