@@ -301,26 +301,27 @@ Tentar criar acima do limite no plano FREE retorna `403 PLAN_LIMIT_REACHED` com 
 
 ## Conta em modo TESTING
 
-Templates **só podem ser criados em conta com `accountStatus: ACTIVE`** (modo produção). Conta ainda em onboarding (`TESTING`) recebe:
+Templates **só podem ser criados em conta com `accountStatus: ACTIVE`**. Conta ainda em onboarding (`TESTING`) recebe `403` no envelope canônico:
 
 ```json
 {
-  "error": "Recurso disponível apenas no Modo Produção.",
-  "message": "Por favor, ative sua conta para criar templates."
+  "error": {
+    "code": "ACCOUNT_NOT_ACTIVATED",
+    "message": "Ative sua conta para criar templates.",
+    "details": { "currentStatus": "TESTING" }
+  }
 }
 ```
 
-Status HTTP `403`.
-
 ## Erros
 
-| HTTP | Quando |
-|---|---|
-| `400` | `name`/`category`/`language`/`body` ausente; categoria fora de `UTILITY/MARKETING/AUTHENTICATION` |
-| `401` | Chave inválida ou ausente |
-| `403` | Conta ainda em TESTING; ou plano limit atingido |
-| `404` | Template não existe |
-| `422` | Body viola política Meta (ver [Política](/templates/policy)) |
+| HTTP | Código / Envelope | Quando |
+|---|---|---|
+| `400` | simplificado (sem `code`) | `name`/`category`/`language`/`body` ausente; categoria fora de `UTILITY/MARKETING/AUTHENTICATION` (`@Valid`). |
+| `401` | simplificado (sem `code`) | Chave inválida, revogada ou expirada. |
+| `403` | `ACCOUNT_NOT_ACTIVATED` / `PLAN_LIMIT_REACHED` | Conta ainda em TESTING; ou limite do plano atingido. Header `Authorization` ausente/malformado também cai em `403`. |
+| `404` | `TEMPLATE_NOT_FOUND` | Template não existe (no `GET /v1/templates/{id}`). |
+| `422` | `UNPROCESSABLE_ENTITY` | Body viola política Meta (ver [Política](/templates/policy)). |
 
 ## Próximos passos
 

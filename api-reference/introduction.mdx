@@ -33,7 +33,7 @@ Sempre **JSON**. Datas em **ISO 8601 (UTC)**.
 ```json
 {
   "id": "ara_msg_k9Bf2XqP",
-  "status": "queued",
+  "status": "PENDING",
   "mode": "LIVE",
   "sender": "whatsapp:+5511888888888",
   "receiver": "whatsapp:+5511999999999"
@@ -65,7 +65,7 @@ Formato canônico:
 ```json
 {
   "error": {
-    "code": "INSUFFICIENT_CREDITS",
+    "code": "INSUFFICIENT_FUNDS",
     "message": "Your wallet does not have enough credits for this operation.",
     "details": {}
   }
@@ -193,7 +193,7 @@ Em **centavos**, sempre inteiros, sempre BRL salvo indicação contrária:
 
 ### Booleanos e enums
 
-Booleanos: `true`/`false` minúsculo. Enums em UPPERCASE: `LIVE`, `TEST`, `MARKETING`, `UTILITY`.
+Booleanos: `true`/`false` minúsculo. Enums em UPPERCASE: `LIVE`, `MARKETING`, `UTILITY`.
 
 ## CORS
 

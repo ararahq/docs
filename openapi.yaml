@@ -16,15 +16,13 @@ info:
     Dois esquemas convivem:
 
     - **`bearerAuth`** — API key emitida pelo dashboard. Header
-      `Authorization: Bearer ara_live_...` (produção) ou `Authorization: Bearer ara_test_...`
-      (sandbox). Usado por todos os endpoints `/v1/*` e `/dashboard/*`.
+      `Authorization: Bearer ara_live_...`. Usado por todos os endpoints
+      `/v1/*` e `/dashboard/*`.
     - **`firebaseAuth`** — Firebase ID token. Usado em `/auth/*`, `/users/*` e
       `/v1/profile/*` (operações que pertencem ao usuário, não à organização).
 
-    ## Modos
-
-    - **LIVE** — produção. Mensagens entregam de verdade e créditos são debitados.
-    - **TEST** — sandbox. Mensagens são simuladas, créditos não consomem.
+    As chaves são sempre LIVE (`ara_live_...`). Não há chave de sandbox nem modo
+    de teste — mensagens entregam de verdade e créditos são debitados.
 
     ## Rate limiting
 
@@ -51,7 +49,7 @@ info:
     email: support@ararahq.com
 
 servers:
-  - url: https://api.ararahq.com/api
+  - url: https://api.ararahq.com
     description: Produção
 
 security:
@@ -648,7 +646,7 @@ paths:
           name: mode
           schema:
             type: string
-            enum: [LIVE, TEST]
+            enum: [LIVE]
             default: LIVE
           required: false
       requestBody:
@@ -1580,8 +1578,8 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: ara_live_xxx OR ara_test_xxx
-      description: API key emitida pelo dashboard (`ara_live_*` ou `ara_test_*`).
+      bearerFormat: ara_live_xxx
+      description: API key emitida pelo dashboard (`ara_live_*`, LIVE-only).
     firebaseAuth:
       type: http
       scheme: bearer
@@ -1611,7 +1609,7 @@ components:
       name: mode
       schema:
         type: string
-        enum: [LIVE, TEST]
+        enum: [LIVE]
         default: LIVE
       required: false
     MessageInternalId:
@@ -1723,7 +1721,7 @@ components:
           properties:
             code:
               type: string
-              example: INSUFFICIENT_CREDITS
+              example: INSUFFICIENT_FUNDS
             message:
               type: string
               example: Saldo insuficiente para enviar a mensagem.
@@ -1861,7 +1859,7 @@ components:
           nullable: true
         mode:
           type: string
-          enum: [LIVE, TEST]
+          enum: [LIVE]
           nullable: true
         media_url:
           type: string
@@ -1878,10 +1876,11 @@ components:
           nullable: true
         status:
           type: string
-          example: SENT_TO_PROVIDER
+          enum: [PENDING, SCHEDULED, PROCESSING, SENT, DELIVERED, READ, FAILED, CANCELED]
+          example: SENT
         mode:
           type: string
-          enum: [LIVE, TEST]
+          enum: [LIVE]
         sender: { type: string }
         receiver: { type: string }
         body:
@@ -2540,7 +2539,7 @@ components:
           nullable: true
         mode:
           type: string
-          enum: [LIVE, TEST]
+          enum: [LIVE]
         scope:
           type: string
         createdAt: { type: string, format: date-time }
@@ -2912,7 +2911,7 @@ components:
           nullable: true
         mode:
           type: string
-          enum: [LIVE, TEST]
+          enum: [LIVE]
         createdAt:
           type: string
           format: date-time
@@ -3588,7 +3587,7 @@ components:
         status: { type: string }
         mode:
           type: string
-          enum: [LIVE, TEST]
+          enum: [LIVE]
         sender: { type: string }
         receiver: { type: string }
         messageType: { type: string }
@@ -3639,7 +3638,7 @@ components:
           nullable: true
         mode:
           type: string
-          enum: [LIVE, TEST]
+          enum: [LIVE]
 
     WalletBalanceResponse:
       type: object
@@ -3653,7 +3652,7 @@ components:
           example: BRL
         mode:
           type: string
-          enum: [LIVE, TEST]
+          enum: [LIVE]
 
     # ---------- Health ----------
     HealthResponse:

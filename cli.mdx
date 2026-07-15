@@ -73,34 +73,12 @@ arara profile switch cliente-x
 arara profile list
 ```
 
-## Modo LIVE vs TEST
+## Chave de API
 
-Por default, depois do `arara login` o profile fica em **TEST** — `send` simula entrega, `campaigns` simula custo, nada chega no cliente real.
-
-Pra mandar mensagens reais, promove pra **LIVE**:
-
-```bash
-arara mode live
-```
-
-A CLI cria uma API key LIVE server-side e guarda no keyring do SO. **O valor da chave nunca aparece na tela nem fica no shell history.**
-
-Pra voltar:
-
-```bash
-arara mode test
-arara login        # restaura sessão OAuth
-```
-
-Confere o modo a qualquer momento:
-
-```bash
-arara mode
-# Profile default -- LIVE
-```
+Depois do `arara login`, a CLI cria uma API key LIVE server-side e guarda no keyring do SO. **O valor da chave nunca aparece na tela nem fica no shell history.** A Arara não tem modo de teste — todo envio é real.
 
 <Warning>
-  Em LIVE, **todo `send` cobra do saldo da wallet** e entrega de verdade. Em TEST, custo zero, entrega simulada.
+  **Todo `send` cobra do saldo da wallet** e entrega de verdade. Não há simulação.
 </Warning>
 
 <Note>
@@ -217,8 +195,7 @@ UUID local, batches de até 50 events em 5min, zero PII.
 
 | Comando | Função |
 |---|---|
-| `arara whoami` | Quem está logado, em qual org, qual modo da chave. |
-| `arara mode [live\|test]` | Mostra ou troca o modo do profile sem expor chave. Ver [Modo LIVE vs TEST](#modo-live-vs-test). |
+| `arara whoami` | Quem está logado e em qual org. |
 | `arara doctor` | Diagnóstico: token válido, rede ok, latência, versão atualizada. |
 | `arara status` | Status público da Arara (igual `status.ararahq.com`). |
 | `arara campaigns list/get` | Lista e detalhe de campanhas. |

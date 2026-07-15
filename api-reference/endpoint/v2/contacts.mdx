@@ -169,12 +169,15 @@ Pra registrar opt-out programaticamente, use o endpoint de opt-outs (não docume
 
 ## Erros
 
-| HTTP | Código | Quando |
+Validação de body (`@Valid`) e autenticação usam o envelope **simplificado** do Spring (sem `error.code`) — ramifique pelo status HTTP. Ver [Erros](/erros).
+
+| HTTP | Envelope | Quando |
 |---|---|---|
-| `400` | `INVALID_PHONE_NUMBER` | Formato E.164 inválido |
-| `400` | `MISSING_REQUIRED_FIELD` | `name` ou `phone` ausente |
-| `401` | `INVALID_API_KEY` | Chave inválida |
-| `404` | — | Phone não existe na sua org (no GET) |
+| `400` | simplificado (sem `code`) | Telefone fora do E.164 ou `name`/`phone` ausente (`@Valid`). |
+| `400` | `INVALID_JSON` | JSON malformado. |
+| `401` | simplificado (sem `code`) | Chave inválida, revogada ou expirada. |
+| `404` | — | Phone não existe na sua org (no GET). |
+| `422` | `NUMBER_BLOCKED` | Destinatário em opt-out (no envio pra ele). |
 
 ## Próximos passos
 

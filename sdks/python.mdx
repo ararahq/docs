@@ -60,7 +60,7 @@ with AraraClient(api_key="ara_live_xxx") as client:
     ))
 
 print(response.id)      # ara_msg_xxx
-print(response.status)  # queued
+print(response.status)  # PENDING
 ```
 
 **Mensagem de sessão (texto livre, dentro de janela 24h):**
@@ -102,7 +102,7 @@ Bom pra batch sem `messages/batch` (ainda) ou quando precisa intercalar lógica 
 
 ```python
 msg = client.messages.get("ara_msg_xxx")
-print(msg.status)  # sent | delivered | read | failed
+print(msg.status)  # SENT | DELIVERED | READ | FAILED
 ```
 
 ## Templates

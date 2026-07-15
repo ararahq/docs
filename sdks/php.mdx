@@ -54,7 +54,7 @@ $response = $sdk->messages->send(
 );
 
 echo $response->id;      // ara_msg_xxx
-echo $response->status;  // queued
+echo $response->status;  // PENDING
 ```
 
 **Mensagem de sessão (texto livre, dentro de janela 24h):**
@@ -70,7 +70,7 @@ $response = $sdk->messages->send(
 
 ```php
 $msg = $sdk->messages->get('ara_msg_xxx');
-echo $msg->status; // sent | delivered | read | failed
+echo $msg->status; // SENT | DELIVERED | READ | FAILED
 ```
 
 ## Templates

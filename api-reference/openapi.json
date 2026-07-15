@@ -10,7 +10,7 @@
   },
   "servers": [
     {
-      "url": "https://api.ararahq.com/api",
+      "url": "https://api.ararahq.com",
       "description": "Servidor de Produção"
     }
   ],
@@ -38,12 +38,12 @@
             "description": "Nome do template cadastrado no dashboard",
             "example": "template_boas_vindas"
           },
-          "variables": {
+          "templateVariables": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Lista de variáveis para preencher o template. Se o template tiver Header (Imagem/PDF), a URL deve ser enviada na primeira posição (variables[0]).",
+            "description": "Lista de variáveis para preencher o template (alias aceito: variables). Se o template tiver Header (Imagem/PDF), a URL deve ser enviada na primeira posição (templateVariables[0]).",
             "example": [
               "https://ararahq.com/l/FtFmja",
               "João",
@@ -98,9 +98,13 @@
             "type": "string",
             "enum": [
               "PENDING",
-              "SENT_TO_PROVIDER",
+              "SCHEDULED",
+              "PROCESSING",
+              "SENT",
               "DELIVERED",
-              "FAILED"
+              "READ",
+              "FAILED",
+              "CANCELED"
             ]
           },
           "receiver": {

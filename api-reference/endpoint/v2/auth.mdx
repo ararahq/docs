@@ -8,7 +8,7 @@ Endpoints usados pelo Dashboard, CLI e SDKs que precisam de uma **sessão de usu
 **Base URL:** `https://api.ararahq.com`
 
 <Note>
-  **Autenticação aqui é diferente do resto da API.** Endpoints de `/auth/*` recebem um **ID token do Firebase** no corpo (`POST /auth`) ou no header `Authorization: Bearer <firebase_id_token>` (`GET /auth/me`). Para qualquer outro endpoint da Arara, use sua **API key** (`ara_live_...` / `ara_test_...`). Veja [Autenticação](/api-reference/authentication).
+  **Autenticação aqui é diferente do resto da API.** Endpoints de `/auth/*` recebem um **ID token do Firebase** no corpo (`POST /auth`) ou no header `Authorization: Bearer <firebase_id_token>` (`GET /auth/me`). Para qualquer outro endpoint da Arara, use sua **API key** (`ara_live_...`). Veja [Autenticação](/api-reference/authentication).
 </Note>
 
 ---
@@ -62,7 +62,7 @@ Resposta (`200 OK`):
 | `apiKey` | string \| null | **Aparece apenas no primeiro login** (quando a organização é criada). Copie e guarde — não é exibida novamente. Em logins subsequentes vem `null`; gere novas chaves via [API Keys](/api-reference/endpoint/v2/api-keys). |
 
 <Warning>
-  O campo `apiKey` é exibido **uma única vez**, no primeiro login. Se você perder, crie uma nova via `POST /v2/api-keys`. A Arara não armazena o valor completo da chave.
+  O campo `apiKey` é exibido **uma única vez**, no primeiro login. Se você perder, crie uma nova via `POST /v1/api-keys`. A Arara não armazena o valor completo da chave.
 </Warning>
 
 ---
@@ -155,13 +155,13 @@ A primeira organização do array é a **primária** — onde o usuário foi ori
 | `401` | Header `Authorization` ausente em `GET /auth/me*`. |
 | `500` | Falha ao validar o token contra a Google ou ao persistir o usuário. |
 
-Formato padrão de erro:
+Os endpoints de `/auth/*` usam o envelope **simplificado** do Spring (sem `error.code`). Ramifique pelo **status HTTP**:
 
 ```json
 {
-  "error": {
-    "code": "INVALID_FIREBASE_TOKEN",
-    "message": "The provided Firebase ID token is invalid or has expired."
-  }
+  "timestamp": "2026-05-18T14:30:00Z",
+  "status": 401,
+  "error": "Unauthorized",
+  "path": "/auth"
 }
 ```

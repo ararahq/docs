@@ -23,7 +23,7 @@ const sdk = new NodeSDK({
 });
 ```
 
-A `apiKey` aceita prefixos `ara_live_` (produção) ou `ara_test_` (sandbox). A `baseUrl` é opcional — o default é `https://api.ararahq.com`.
+A `apiKey` usa o prefixo `ara_live_` (produção — a Arara não tem modo de teste). A `baseUrl` é opcional — o default é `https://api.ararahq.com`.
 
 ## Recursos disponíveis
 
@@ -54,7 +54,7 @@ const response = await sdk.messages.send({
 });
 
 console.log(response.id);         // ara_msg_xxx
-console.log(response.status);     // queued
+console.log(response.status);     // PENDING
 ```
 
 **Mensagem de sessão (texto livre, dentro de janela 24h):**
@@ -70,7 +70,7 @@ await sdk.messages.send({
 
 ```typescript
 const msg = await sdk.messages.get('ara_msg_xxx');
-console.log(msg.status); // sent | delivered | read | failed
+console.log(msg.status); // SENT | DELIVERED | READ | FAILED
 ```
 
 ## Templates
@@ -156,7 +156,7 @@ try {
 }
 ```
 
-Códigos canônicos: `INSUFFICIENT_CREDITS`, `INVALID_API_KEY`, `TEMPLATE_NOT_APPROVED`, `RATE_LIMIT_EXCEEDED`, etc. Lista completa em [Erros](/erros).
+Códigos de domínio: `INSUFFICIENT_FUNDS` (402), `NUMBER_BLOCKED` (422), `PLAN_LIMIT_REACHED` (403), `CONFLICT` (409, template não encontrado no envio), `UNPROCESSABLE_ENTITY` (422, fora da janela 24h). Erros de auth saem sem `code` — ramifique pelo status HTTP (401/403). Lista completa em [Erros](/erros).
 
 ## Retry automático
 

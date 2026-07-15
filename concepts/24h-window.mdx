@@ -77,11 +77,10 @@ API retorna 422 com:
 ```json
 {
   "error": {
-    "code": "OUTSIDE_SESSION_WINDOW",
-    "message": "Cannot send free-form message. Window closed at 2026-05-15T14:00:00Z. Use a template instead.",
+    "code": "UNPROCESSABLE_ENTITY",
+    "message": "Cannot send free-form message. Window closed. Use a template instead.",
     "details": {
-      "lastInteractionAt": "2026-05-15T14:00:00Z",
-      "windowClosedAt": "2026-05-16T14:00:00Z"
+      "diagnostic": "63016"
     }
   }
 }
@@ -136,7 +135,7 @@ Por conta dessa mudança, a estratégia também mudou:
 
 ### Cliente responde mas a Meta atrasa
 
-Se cliente respondeu há 30s mas o webhook ainda não chegou na Arara, `window-status` pode dizer `CLOSED`. Solução: espere alguns segundos OU faça retry quando receber `OUTSIDE_SESSION_WINDOW`.
+Se cliente respondeu há 30s mas o webhook ainda não chegou na Arara, `window-status` pode dizer `CLOSED`. Solução: espere alguns segundos OU faça retry quando receber `UNPROCESSABLE_ENTITY` (422).
 
 ### Cliente respondeu durante seu dispatcher
 
