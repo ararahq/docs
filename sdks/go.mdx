@@ -113,14 +113,17 @@ func main() {
 
 A flag `--output json` retorna estruturado. O CLI cuida de auth (profile), retry e idempotency-key automaticamente. Ver [CLI](/cli).
 
-### Opção 3 — Usar o pacote interno do CLI (não recomendado)
+### Opção 3 — Instalar o CLI como dependência de build
 
-O CLI tem em `internal/api` toda a lógica de chamada. **Não é API estável** — pode mudar sem aviso entre releases. Use apenas em projeto que você controla o upgrade junto com o CLI.
+O CLI é Go (`github.com/ararahq/cli`) e cobre toda a superfície da API. Pra usar em pipeline ou serviço, instala o binário e invoca como subprocesso (Opção 2):
 
 ```bash
-# Não fazemos suporte. Use sob seu risco.
-go get github.com/ararahq/arara-cli/internal/api@v0.2.0
+go install github.com/ararahq/cli/cmd/arara@latest
 ```
+
+<Note>
+  A lógica de chamada do CLI vive em `internal/`, que o Go **não** deixa importar de outro módulo. Não existe pacote Go público estável ainda — use REST direto (Opção 1) ou o binário (Opção 2) até o SDK Go sair.
+</Note>
 
 ## Avisa quando sair
 

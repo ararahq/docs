@@ -13,25 +13,25 @@ A Arara mantém **4 SDKs oficiais** + CLI single-binary + MCP server. Todos open
     ```bash
     npm install @ararahq/sdk
     ```
-    Estável. Cobre messages, templates, users, organizations, api-keys.
+    Estável. Cobre todo o core: messages, templates, users, organizations, api-keys, contacts, conversations, wallet, numbers, smart-links, campaigns.
   </Card>
   <Card title="Python" icon="python" href="/sdks/python">
     ```bash
     pip install ararahq-sdk
     ```
-    Mais completo. Inclui campaigns, brain, payments além do core.
+    Estável. Core completo + brain. Sync e async.
   </Card>
   <Card title="PHP / Laravel" icon="php" href="/sdks/php">
     ```bash
     composer require ararahq/sdk
     ```
-    Estável. Laravel-ready. Cobre core.
+    Estável. Laravel-ready. Core completo.
   </Card>
   <Card title="Java / Kotlin" icon="java" href="/sdks/java">
     ```kotlin
     implementation("com.ararahq:arara-java-sdk:1.8.0")
     ```
-    Estável. Spring Boot-ready. Cobre messages, templates, campaigns, users.
+    Estável. Spring Boot-ready. Core completo.
   </Card>
   <Card title="Go" icon="golang" href="/sdks/go">
     Em breve. Por enquanto use [CLI](/cli) ou REST direto.
@@ -43,27 +43,32 @@ A Arara mantém **4 SDKs oficiais** + CLI single-binary + MCP server. Todos open
 
 ## Paridade entre SDKs
 
-Honestidade: nem todos os SDKs têm cobertura igual. Estado atual:
+Os 4 SDKs cobrem todo o core autenticável por API key:
 
 | Recurso | Node | Python | PHP | Java |
 |---|---|---|---|---|
 | Messages | ✅ | ✅ | ✅ | ✅ |
 | Templates | ✅ | ✅ | ✅ | ✅ |
 | Users | ✅ | ✅ | ✅ | ✅ |
-| Organizations | ✅ | ✅ | ✅ | — |
-| API Keys | ✅ | — | — | — |
-| Campaigns | — | ✅ | — | ✅ |
+| Organizations | ✅ | ✅ | ✅ | ✅ |
+| API Keys | ✅ | ✅ | ✅ | ✅ |
+| Contacts | ✅ | ✅ | ✅ | ✅ |
+| Conversations | ✅ | ✅ | ✅ | ✅ |
+| Wallet | ✅ | ✅ | ✅ | ✅ |
+| Numbers | ✅ | ✅ | ✅ | ✅ |
+| Smart Links | ✅ | ✅ | ✅ | ✅ |
+| Campaigns | ✅ | ✅ | ✅ | ✅ |
 | Brain (IA) | — | ✅ | — | — |
-| Payments (Pix) | — | ✅ | — | — |
 
-Pra recurso fora do SDK, use REST direto via método de escape:
+**Escopo da key**: recursos de escrita (criar campanha, editar número, girar api-key) exigem uma key com scope **ADMIN**. Keys `READ` só fazem GET; keys `SEND` fazem GET + envio (`/messages`, `/campaigns`).
+
+**Fora dos SDKs de propósito**: short links e pagamentos Pix são autenticados por sessão do dashboard, não por API key — não têm recurso no SDK. Use pelo painel.
+
+Pra qualquer endpoint sem recurso tipado, use o método de escape (herda auth, retry e idempotency do cliente):
 
 ```typescript
-// Node SDK não tem .campaigns ainda — use REST direto
-await sdk.api.post('/v1/campaigns', { name: '...', templateName: '...', contacts: [...] });
+await sdk.api.post('/v1/some-endpoint', { foo: 'bar' });
 ```
-
-Paridade total no roadmap pra Q3 2026.
 
 ## Ferramentas
 
