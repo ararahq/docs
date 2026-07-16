@@ -1,10 +1,10 @@
 ---
 title: 'SDKs e ferramentas'
-description: 'Bibliotecas oficiais Node, Python, PHP, Java para integrar a Arara — todas open source, com retry automático, tipagem nativa e exemplos validados contra o código real. CLI single-binary em Go. MCP pra agentes IA.'
-keywords: ['sdks', 'bibliotecas', 'node', 'python', 'php', 'java', 'go', 'cli', 'mcp']
+description: 'Bibliotecas oficiais Node, Python, PHP, Java, Go e Ruby para integrar a Arara — todas open source, com retry automático, tipagem nativa e exemplos validados contra o código real. CLI single-binary em Go. MCP pra agentes IA.'
+keywords: ['sdks', 'bibliotecas', 'node', 'python', 'php', 'java', 'go', 'ruby', 'cli', 'mcp']
 ---
 
-A Arara mantém **4 SDKs oficiais** + CLI single-binary + MCP server. Todos open source, MIT, no [GitHub](https://github.com/ararahq). Snippets nesta página são gerados/validados contra o código real — copia e cola funciona.
+A Arara mantém **6 SDKs oficiais** + CLI single-binary + MCP server. Todos open source, MIT, no [GitHub](https://github.com/ararahq). Snippets nesta página são gerados/validados contra o código real — copia e cola funciona.
 
 ## SDKs
 
@@ -34,9 +34,18 @@ A Arara mantém **4 SDKs oficiais** + CLI single-binary + MCP server. Todos open
     Estável. Spring Boot-ready. Core completo.
   </Card>
   <Card title="Go" icon="golang" href="/sdks/go">
-    Em breve. Por enquanto use [CLI](/cli) ou REST direto.
+    ```bash
+    go get github.com/ararahq/arara-go-sdk
+    ```
+    Beta. Zero dependências, `context.Context` em tudo. Core completo.
   </Card>
-  <Card title="Ruby / Elixir / Rust" icon="circle-question">
+  <Card title="Ruby" icon="gem" href="/sdks/ruby">
+    ```bash
+    gem install ararahq
+    ```
+    Beta. Zero dependências de runtime. Core completo.
+  </Card>
+  <Card title="Elixir / Rust" icon="circle-question">
     Sem SDK oficial. Use REST com lib HTTP padrão. Snippets em [API Reference](/api-reference/introduction).
   </Card>
 </CardGroup>
@@ -45,20 +54,20 @@ A Arara mantém **4 SDKs oficiais** + CLI single-binary + MCP server. Todos open
 
 Os 4 SDKs cobrem todo o core autenticável por API key:
 
-| Recurso | Node | Python | PHP | Java |
-|---|---|---|---|---|
-| Messages | ✅ | ✅ | ✅ | ✅ |
-| Templates | ✅ | ✅ | ✅ | ✅ |
-| Users | ✅ | ✅ | ✅ | ✅ |
-| Organizations | ✅ | ✅ | ✅ | ✅ |
-| API Keys | ✅ | ✅ | ✅ | ✅ |
-| Contacts | ✅ | ✅ | ✅ | ✅ |
-| Conversations | ✅ | ✅ | ✅ | ✅ |
-| Wallet | ✅ | ✅ | ✅ | ✅ |
-| Numbers | ✅ | ✅ | ✅ | ✅ |
-| Smart Links | ✅ | ✅ | ✅ | ✅ |
-| Campaigns | ✅ | ✅ | ✅ | ✅ |
-| Brain (IA) | — | ✅ | — | — |
+| Recurso | Node | Python | PHP | Java | Go | Ruby |
+|---|---|---|---|---|---|---|
+| Messages | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Templates | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Users | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Organizations | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| API Keys | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Contacts | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Conversations | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Wallet | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Numbers | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Smart Links | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Campaigns | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Brain (IA) | — | ✅ | — | — | — | — |
 
 **Escopo da key**: recursos de escrita (criar campanha, editar número, girar api-key) exigem uma key com scope **ADMIN**. Keys `READ` só fazem GET; keys `SEND` fazem GET + envio (`/messages`, `/campaigns`).
 

@@ -1,148 +1,102 @@
 ---
 title: 'SDK Go'
-description: 'O SDK Go oficial está em desenvolvimento. Use o CLI da Arara (escrito em Go, biblioteca interna exposta) ou chamadas REST diretas como solução temporária.'
+description: 'SDK oficial Go da Arara — zero dependências, context.Context em todas as chamadas, retry com backoff, structs tipadas geradas contra o código real da API.'
 ---
 
-<Note>
-  **Status: em breve.** O SDK Go oficial está sendo extraído do código interno do [CLI da Arara](/cli) (que é escrito em Go). Release público previsto pra Q3 2026.
-</Note>
-
-## Por que ainda não tem
-
-O CLI da Arara é escrito em Go e expõe internamente toda a superfície da API. Para virar SDK público estável, faltam:
-
-- Versionamento semântico independente do CLI
-- Documentação Go-idiomática (godoc)
-- Cobertura de testes ≥ 80%
-- Suporte oficial a `context.Context` em todas as chamadas
-- Release no `pkg.go.dev` com tag `v1.0.0` estável
-
-A gente não solta SDK em estado "beta perpétuo". Quando sair, vai estar pronto pra produção.
-
-## Como resolver hoje
-
-### Opção 1 — REST direto com `net/http`
-
-Pra envio simples, 30 linhas de Go resolvem:
-
-```go
-package main
-
-import (
-    "bytes"
-    "encoding/json"
-    "fmt"
-    "io"
-    "net/http"
-    "os"
-)
-
-type SendMessageRequest struct {
-    Receiver          string   `json:"receiver"`
-    TemplateName      string   `json:"templateName,omitempty"`
-    TemplateVariables []string `json:"templateVariables,omitempty"`
-    Body              string   `json:"body,omitempty"`
-}
-
-func main() {
-    req := SendMessageRequest{
-        Receiver:     "whatsapp:+5511999999999",
-        TemplateName: "confirmacao_pedido",
-        TemplateVariables: []string{
-            "https://meusite.com/nota/123.pdf", // header (mídia)
-            "João",                              // {{1}}
-            "ARA-12345",                         // {{2}}
-        },
-    }
-
-    body, _ := json.Marshal(req)
-    httpReq, _ := http.NewRequest(
-        "POST",
-        "https://api.ararahq.com/v1/messages",
-        bytes.NewReader(body),
-    )
-    httpReq.Header.Set("Authorization", "Bearer "+os.Getenv("ARARA_API_KEY"))
-    httpReq.Header.Set("Content-Type", "application/json")
-
-    resp, err := http.DefaultClient.Do(httpReq)
-    if err != nil {
-        panic(err)
-    }
-    defer resp.Body.Close()
-
-    respBody, _ := io.ReadAll(resp.Body)
-    fmt.Println(string(respBody))
-}
-```
-
-A [referência completa da API REST](/api-reference/introduction) cobre todos os endpoints.
-
-### Opção 2 — Usar o CLI como subprocesso
-
-Pra script ou serviço pequeno, invoca o CLI da Arara via `exec.Command`:
-
-```go
-package main
-
-import (
-    "encoding/json"
-    "fmt"
-    "os/exec"
-)
-
-func main() {
-    cmd := exec.Command(
-        "arara", "send",
-        "--to", "+5511999999999",
-        "--template", "confirmacao_pedido",
-        "--var", "João",
-        "--var", "ARA-12345",
-        "--output", "json",
-    )
-
-    out, err := cmd.Output()
-    if err != nil {
-        panic(err)
-    }
-
-    var result map[string]any
-    json.Unmarshal(out, &result)
-    fmt.Println(result["id"])
-}
-```
-
-A flag `--output json` retorna estruturado. O CLI cuida de auth (profile), retry e idempotency-key automaticamente. Ver [CLI](/cli).
-
-### Opção 3 — Instalar o CLI como dependência de build
-
-O CLI é Go (`github.com/ararahq/cli`) e cobre toda a superfície da API. Pra usar em pipeline ou serviço, instala o binário e invoca como subprocesso (Opção 2):
-
 ```bash
-go install github.com/ararahq/cli/cmd/arara@latest
+go get github.com/ararahq/arara-go-sdk
 ```
 
 <Note>
-  A lógica de chamada do CLI vive em `internal/`, que o Go **não** deixa importar de outro módulo. Não existe pacote Go público estável ainda — use REST direto (Opção 1) ou o binário (Opção 2) até o SDK Go sair.
+  **Beta.** O SDK cobre todo o core da API. Publicação de tag estável (`v1.0.0` no `pkg.go.dev`) em andamento. Enquanto isso, `go get` puxa a versão do repositório.
 </Note>
 
-## Avisa quando sair
+Zero dependências externas — só a stdlib (`net/http`, `encoding/json`, `context`). Go 1.22+.
 
-<CardGroup cols={2}>
-  <Card title="Inscreve no GitHub" icon="bell" href="https://github.com/ararahq/arara-go-sdk">
-    Watch no repo (vai existir quando sair). Notificação no primeiro release.
-  </Card>
-  <Card title="Pede no Discord" icon="discord" href="https://discord.gg/ararahq">
-    Tá precisando pra um projeto específico? Avisa qual case que a gente prioriza.
-  </Card>
-</CardGroup>
+## Setup
+
+```go
+import "github.com/ararahq/arara-go-sdk"
+
+client := arara.NewClient(os.Getenv("ARARA_API_KEY"))
+```
+
+A API key usa o prefixo `ara_live_` (produção — a Arara não tem modo de teste). Opções via variadic:
+
+```go
+client := arara.NewClient(
+    os.Getenv("ARARA_API_KEY"),
+    arara.WithBaseURL("https://api.ararahq.com"), // default
+    arara.WithTimeout(10*time.Second),            // default 10s
+)
+```
+
+Todo método recebe `context.Context` como primeiro argumento. Retry com backoff exponencial em 429/5xx honrando `Retry-After` vem embutido.
+
+## Enviar um template
+
+```go
+resp, err := client.Messages.Send(ctx, arara.SendMessageRequest{
+    Receiver:     "whatsapp:+5511999999999",
+    TemplateName: "fatura_disponivel",
+    TemplateVariables: []string{
+        "https://meusite.com/fatura.pdf", // header (mídia)
+        "João",                            // {{1}}
+        "Janeiro",                         // {{2}}
+    },
+})
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println(resp.ID)
+```
+
+**Padrão de mídia**: a URL da mídia vai como **primeiro elemento** de `TemplateVariables`. As posições seguintes preenchem `{{1}}`, `{{2}}`... do corpo do template.
+
+## Recursos disponíveis
+
+| Recurso | Acesso |
+|---|---|
+| Messages | `client.Messages` |
+| Templates | `client.Templates` |
+| Users | `client.Users` |
+| Organizations | `client.Organizations` |
+| API Keys | `client.ApiKeys` |
+| Contacts | `client.Contacts` |
+| Conversations | `client.Conversations` |
+| Wallet | `client.Wallet` |
+| Numbers | `client.Numbers` |
+| Smart Links | `client.SmartLinks` |
+| Campaigns | `client.Campaigns` |
+
+## Erros
+
+Erros da API vêm como `*arara.Error`, com o envelope estruturado desserializado:
+
+```go
+resp, err := client.Messages.Send(ctx, req)
+if err != nil {
+    var apiErr *arara.Error
+    if errors.As(err, &apiErr) {
+        fmt.Println(apiErr.StatusCode, apiErr.Code, apiErr.Message)
+        if apiErr.RetryAfter > 0 {
+            // rate limit — o cliente já tentou o retry automático
+        }
+    }
+}
+```
+
+## Escopo da API key
+
+Keys `READ` só fazem GET; keys `SEND` fazem GET + envio (`/messages`, `/campaigns`); o resto (criar campanha, editar número, girar api-key) exige key `ADMIN`.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="API Reference" icon="code" href="/api-reference/introduction">
-    Use REST direto enquanto isso.
+    Contrato completo de cada endpoint.
   </Card>
   <Card title="CLI" icon="terminal" href="/cli">
-    O CLI já é Go e cobre tudo.
+    O `arara` CLI também é Go, pra uso em terminal e scripts.
   </Card>
 </CardGroup>

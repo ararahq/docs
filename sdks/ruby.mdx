@@ -1,0 +1,103 @@
+---
+title: 'SDK Ruby'
+description: 'SDK oficial Ruby da Arara — zero dependências de runtime, retry com backoff, hierarquia de erros tipada, acesso por recurso (client.contacts.list...).'
+---
+
+```bash
+gem install ararahq
+```
+
+<Note>
+  **Beta.** O gem cobre todo o core da API. Publicação no RubyGems em andamento — enquanto isso, instale a partir do [repositório](https://github.com/ararahq/arara-ruby-sdk).
+</Note>
+
+Zero dependências de runtime — só a stdlib (`net/http`, `json`, `uri`, `securerandom`).
+
+## Setup
+
+```ruby
+require "arara"
+
+client = Arara::Client.new(api_key: ENV.fetch("ARARA_API_KEY"))
+```
+
+A API key usa o prefixo `ara_live_` (produção — a Arara não tem modo de teste). Opções:
+
+```ruby
+client = Arara::Client.new(
+  api_key: ENV.fetch("ARARA_API_KEY"),
+  base_url: "https://api.ararahq.com", # default
+  timeout: 10,                          # segundos, default 10
+)
+```
+
+Retry com backoff exponencial em 429/5xx honrando `Retry-After` vem embutido.
+
+## Enviar um template
+
+```ruby
+resp = client.messages.send(
+  receiver: "whatsapp:+5511999999999",
+  template_name: "fatura_disponivel",
+  template_variables: [
+    "https://meusite.com/fatura.pdf", # header (mídia)
+    "João",                            # {{1}}
+    "Janeiro",                         # {{2}}
+  ],
+)
+
+puts resp["id"]
+```
+
+**Padrão de mídia**: a URL da mídia vai como **primeiro elemento** de `template_variables`. As posições seguintes preenchem `{{1}}`, `{{2}}`... do corpo do template.
+
+Respostas vêm como `Hash` com chaves string, exatamente como a API retorna.
+
+## Recursos disponíveis
+
+| Recurso | Acesso |
+|---|---|
+| Messages | `client.messages` |
+| Templates | `client.templates` |
+| Users | `client.users` |
+| Organizations | `client.organizations` |
+| API Keys | `client.api_keys` |
+| Contacts | `client.contacts` |
+| Conversations | `client.conversations` |
+| Wallet | `client.wallet` |
+| Numbers | `client.numbers` |
+| Smart Links | `client.smart_links` |
+| Campaigns | `client.campaigns` |
+
+## Erros
+
+Erros da API levantam `Arara::Error` (ou subclasse por status), com o envelope estruturado desserializado:
+
+```ruby
+begin
+  client.messages.send(receiver: "...", template_name: "...")
+rescue Arara::RateLimitError => e
+  # e.retry_after disponível; o cliente já tentou o retry automático
+rescue Arara::AuthenticationError => e
+  warn "#{e.code}: #{e.message}"
+rescue Arara::Error => e
+  warn "#{e.status_code} #{e.code}: #{e.message}"
+end
+```
+
+Subclasses: `BadRequestError` (400), `AuthenticationError` (401/403), `NotFoundError` (404), `ConflictError` (409), `RateLimitError` (429), `ServerError` (5xx), `NetworkError`.
+
+## Escopo da API key
+
+Keys `READ` só fazem GET; keys `SEND` fazem GET + envio (`/messages`, `/campaigns`); o resto (criar campanha, editar número, girar api-key) exige key `ADMIN`.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Contrato completo de cada endpoint.
+  </Card>
+  <Card title="Receitas práticas" icon="book-open" href="/recipes">
+    Carrinho abandonado, OTP, suporte 24/7.
+  </Card>
+</CardGroup>
