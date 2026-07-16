@@ -38,9 +38,13 @@ Mais completo entre os SDKs:
 | Templates | `client.templates` |
 | Users | `client.users` |
 | Organizations | `client.organizations` |
+| API Keys | `client.api_keys` |
+| Contacts | `client.contacts` |
+| Conversations | `client.conversations` |
+| Wallet | `client.wallet` |
+| Numbers | `client.numbers` |
+| Smart Links | `client.smart_links` |
 | Campaigns | `client.campaigns` |
-| Brain | `client.brain` |
-| Payments | `client.payments` |
 
 ## Enviar mensagem
 
@@ -144,37 +148,6 @@ campaign = client.campaigns.create(CreateCampaignRequest(
 # Acompanha
 detail = client.campaigns.get(campaign.id)
 print(detail.status)  # PROCESSING | COMPLETED | CANCELLED
-```
-
-## Brain (AI)
-
-```python
-# Configurar
-client.brain.update_config({
-    "can_use_ai": True,
-    "is_ai_agent_enabled": True,
-})
-
-# Knowledge base
-client.brain.create_knowledge(title="Política de devolução",
-                              content="Devolução em até 7 dias úteis...")
-
-# Eval suite
-result = client.brain.run_eval(case_ids=["case_1", "case_2"])
-print(result.pass_rate)
-```
-
-## Payments (Pix via AbacatePay)
-
-```python
-pix = client.payments.create_pix({
-    "amount_cents": 19990,
-    "customer_tax_id": "12345678900",
-    "customer_phone": "+5511999999999",
-})
-
-print(pix.qr_code)
-print(pix.expires_at)
 ```
 
 ## Pydantic models

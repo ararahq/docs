@@ -34,9 +34,14 @@ A `apiKey` usa o prefixo `ara_live_` (produção — a Arara não tem modo de te
 | Users | `sdk.users` | Estável |
 | Organizations | `sdk.organizations` | Estável |
 | API Keys | `sdk.apiKeys` | Estável |
-| Campaigns | — | Em breve (use REST direto via `sdk.api.post(...)`) |
-| Brain | — | Em breve |
-| Payments | — | Em breve |
+| Contacts | `sdk.contacts` | Estável |
+| Conversations | `sdk.conversations` | Estável |
+| Wallet | `sdk.wallet` | Estável |
+| Numbers | `sdk.numbers` | Estável |
+| Smart Links | `sdk.smartLinks` | Estável |
+| Campaigns | `sdk.campaigns` | Estável |
+
+Pra qualquer endpoint sem recurso tipado, use o escape hatch `sdk.api.get/post/put/patch/delete(...)` — herda auth, retry e timeout do cliente.
 
 Pra paridade total, ver [Qual SDK escolher?](/sdks).
 
