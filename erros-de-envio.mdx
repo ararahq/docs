@@ -1,0 +1,175 @@
+---
+title: 'Por que minha mensagem falhou'
+description: 'Catálogo completo dos erros de envio da Arara, ordenado pelo que mais acontece em produção: causa, como confirmar e como resolver. Inclui as regras da Meta que reprovam template e bloqueiam número.'
+keywords: ['erro de envio', 'mensagem falhou', 'template reprovado', 'INVALID_FORMAT', 'WABA bloqueada', 'quality rating', 'tier', 'janela 24h', 'FAILED']
+---
+
+Esta página existe porque uma mensagem `FAILED` sem explicação é o pior momento de quem usa a plataforma. Cada erro abaixo é real — a ordem é a frequência medida em produção, não um palpite.
+
+A regra geral: **o erro diz de quem é o problema.** Template, conta, destinatário ou provedor. Descobrir isso primeiro economiza a maior parte do tempo.
+
+## Antes de tudo: onde ver o motivo
+
+Cada mensagem guarda o motivo da falha.
+
+```bash
+curl https://api.ararahq.com/v1/messages/ara_msg_XXXX \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+O campo `failureReason` traz o motivo traduzido. No painel, **Logs** mostra o mesmo, com filtro por status.
+
+---
+
+## Erros de template
+
+São a maior fatia. Quase sempre o template, não o envio.
+
+### `Falha na validação do template: 401 UNAUTHORIZED`
+
+**O que é:** a Arara não conseguiu se autenticar para validar seu template no provedor. Apesar do texto falar em "estrutura e links", **401 é credencial, não conteúdo** — não adianta mexer no texto do template.
+
+**O que fazer:** não é ação sua. Abra um chamado: é a conta do número que precisa ser reconectada do nosso lado. Se você acabou de trocar o número ou refazer o embedded signup, mencione isso no chamado.
+
+### `Falha no Template: rejeitado ou pausado pela Meta por baixa qualidade`
+
+Código interno `ararahq-template-error`.
+
+**O que é:** a Meta reprovou ou **pausou** um template que já estava aprovado. Pausa acontece quando muita gente bloqueia ou denuncia mensagens daquele template.
+
+**O que fazer:**
+1. Veja o status em **Templates** — pausado aparece como `PAUSED`.
+2. Template pausado volta sozinho depois de um período, mas **volta a pausar** se o conteúdo continuar gerando bloqueio.
+3. A correção real é o conteúdo: mensagem que a pessoa não esperava receber gera bloqueio. Revise a lista e o texto antes de resubmeter.
+
+### `Falha na validação das variáveis: Content Variables inválido`
+
+Também aparece como *"As variáveis enviadas não batem com a estrutura do template aprovado"*.
+
+**O que é:** a quantidade ou o formato das variáveis que você mandou não corresponde ao template aprovado. Template com `{{1}}` e `{{2}}` exige exatamente dois valores, na ordem.
+
+**O que fazer:** compare `templateVariables` com o corpo aprovado em **Templates**. Erros comuns: mandar um valor a mais, pular posição, mandar `null` ou string vazia.
+
+### `Falha na validação do template: 413 PAYLOAD_TOO_LARGE`
+
+**O que é:** o conteúdo passou do tamanho aceito — normalmente uma variável muito longa, ou mídia grande demais no cabeçalho.
+
+**O que fazer:** encurte o valor da variável. Para mídia, use link em vez de anexo pesado.
+
+### `Mensagem não tem um template_name`
+
+**O que é:** você tentou iniciar conversa (fora da janela de 24h) sem informar template.
+
+**O que fazer:** fora da janela, só template aprovado passa. Informe `templateName`. Dentro da janela, mensagem livre funciona — veja [Janela de 24h](/concepts/24h-window).
+
+---
+
+## Por que a Meta reprova um template
+
+Reprovação por formato costuma vir como `INVALID_FORMAT`, e quase sempre é variável fora de posição. As regras duras:
+
+| Regra | Detalhe |
+|---|---|
+| Variáveis sequenciais | `{{1}}`, `{{2}}`, `{{3}}`. Pular de `{{1}}` para `{{3}}` reprova. |
+| Nunca no começo nem no fim | O corpo não pode abrir nem fechar com variável. |
+| Nunca coladas | `{{1}} {{2}}` reprova. Precisa de texto entre elas. |
+| Variável no cabeçalho conta na sequência | Cabeçalho com `{{1}}` faz o corpo começar em `{{2}}`. É o erro mais comum de quem monta na mão. |
+| Sem caracteres especiais na variável | `#`, `$`, `%` dentro do valor reprovam. |
+| Espaçamento | Mais de 4 espaços seguidos, tabs ou várias linhas em branco reprovam. |
+| Emoji | Mais de 10 no corpo reprova. |
+| Tamanho | Corpo acima de 550 caracteres reprova. |
+| Duplicado | Template com corpo ou rodapé igual a outro já aprovado na conta reprova — exceto categoria `AUTHENTICATION`. |
+
+Categoria errada também reprova: promoção enviada como `UTILITY` é reclassificada ou recusada. Veja [Templates](/concepts/templates).
+
+---
+
+## Erros de conta e número
+
+Aqui nada que você mude no envio resolve — é o estado da conta na Meta.
+
+### `A conta WhatsApp (WABA) da sua empresa está bloqueada ou restrita`
+
+**O que é:** a Meta bloqueou a conta inteira. Nenhum envio sai enquanto durar.
+
+**O que fazer:** o aviso e o motivo chegam no Business Manager da sua empresa. É lá que se abre a contestação — a Arara não consegue destravar por você, mas o chamado ajuda a interpretar o motivo e montar o recurso.
+
+### `Bloqueio preventivo de Spam pela Meta`
+
+Código interno `ararahq-meta-block`.
+
+**O que é:** o conteúdo foi classificado como marketing excessivo, ou houve denúncia de usuários.
+
+**O que fazer:** pare o disparo daquela lista. Continuar enviando enquanto o bloqueio está ativo piora a nota de qualidade e aproxima a restrição definitiva.
+
+### `O nome de exibição do seu número ainda não foi aprovado`
+
+**O que é:** sem nome aprovado, a Meta bloqueia disparo de template.
+
+**O que fazer:** peça a aprovação do nome no Business Manager. Enquanto isso, conversa dentro da janela de 24h continua funcionando.
+
+### `Business Account locked` (Gupshup 131031)
+
+Mesma família do bloqueio de WABA, reportado pelo provedor. Tratamento igual.
+
+---
+
+## Erros do destinatário
+
+Não são erro seu nem nosso. Não adianta reenviar.
+
+| Erro | O que significa |
+|---|---|
+| **Mensagem não pôde ser entregue no aparelho** (`ararahq-63032`) | Telefone desligado, sem sinal ou com você bloqueado. |
+| **A Meta não conseguiu entregar** | O número pode não ter WhatsApp, ter recusado o recebimento ou não aceitar mensagens da sua empresa. |
+| **Limite de marketing por usuário** | A Meta limitou o envio para *aquela pessoa*, para preservar a experiência dela. Não é problema do seu número. |
+| **Experimento da Meta** | O usuário está num teste da Meta que limita marketing. Nada a fazer. |
+| **`131049`** — *not delivered to maintain healthy ecosystem engagement* | Mesma família: a Meta segurou para proteger a experiência do usuário. |
+| **`131026`** — *Message undeliverable* | O destino não pode receber: número inválido, sem WhatsApp ou fora de área de cobertura. |
+
+Reenviar para esses contatos não melhora a entrega e piora sua nota de qualidade. O certo é limpar a lista.
+
+---
+
+## Erros de provedor
+
+### `Erro de entrega no provedor (Upstream Error)`
+
+Códigos `ararahq-63041` e similares.
+
+**O que é:** a Arara enviou, o provedor aceitou, mas a confirmação não voltou. Um dos motivos que aparece é `low balance` do lado do provedor.
+
+**O que fazer:** normalmente resolve sozinho e a mensagem é reconciliada. Se um lote inteiro ficar assim, abra chamado — é sinal de incidente, não de conteúdo.
+
+### Mensagem parada em `SENT_TO_PROVIDER`
+
+**O que é:** aceita pelo provedor e sem status final. Não é falha: é ausência de confirmação.
+
+**O que fazer:** aguarde a reconciliação. Se persistir por horas em volume, abra chamado citando o período — é o tipo de coisa que a gente investiga no log do provedor.
+
+---
+
+## Limite de envio e qualidade do número
+
+Duas coisas diferentes que costumam ser confundidas:
+
+- **Qualidade** é a saúde do número (verde, amarelo, vermelho). Cai quando gente bloqueia ou denuncia.
+- **Tier** é quanto você pode iniciar por dia: 250 → 1.000 → 10.000 → 100.000 → ilimitado.
+
+Número novo começa em `TIER_250`. Para subir, é preciso volume consistente com qualidade alta — disparo agressivo derruba a qualidade e trava a subida. O detalhe completo está em [Qualidade do número](/concepts/number-quality).
+
+---
+
+## Como o retry funciona
+
+Falha de rede e erro temporário do provedor entram em retry automático com backoff. **Erro de template, de variável e de conta não entram** — repetir daria o mesmo resultado e só queimaria qualidade.
+
+Se a mensagem está `FAILED`, ela não será reenviada sozinha. Corrija a causa e envie de novo.
+
+---
+
+## Ainda travado?
+
+Abra um chamado em **Suporte**, dentro do painel. O assistente responde na hora com base nesta documentação; o que ele não resolver vai para a fila do time com o prazo do seu plano.
+
+Ajuda muito no chamado: o `id` da mensagem (`ara_msg_...`), o nome do template e o horário aproximado.

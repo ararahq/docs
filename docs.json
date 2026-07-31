@@ -60,7 +60,8 @@
             "pages": [
               "api-reference/introduction",
               "api-reference/authentication",
-              "erros"
+              "erros",
+              "erros-de-envio"
             ]
           },
           {
