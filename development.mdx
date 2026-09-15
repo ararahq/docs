@@ -1,38 +1,45 @@
 ---
 title: "Desenvolvimento"
-description: "Guia para configurar seu ambiente local, contribuir com a documentação e criar SDKs para a Arara."
+description: "Como criar ou contribuir com um SDK da Arara: repositórios existentes, requisitos mínimos, contrato da API e passo a passo."
 ---
 
-## SDKs de Código Aberto
+## SDKs de código aberto
 
-A Arara acredita que a melhor experiência do desenvolvedor vem de SDKs bem construídos e mantidos pela comunidade. Por isso, incentivamos e suportamos a criação de SDKs de código aberto para diferentes linguagens e frameworks.
+Os SDKs da Arara são open source e ficam na organização [ararahq](https://github.com/ararahq) no GitHub. Esta página serve pra quem quer contribuir com um SDK existente ou criar um para uma linguagem que ainda não tem.
 
-## Por Que SDKs?
+Para saber o que cada SDK publicado cobre hoje, veja [SDKs e ferramentas](/sdks).
 
-SDKs facilitam a integração, reduzem erros comuns, fornecem autocomplete e documentação inline, e tornam a experiência de desenvolvimento muito mais agradável. Eles são essenciais para uma excelente DX (Developer Experience).
-
-### SDKs Disponíveis e Planejados
+### Repositórios existentes
 
 <CardGroup cols={2}>
-  <Card title="Node.js/TypeScript" icon="node-js" href="https://github.com/ararahq/arara-node-sdk">
-    SDK oficial para Node.js e TypeScript
+  <Card title="Node.js / TypeScript" icon="node-js" href="https://github.com/ararahq/arara-node-sdk">
+    `@ararahq/sdk` no npm.
   </Card>
   <Card title="Python" icon="python" href="https://github.com/ararahq/arara-python-sdk">
-    SDK oficial para Python
-  </Card>
-  <Card title="Java" icon="java" href="https://github.com/ararahq/arara-java-sdk">
-    SDK oficial para Java
+    `ararahq-sdk` no PyPI.
   </Card>
   <Card title="PHP" icon="php" href="https://github.com/ararahq/arara-php-sdk">
-    SDK oficial para PHP
+    `ararahq/sdk` no Packagist.
   </Card>
-  <Card title="Go" icon="code" href="https://github.com/ararahq/arara-golang-sdk">
-    SDK oficial para Go
+  <Card title="Java / Kotlin" icon="java" href="https://github.com/ararahq/arara-java-sdk">
+    Publicado só no GitHub Packages.
+  </Card>
+  <Card title="Go" icon="golang" href="https://github.com/ararahq/arara-go-sdk">
+    Sem tag de release ainda; instale pela `main`.
+  </Card>
+  <Card title="Ruby" icon="gem" href="https://github.com/ararahq/arara-ruby-sdk">
+    Não publicado no RubyGems; instale via git.
+  </Card>
+  <Card title="CLI" icon="terminal" href="https://github.com/ararahq/cli">
+    Binário `arara`, escrito em Go.
+  </Card>
+  <Card title="MCP Server" icon="server" href="https://github.com/ararahq/mcp">
+    `@ararahq/mcp` no npm.
   </Card>
 </CardGroup>
 
 <Info>
-  Não encontrou um SDK para sua linguagem favorita? Siga o guia abaixo para criar o seu próprio! SDKs da comunidade são muito bem-vindos e podem se tornar oficiais com o tempo.
+  Não encontrou um SDK para sua linguagem? Siga o guia abaixo. Enquanto isso, qualquer linguagem funciona com REST puro: veja a [API Reference](/api-reference/introduction).
 </Info>
 
 ## Criando um Novo SDK
@@ -46,7 +53,7 @@ Antes de começar, certifique-se de seguir estas regras:
 #### 1. Estrutura do Repositório
 
 - **Nome**: Use o padrão `arara-{linguagem}-sdk` (ex: `arara-python-sdk`, `arara-java-sdk`)
-- **Organização**: Crie o repositório na organização `ararahq` no GitHub (Caso não consiga, contate o suporte)
+- **Organização**: Crie o repositório na sua conta do GitHub. Para ele entrar na organização `ararahq`, fale com [suporte@ararahq.com](mailto:suporte@ararahq.com)
 - **Licença**: Use a licença MIT
 - **README**: Deve incluir:
   - Instalação
@@ -58,11 +65,24 @@ Antes de começar, certifique-se de seguir estas regras:
 
 Todo SDK deve implementar pelo menos:
 
-- **Autenticação**: Suporte a API Key via header `Authorization`
-- **Gestão de Mensagens**: Métodos para `POST /v1/messages` e `GET /v1/messages/{internalId}`
-- **Tratamento de Erros**: Classes/exceções específicas para cada tipo de erro HTTP
-- **Validação**: Validação básica de parâmetros antes de enviar
-- **Type Safety**: Tipos fortes quando a linguagem suporta (TypeScript, Java, etc.)
+- **Autenticação**: API Key no header `Authorization: Bearer ara_live_...`. Chave inválida ou ausente responde **403** (não 401)
+- **Mensagens**: `POST /v1/messages` (resposta `202`) e `GET /v1/messages/{internalId}`
+- **Idempotência**: aceitar uma chave opcional e enviá-la no header `Idempotency-Key` do envio
+- **Tratamento de erros**: ler o envelope `{ "error": { "code", "message", "details" } }` e expor status HTTP e `code`. Em `429`, expor o header `Retry-After`
+- **Validação**: validação básica de parâmetros antes de enviar
+- **Type safety**: tipos fortes quando a linguagem suporta (TypeScript, Java, etc.)
+
+O contrato de `POST /v1/messages`:
+
+| Campo | Tipo | Observação |
+|---|---|---|
+| `receiver` | string | Obrigatório. E.164, aceita prefixo `whatsapp:` (ex: `whatsapp:+5511999999999`) |
+| `templateName` | string | Nome do template aprovado |
+| `templateVariables` | string[] | Posições `{{1}}`, `{{2}}`... Se o template tem header de mídia, a URL da mídia vai como primeiro elemento. `variables` é aceito como alias |
+| `body` | string | Texto livre, só dentro da janela de 24h |
+| `scheduled_at` | string ISO 8601 | Agendamento (alias `scheduledAt`) |
+
+A resposta traz `id` (`ara_msg_...`), `status` em maiúsculas (`PENDING`, `SCHEDULED`, `PROCESSING`, `SENT`, `DELIVERED`, `READ`, `FAILED`, `CANCELED`), `sender`, `receiver`, `body`, `cost` e `reason`.
 
 #### 3. Padrões de Código
 
@@ -84,7 +104,7 @@ Todo SDK deve implementar pelo menos:
     Antes de começar a codificar:
 
     1. **Verifique se já existe**: Consulte a lista de SDKs acima e o GitHub da Arara
-    2. **Abra uma Issue**: Crie uma issue no repositório principal da Arara anunciando sua intenção
+    2. **Avise antes**: Abra uma issue no repositório [docs](https://github.com/ararahq/docs) anunciando sua intenção
     3. **Planeje a estrutura**: Decida sobre:
        - Gerenciador de pacotes (npm, pip, maven, etc.)
        - Biblioteca HTTP (fetch, requests, okhttp, etc.)
@@ -155,49 +175,55 @@ Todo SDK deve implementar pelo menos:
     Crie a classe/função principal do cliente:
 
     - **Inicialização**: Recebe a API Key
-    - **Configuração HTTP**: Base URL, headers padrão, timeout
-    - **Tratamento de Erros**: Mapeamento de códigos HTTP para exceções
-    - **Método genérico de requisição**: Para fazer chamadas HTTP
+    - **Configuração HTTP**: Base URL, headers padrão, timeout explícito
+    - **Tratamento de Erros**: Converte respostas não-2xx em exceção com o envelope de erro
+    - **Método genérico de requisição**: Para fazer chamadas HTTP, aceitando headers extras (ex: `Idempotency-Key`)
 
     <CodeGroup>
     ```typescript TypeScript
+    const DEFAULT_TIMEOUT_MS = 10_000;
+
     export class AraraClient {
-      private apiKey: string;
-      private baseURL: string = 'https://api.ararahq.com';
-      
-      constructor(apiKey: string) {
+      private readonly baseURL = 'https://api.ararahq.com';
+
+      constructor(private readonly apiKey: string) {
         if (!apiKey) {
           throw new Error('API Key is required');
         }
-        this.apiKey = apiKey;
       }
-      
-      private async request(
+
+      async request<T>(
         method: string,
         path: string,
-        body?: any
-      ): Promise<any> {
+        body?: unknown,
+        extraHeaders?: Record<string, string>,
+      ): Promise<T> {
         const response = await fetch(`${this.baseURL}${path}`, {
           method,
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
+            ...extraHeaders,
           },
           body: body ? JSON.stringify(body) : undefined,
+          signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
         });
-        
+
         if (!response.ok) {
-          throw new AraraError(response.status, await response.json());
+          throw await AraraError.fromResponse(response);
         }
-        
-        return response.json();
+
+        return response.json() as Promise<T>;
       }
     }
     ```
 
     ```python Python
+    from typing import Any, Dict, Optional
+
     import requests
-    from typing import Optional, Dict, Any
+
+    DEFAULT_TIMEOUT_SECONDS = 10
 
     class AraraClient:
         def __init__(self, api_key: str):
@@ -205,73 +231,91 @@ Todo SDK deve implementar pelo menos:
                 raise ValueError("API Key is required")
             self.api_key = api_key
             self.base_url = "https://api.ararahq.com"
-        
+
         def _request(
-            self, 
-            method: str, 
-            path: str, 
-            data: Optional[Dict[str, Any]] = None
+            self,
+            method: str,
+            path: str,
+            data: Optional[Dict[str, Any]] = None,
+            extra_headers: Optional[Dict[str, str]] = None,
         ) -> Dict[str, Any]:
-            url = f"{self.base_url}{path}"
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
+                **(extra_headers or {}),
             }
-            
+
             response = requests.request(
                 method=method,
-                url=url,
+                url=f"{self.base_url}{path}",
                 headers=headers,
-                json=data
+                json=data,
+                timeout=DEFAULT_TIMEOUT_SECONDS,
             )
-            
+
             if not response.ok:
-                raise AraraError(response.status_code, response.json())
-            
+                retry_after = response.headers.get("Retry-After")
+                payload = response.json() if response.content else {}
+                raise AraraError(
+                    response.status_code,
+                    payload,
+                    int(retry_after) if retry_after and retry_after.isdigit() else None,
+                )
+
             return response.json()
     ```
 
     ```java Java
     public class AraraClient {
+        private static final Duration TIMEOUT = Duration.ofSeconds(10);
         private final String apiKey;
         private final String baseURL = "https://api.ararahq.com";
         private final HttpClient httpClient;
-        
+
         public AraraClient(String apiKey) {
             if (apiKey == null || apiKey.isEmpty()) {
                 throw new IllegalArgumentException("API Key is required");
             }
             this.apiKey = apiKey;
             this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(TIMEOUT)
                 .build();
         }
-        
-        private HttpResponse<String> request(
+
+        HttpResponse<String> request(
             String method,
             String path,
-            String body
-        ) throws IOException, InterruptedException {
-            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+            String body,
+            String idempotencyKey
+        ) throws IOException, InterruptedException, AraraException {
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseURL + path))
+                .timeout(TIMEOUT)
                 .header("Authorization", "Bearer " + apiKey)
-                .header("Content-Type", "application/json");
-            
-            if (body != null) {
-                requestBuilder.method(method, HttpRequest.BodyPublishers.ofString(body));
-            } else {
-                requestBuilder.method(method, HttpRequest.BodyPublishers.noBody());
+                .header("Content-Type", "application/json")
+                .method(method, body != null
+                    ? HttpRequest.BodyPublishers.ofString(body)
+                    : HttpRequest.BodyPublishers.noBody());
+
+            if (idempotencyKey != null) {
+                builder.header("Idempotency-Key", idempotencyKey);
             }
-            
+
             HttpResponse<String> response = httpClient.send(
-                requestBuilder.build(),
+                builder.build(),
                 HttpResponse.BodyHandlers.ofString()
             );
-            
+
             if (response.statusCode() >= 400) {
-                throw new AraraException(response.statusCode(), response.body());
+                JsonNode error = new ObjectMapper().readTree(response.body()).path("error");
+                throw new AraraException(
+                    response.statusCode(),
+                    error.path("code").asText(null),
+                    error.path("message").asText(null),
+                    response.body()
+                );
             }
-            
+
             return response;
         }
     }
@@ -282,131 +326,143 @@ Todo SDK deve implementar pelo menos:
   <Step title="4. Implementação do Recurso de Mensagens">
     Crie a classe/função para enviar mensagens:
 
-    - **Método `send`**: Recebe `receiver`, `templateName`, `variables`
+    - **Método `send`**: Recebe `receiver`, `templateName`, `templateVariables` e uma chave de idempotência opcional
     - **Validação**: Valida formato do número e parâmetros obrigatórios
-    - **Retorno tipado**: Retorna um objeto com os dados da mensagem
+    - **Retorno tipado**: Retorna um objeto com os campos da resposta da API
 
     <CodeGroup>
     ```typescript TypeScript
     export interface SendMessageParams {
       receiver: string;
       templateName: string;
-      variables?: string[];
+      templateVariables?: string[];
     }
-    
+
     export interface Message {
       id: string;
-      receiver: string;
-      templateName: string;
       status: string;
-      createdAt: string;
+      mode: string;
+      sender: string;
+      receiver: string;
+      body: string | null;
+      cost: number | null;
+      reason: string | null;
     }
-    
+
+    const E164 = /^(whatsapp:)?\+[1-9]\d{6,14}$/;
+
     export class Messages {
       constructor(private client: AraraClient) {}
-      
-      async send(params: SendMessageParams): Promise<Message> {
-        // Validação
-        if (!params.receiver.startsWith('whatsapp:+')) {
-          throw new Error('Receiver must be in format whatsapp:+5511999999999');
+
+      async send(params: SendMessageParams, idempotencyKey?: string): Promise<Message> {
+        if (!E164.test(params.receiver)) {
+          throw new Error('Receiver must be E.164, e.g. whatsapp:+5511999999999');
         }
-        
-        return this.client.request('POST', '/v1/messages', {
-          receiver: params.receiver,
-          templateName: params.templateName,
-          variables: params.variables || [],
-        });
+
+        return this.client.request(
+          'POST',
+          '/v1/messages',
+          {
+            receiver: params.receiver,
+            templateName: params.templateName,
+            templateVariables: params.templateVariables ?? [],
+          },
+          idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+        );
       }
     }
     ```
 
     ```python Python
-    from typing import List, Optional
+    import re
     from dataclasses import dataclass
+    from typing import List, Optional
+
+    E164 = re.compile(r"^(whatsapp:)?\+[1-9]\d{6,14}$")
 
     @dataclass
     class SendMessageParams:
         receiver: str
         template_name: str
-        variables: Optional[List[str]] = None
+        template_variables: Optional[List[str]] = None
 
     @dataclass
     class Message:
         id: str
-        receiver: str
-        template_name: str
         status: str
-        created_at: str
+        mode: str
+        sender: str
+        receiver: str
+        body: Optional[str]
+        cost: Optional[float]
+        reason: Optional[str]
 
     class Messages:
         def __init__(self, client: AraraClient):
             self.client = client
-        
-        def send(self, params: SendMessageParams) -> Message:
-            # Validação
-            if not params.receiver.startswith('whatsapp:+'):
-                raise ValueError(
-                    'Receiver must be in format whatsapp:+5511999999999'
-                )
-            
+
+        def send(self, params: SendMessageParams, idempotency_key: Optional[str] = None) -> Message:
+            if not E164.match(params.receiver):
+                raise ValueError("Receiver must be E.164, e.g. whatsapp:+5511999999999")
+
             data = {
-                'receiver': params.receiver,
-                'templateName': params.template_name,
-                'variables': params.variables or [],
+                "receiver": params.receiver,
+                "templateName": params.template_name,
+                "templateVariables": params.template_variables or [],
             }
-            
-            response = self.client._request('POST', '/v1/messages', data)
-            return Message(**response)
+            headers = {"Idempotency-Key": idempotency_key} if idempotency_key else None
+
+            response = self.client._request("POST", "/v1/messages", data, headers)
+            return Message(**{k: response.get(k) for k in Message.__dataclass_fields__})
     ```
 
     ```java Java
-    public class SendMessageParams {
-        private String receiver;
-        private String templateName;
-        private List<String> variables;
-        
-        // Getters, setters, construtor
-    }
-    
-    public class Message {
-        private String id;
-        private String receiver;
-        private String templateName;
-        private String status;
-        private String createdAt;
-        
-        // Getters, setters
-    }
-    
+    public record SendMessageParams(
+        String receiver,
+        String templateName,
+        List<String> templateVariables
+    ) {}
+
+    public record Message(
+        String id,
+        String status,
+        String mode,
+        String sender,
+        String receiver,
+        String body,
+        BigDecimal cost,
+        String reason
+    ) {}
+
     public class Messages {
+        private static final Pattern E164 = Pattern.compile("^(whatsapp:)?\\+[1-9]\\d{6,14}$");
         private final AraraClient client;
-        
+        private final ObjectMapper mapper = new ObjectMapper();
+
         public Messages(AraraClient client) {
             this.client = client;
         }
-        
-        public Message send(SendMessageParams params) 
-                throws IOException, InterruptedException {
-            // Validação
-            if (!params.getReceiver().startsWith("whatsapp:+")) {
+
+        public Message send(SendMessageParams params, String idempotencyKey)
+                throws IOException, InterruptedException, AraraException {
+            if (!E164.matcher(params.receiver()).matches()) {
                 throw new IllegalArgumentException(
-                    "Receiver must be in format whatsapp:+5511999999999"
+                    "Receiver must be E.164, e.g. whatsapp:+5511999999999"
                 );
             }
-            
-            Map<String, Object> body = new HashMap<>();
-            body.put("receiver", params.getReceiver());
-            body.put("templateName", params.getTemplateName());
-            body.put("variables", params.getVariables() != null 
-                ? params.getVariables() : Collections.emptyList());
-            
-            String jsonBody = new ObjectMapper().writeValueAsString(body);
-            HttpResponse<String> response = client.request(
-                "POST", "/v1/messages", jsonBody
+
+            Map<String, Object> body = Map.of(
+                "receiver", params.receiver(),
+                "templateName", params.templateName(),
+                "templateVariables", params.templateVariables() != null
+                    ? params.templateVariables() : List.of()
             );
-            
-            return new ObjectMapper()
-                .readValue(response.body(), Message.class);
+
+            HttpResponse<String> response = client.request(
+                "POST", "/v1/messages", mapper.writeValueAsString(body), idempotencyKey
+            );
+
+            return mapper.readValue(response.body(), Message.class);
         }
     }
     ```
@@ -416,58 +472,56 @@ Todo SDK deve implementar pelo menos:
   <Step title="5. Tratamento de Erros">
     Implemente classes de erro específicas:
 
-    - **AraraError/AraraException**: Classe base
-    - **Erros específicos**: 400, 401, 404, 422, 500
-    - **Mensagens claras**: Erros devem ter mensagens descritivas
+    - **AraraError/AraraException**: classe base com `statusCode`, `code`, `message` e `details`, lidos do envelope `{ "error": { ... } }`
+    - **Autenticação**: a API responde **403** para chave inválida ou ausente
+    - **Rate limit**: em `429`, guarde o valor de `Retry-After`
+    - **Mensagens claras**: erros devem ter mensagens descritivas
 
     <CodeGroup>
     ```typescript TypeScript
     export class AraraError extends Error {
       constructor(
         public statusCode: number,
-        public response: any
+        public code: string | undefined,
+        message: string,
+        public details?: unknown,
+        public retryAfter?: number,
       ) {
-        super(response?.message || `HTTP ${statusCode}`);
+        super(message || `HTTP ${statusCode}`);
         this.name = 'AraraError';
       }
-    }
-    
-    export class AraraAuthenticationError extends AraraError {
-      constructor(response: any) {
-        super(401, response);
-        this.name = 'AraraAuthenticationError';
+
+      static async fromResponse(response: Response): Promise<AraraError> {
+        const payload = await response.json().catch(() => ({}));
+        const error = payload?.error ?? {};
+        const retryAfter = Number(response.headers.get('Retry-After')) || undefined;
+        return new AraraError(response.status, error.code, error.message, error.details, retryAfter);
       }
     }
     ```
 
     ```python Python
     class AraraError(Exception):
-        def __init__(self, status_code: int, response: dict):
+        def __init__(self, status_code: int, payload: dict, retry_after: Optional[int] = None):
+            error = payload.get("error") or {}
             self.status_code = status_code
-            self.response = response
-            message = response.get('message', f'HTTP {status_code}')
-            super().__init__(message)
-
-    class AraraAuthenticationError(AraraError):
-        def __init__(self, response: dict):
-            super().__init__(401, response)
+            self.code = error.get("code")
+            self.details = error.get("details")
+            self.retry_after = retry_after
+            super().__init__(error.get("message") or f"HTTP {status_code}")
     ```
 
     ```java Java
     public class AraraException extends Exception {
         private final int statusCode;
+        private final String code;
         private final String responseBody;
-        
-        public AraraException(int statusCode, String responseBody) {
-            super("HTTP " + statusCode);
+
+        public AraraException(int statusCode, String code, String message, String responseBody) {
+            super(message != null ? message : "HTTP " + statusCode);
             this.statusCode = statusCode;
+            this.code = code;
             this.responseBody = responseBody;
-        }
-    }
-    
-    public class AraraAuthenticationException extends AraraException {
-        public AraraAuthenticationException(String responseBody) {
-            super(401, responseBody);
         }
     }
     ```
@@ -477,13 +531,13 @@ Todo SDK deve implementar pelo menos:
   <Step title="6. Testes">
     Crie testes abrangentes:
 
-    - **Testes unitários**: Para cada método
-    - **Testes de integração**: Com a API real (use API Key de teste)
-    - **Testes de erro**: Para cada tipo de erro HTTP
+    - **Testes unitários**: Para cada método, com o HTTP mockado
+    - **Testes de contrato**: Payloads e respostas reais da API gravados como fixtures
+    - **Testes de erro**: 400, 403, 404, 409, 429 e 5xx
     - **Cobertura**: Almeje pelo menos 80% de cobertura
 
     <Tip>
-      Use mocks para testes unitários e uma API Key de teste para testes de integração. Nunca commite API Keys reais!
+      A API não tem modo de teste: toda chamada com uma chave `ara_live_` é real e pode gerar custo. Rode integração só manualmente, enviando para o seu próprio número. Nunca commite API Keys.
     </Tip>
   </Step>
 
@@ -527,11 +581,7 @@ Todo SDK deve implementar pelo menos:
   <Step title="8. Publicação e Manutenção">
     Publique e mantenha:
 
-    1. **Publique no gerenciador de pacotes**:
-       - npm (Node.js)
-       - PyPI (Python)
-       - Maven Central (Java)
-       - etc.
+    1. **Publique no gerenciador de pacotes** da linguagem (npm, PyPI, Packagist, Maven, RubyGems etc.).
 
     2. **Configure CI/CD**:
        - Testes automáticos
@@ -573,8 +623,9 @@ SDKs criados pela comunidade também são bem-vindos! Se você criou um SDK que 
 ## Recursos Úteis
 
 - [API Reference](/api-reference/introduction) - Documentação completa da API
+- [SDKs e ferramentas](/sdks) - O que cada SDK publicado cobre
 - [GitHub da Arara](https://github.com/ararahq) - Repositórios oficiais
-- [Discord/Slack da Comunidade](https://discord.gg/arara) - Para dúvidas e discussões
+- [suporte@ararahq.com](mailto:suporte@ararahq.com) - Dúvidas sobre contribuição
 
 ## Contribuições
 

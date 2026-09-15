@@ -1,126 +1,144 @@
 ---
 title: 'Marketing no WhatsApp'
-description: 'Como rodar marketing no WhatsApp sem queimar número, sem cair em spam e sem brigar com a Meta. Templates aprovados, segmentação por comportamento, A/B test nativo e atribuição first-party.'
+description: 'Como rodar campanhas de marketing no WhatsApp com a Arara: opt-in, template aprovado, categoria certa, contatos, campanha com A/B test e medição de clique e conversão.'
 keywords: ['marketing whatsapp', 'campanha', 'a/b test', 'segmentação', 'opt-in', 'broadcast', 'crm']
 ---
 
-WhatsApp não é email. Você não pode disparar pra base inteira, não pode comprar lista, não pode soar genérico. Mas quando feito direito, tem **taxa de abertura ~98%** e **CTR 5-10x maior que SMS** — é o canal de marketing mais quente que existe no Brasil.
+WhatsApp não é email. Disparo pra quem não pediu gera bloqueio e denúncia, e isso derruba a qualidade do número. Esta página resume o que importa pra rodar marketing com a Arara.
 
-Esta página resume o que importa saber pra rodar marketing no WhatsApp sem furada.
-
-## As 3 regras que você não pode quebrar
+## As 3 regras
 
 <Steps>
-  <Step title="Opt-in real, não opt-in fake">
-    Cliente precisa ter consentido explicitamente em receber mensagens da sua marca. Pegar número no checkout não conta. Pop-up "aceito receber WhatsApp" no carrinho conta. Ver [Compliance](/concepts/compliance) e [Política de templates](/templates/policy).
+  <Step title="Opt-in real">
+    O cliente precisa ter aceitado receber mensagens da sua marca. Respeite quem pediu pra sair: números em opt-out (`/v1/opt-outs`) não recebem envio. Ver [Compliance](/concepts/compliance) e [Política de templates](/templates/policy).
   </Step>
-  <Step title="Template aprovado, sempre">
-    Fora da janela 24h (cliente não interagiu nas últimas 24h), você só pode enviar **template aprovado pela Meta**. Texto livre vai bloquear conta. Ver [Templates HSM](/concepts/templates).
+  <Step title="Template aprovado fora da janela">
+    Fora da janela de 24h (cliente não falou com você nas últimas 24h), só template aprovado pela Meta. Texto livre fora da janela é recusado pela API. Ver [Templates](/concepts/templates) e [Janela de 24h](/concepts/24h-window).
   </Step>
   <Step title="Categoria certa">
-    Templates de **MARKETING** custam mais (R$ 0,45 no Voo, R$ 0,65 no Free), pesam mais na qualidade do número e podem ser pausados pela Meta se a taxa de resposta negativa subir. Templates de **UTILITY** (notificação real: pedido confirmado, código entregue) custam 1/3 (R$ 0,15 no Voo) e não afetam qualidade. Use UTILITY sempre que couber.
+    Promoção, oferta e reengajamento são **MARKETING**. Aviso transacional real (pedido confirmado, pagamento, entrega) é **UTILITY**. Template de marketing tem custo maior na Meta, sofre limite de frequência por destinatário e pesa mais na qualidade do número. Use UTILITY quando o conteúdo for de fato transacional.
   </Step>
 </Steps>
 
-## Pricing pra marketing — quanto custa de verdade
+## Custo
 
-| Plano | Custo por template MARKETING entregue |
-|---|---|
-| Free | R$ 0,65 (custo Meta + R$ 0,25) |
-| Voo | **R$ 0,45** (custo Meta + R$ 0,10) |
+A cobrança é por mensagem e depende da categoria do template e do seu plano. Consulte os valores vigentes no dashboard e em [Preços](/concepts/pricing). Antes de disparar, `GET /v1/campaigns/estimate` (ou `POST` com a lista) devolve a estimativa da campanha.
 
-O tier do número (250, 1K, 10K, 100K+) limita **quantas** conversas você inicia por dia, não o preço. Preço é fixo em BRL por plano — ver [Pricing](/concepts/pricing).
+O tier do número (limite de destinatários únicos por dia) é definido pela Meta e limita **quantas** conversas você inicia, não o preço.
 
-<Note>
-  Meta cobra **por mensagem entregue** desde meados de 2025. O modelo antigo de "janela de conversação" foi descontinuado. Falhas (template rejeitado, número inválido) **não custam**.
-</Note>
-
-Comparativo: SMS BR custa R$ 0,12-0,15 por envio (entregue ou não) com **CTR ~1%**. WhatsApp custa 3-4x mais por envio mas converte **8-10x mais** — CAC efetivo bem menor.
-
-## Workflow recomendado
+## Fluxo recomendado
 
 ```
-1. Segmenta no seu CRM/DW         → exporta CSV
-2. Carrega contatos na Arara       → POST /v1/contacts/batch
-3. Cria template MARKETING         → submete pra aprovação Meta (24-72h)
-4. Cria campanha com A/B test      → POST /v1/campaigns + POST /v1/campaigns/{id}/ab-test
-5. Dispara                         → janela de 24h pra resposta
-6. Triagem das respostas           → Brain classifica por URGENT/QUESTION/POSITIVE/COMPLAINT
-7. Atribuição                      → Smart Links rastreia conversão
+1. Segmente no seu CRM/DW                 → exporte a lista
+2. Carregue contatos na Arara              → POST /v1/contacts/batch
+3. Crie o template MARKETING               → POST /v1/templates (aprovação da Meta)
+4. Crie a campanha, com A/B se quiser      → POST /v1/campaigns (abTest opcional)
+5. Acompanhe entrega e respostas           → webhooks message.status_updated e message.received
+6. Meça clique e conversão                 → Smart Links + conversões reportadas
 ```
-
-Cada passo tem doc dedicada:
 
 <CardGroup cols={2}>
   <Card title="Templates" icon="file-lines" href="/concepts/templates">
-    Como criar, categorizar e fazer aprovar.
+    Como criar, categorizar e aprovar.
   </Card>
   <Card title="Campanhas" icon="bullhorn" href="/api-reference/endpoint/v2/campaigns">
-    API de disparo segmentado.
+    API de disparo em massa.
   </Card>
-  <Card title="A/B test" icon="vial" href="/recipes/black-friday#ab-test">
-    Variar copy, métrica, autopilot.
+  <Card title="Receita: Black Friday" icon="vial" href="/recipes/black-friday">
+    Campanha completa com A/B test.
   </Card>
   <Card title="Smart Links" icon="link" href="/smart-links">
-    Link curto + atribuição.
+    Link curto com contagem de cliques.
   </Card>
 </CardGroup>
 
-## Segmentação que funciona no WhatsApp
-
-WhatsApp não é canal de massa. Cada disparo onde a maioria não quer ouvir → taxa de "Stop" sobe → tier do número cai → custos sobem → entregabilidade cai. Espiral negativa.
-
-Segmentações que historicamente funcionam:
-
-- **Comportamento**: clientes que compraram nos últimos 30d, ou que adicionaram ao carrinho mas não fecharam.
-- **Hora certa**: 10h-12h e 18h-20h convertem melhor. Não dispare antes das 9h nem depois das 21h (proibido pelo CDC).
-- **Localização**: oferta de loja física dispara só pra DDDs da região.
-- **LTV**: VIPs recebem mensagem do humano. Cohort genérica recebe template.
-
-A Arara expõe esses filtros no `POST /v1/contacts/batch` (cada contato aceita `attributes` flexíveis tipo `{"segment": "vip", "city": "SP"}`), e na criação de campanha você seleciona quem entra fora da Arara — por exemplo, exporta cohort do seu CRM e passa a lista pro endpoint `POST /v1/campaigns` com os contatos relevantes.
-
-## A/B test nativo
-
-Você sobe duas variantes de template, define a métrica (entregue, lido, clicado, convertido) e a Arara dispara pra uma amostra (20% default), espera a janela de decisão (4h default) e promove a vencedora pro resto.
+## Contatos
 
 ```bash
-curl -X POST https://api.ararahq.com/v1/campaigns/{campaign_id}/ab-test \
+curl -X POST https://api.ararahq.com/v1/contacts/batch \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '[
+    { "name": "João Silva", "phone": "+5511999999999", "attributes": { "segment": "vip", "city": "SP" } },
+    { "name": "Maria Souza", "phone": "+5521988887777", "email": "maria@exemplo.com" }
+  ]'
+```
+
+O corpo é uma lista. `name` e `phone` (E.164) são obrigatórios; `email` e `attributes` são opcionais. O uso de contatos depende do plano.
+
+A campanha não filtra por atributo: você seleciona o público fora da Arara e passa a lista em `contacts` no `POST /v1/campaigns`.
+
+## Segmentação que funciona
+
+- **Comportamento**: quem comprou nos últimos 30 dias, quem abandonou carrinho.
+- **Localização**: oferta de loja física só pra região atendida.
+- **Valor do cliente**: clientes de maior valor recebem atendimento humano; o restante recebe template.
+- **Horário**: dispare em horário comercial. Mensagem de madrugada vira bloqueio.
+
+## A/B test de campanha
+
+O A/B vai junto na criação da campanha. `templateName` é a variante A e `abTest.variantBTemplateName` é a B:
+
+```bash
+curl -X POST https://api.ararahq.com/v1/campaigns \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: blackfriday-2026-lote-1" \
   -d '{
-    "variantATemplateName": "blackfriday_v1",
-    "variantBTemplateName": "blackfriday_v2",
-    "metric": "CLICKED",
-    "samplePct": 20,
-    "splitPct": 50,
-    "decisionWindowMinutes": 240,
-    "autopilot": true
+    "name": "Black Friday 2026",
+    "templateName": "blackfriday_v1",
+    "contacts": [
+      { "to": "+5511999999999", "variables": ["João"] },
+      { "to": "+5521988887777", "variables": ["Maria"] }
+    ],
+    "abTest": {
+      "variantBTemplateName": "blackfriday_v2",
+      "metric": "CLICKED",
+      "samplePct": 20,
+      "splitPct": 50,
+      "decisionWindowMinutes": 240,
+      "autopilot": true
+    }
   }'
 ```
 
-Ver [Receita Black Friday](/recipes/black-friday#ab-test) pro fluxo completo.
+| Campo | Default | Descrição |
+|---|---|---|
+| `metric` | `CLICKED` | `DELIVERED`, `READ`, `CLICKED` ou `CONVERTED` |
+| `samplePct` | `20` | % dos contatos que entra no teste |
+| `splitPct` | `50` | Divisão entre A e B dentro da amostra |
+| `decisionWindowMinutes` | `240` | Tempo até decidir a vencedora |
+| `autopilot` | `true` | Dispara o restante com a vencedora automaticamente |
 
-## Atribuição sem ITP
+`CLICKED` conta cliques nos links curtos das mensagens (botão `SMART_LINK` ou URL em variável). `CONVERTED` conta [conversões reportadas](/smart-links/attribution).
 
-Smart Links da Arara são short URLs servidos do nosso domínio. Cada clique rastreia origem (template ID, campaign ID, número do cliente), redireciona pro destino real e dispara um evento de conversão se você setar o pixel.
+Resultado e controle manual:
 
-Vantagem sobre UTM puro: o número de telefone vira chave de atribuição. Você sabe quem clicou (não só "alguém de iPhone clicou no link").
+- `GET /v1/campaigns/{campaignId}/ab-test` traz vencedora, `pValue`, `relativeLiftPct` e as métricas de cada variante.
+- `POST /v1/campaigns/{campaignId}/ab-test/winner` com `{ "winner": "A" }` força a vencedora.
 
-Ver [Smart Links Attribution](/smart-links/attribution) pro setup do pixel.
+`POST /v1/campaigns` exige o header `Idempotency-Key` e um número conectado.
 
-## Quando NÃO usar marketing no WhatsApp
+## Medindo resultado
 
-- Comunicação massa-mercado genérica (use SMS ou push notification — mais barato e cliente espera por isso).
-- Oferta de baixo ticket (R$ 19/mês). Custo por mensagem come a margem.
-- Reativação de base inativa há > 6 meses sem opt-in recente. Risco de spam alto.
-- Cobrança de inadimplência. Use UTILITY (notificação de fatura) ou ligação. Meta penaliza pesado mensagem de cobrança em MARKETING.
+Links de mensagem (botão `SMART_LINK` ou URL em variável) saem como `https://ararahq.com/l/{code}`, um por mensagem, e registram cada clique. A venda é ligada à mensagem quando o seu backend reporta a conversão com o telefone do cliente.
+
+Ver [Smart Links](/smart-links) e [Atribuição de conversão](/smart-links/attribution).
+
+## Quando não usar marketing no WhatsApp
+
+- Comunicação genérica pra base inteira, sem segmentação.
+- Oferta de ticket muito baixo, em que o custo por mensagem come a margem.
+- Base inativa há meses sem opt-in recente. O risco de bloqueio e denúncia é alto.
+- Cobrança de inadimplência como MARKETING. Aviso de fatura é UTILITY.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Receita: Black Friday" icon="tag" href="/recipes/black-friday">
-    Campanha completa com A/B test e triagem.
+    Campanha completa com A/B test.
   </Card>
   <Card title="Política de templates" icon="scale-balanced" href="/templates/policy">
-    Que palavras evitar, que categoria escolher.
+    O que evitar e qual categoria escolher.
   </Card>
 </CardGroup>

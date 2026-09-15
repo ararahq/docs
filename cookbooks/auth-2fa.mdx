@@ -1,77 +1,93 @@
 ---
-title: "Autenticação (Meta Auth)"
-description: "Como enviar códigos OTP com botões de Autocópia e preenchimento automático."
+title: "Autenticação (código OTP)"
+description: "Como enviar códigos de verificação no WhatsApp com template AUTHENTICATION e botão Copiar código."
 ---
 
+Pra enviar código de verificação (login, 2FA, confirmação de telefone), use um template da categoria **AUTHENTICATION**. O WhatsApp mostra o código com um botão **Copiar código**, e a Meta aplica regras próprias pra essa categoria.
 
-A forma mais segura e com maior taxa de conversão para enviar códigos de verificação é através dos **Authentication Templates** da Meta. Eles permitem que o usuário copie o código com um único toque ou preencha automaticamente no seu App.
+## 1. Criar o template
 
-## 1. Por que usar o Padrão Meta Auth?
+O template de autenticação tem forma fixa. Ao criar com `category: "AUTHENTICATION"`, a Arara monta o corpo padrão **"`{{1}}` é o seu código de verificação"** e o botão **Copiar código**. Você só escolhe o nome.
 
-Diferente de um template de texto comum, o template de autenticação oferece:
-- **Botão de Autocópia**: Um botão "Copiar Código" aparece diretamente na notificação.
-- **Segurança Reforçada**: A Meta aplica proteções extras contra spam para esta categoria.
-- **UX Superior**: Reduz a fricção de troca de abas no celular.
+```bash
+curl -X POST https://api.ararahq.com/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "codigo_verificacao",
+    "category": "AUTHENTICATION",
+    "language": "pt_BR",
+    "body": "{{1}} é o seu código de verificação"
+  }'
+```
 
----
+- `body` continua obrigatório na requisição, mas o texto enviado pra aprovação é o padrão.
+- Não envie `buttons`: o botão de copiar é gerado automaticamente.
+- Acompanhe a aprovação com `GET /v1/templates/{id}/status` (o `id` é o UUID devolvido na criação) ou pelo webhook `template.updated`.
 
-## 2. Configurando no Dashboard
+Também dá pra criar no dashboard, escolhendo a categoria **AUTHENTICATION**.
 
-Ao criar um template, selecione a categoria **AUTHENTICATION**.
+## 2. Enviar o código
 
-### Estrutura Recomendada:
-- **Corpo**: "Seu código de verificação para Arara é `{{1}}`."
-- **Rodapé**: "Este código expira em 5 minutos."
-- **Botão**: Adicione um botão do tipo **OTP** (One-Time Password) com o rótulo "Copiar Código".
-
----
-
-## 3. Implementação via API
-
-No momento do envio, você deve passar apenas a variável do código. A Arara cuida para que o botão de autocópia funcione perfeitamente.
+Passe o código como única variável. Ele preenche o corpo e o botão de copiar.
 
 ```javascript
-const sendAuthOTP = async (phone, otpCode) => {
+import { randomUUID } from 'node:crypto';
+
+async function sendOtp(phone, code) {
   const response = await fetch('https://api.ararahq.com/v1/messages', {
     method: 'POST',
     headers: {
-      'Authorization': 'Bearer YOUR_API_KEY',
-      'Content-Type': 'application/json'
+      'Authorization': `Bearer ${process.env.ARARA_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': randomUUID(),
     },
     body: JSON.stringify({
       receiver: `whatsapp:${phone}`,
-      templateName: 'login_verification_otp',
-      variables: [otpCode] // O código que será exibido e copiado
-    })
+      templateName: 'codigo_verificacao',
+      templateVariables: [code],
+    }),
   });
-  
-  return response.json();
-};
 
-// Exemplo: Gerando e enviando
-const pin = "482931";
-sendAuthOTP("+5511999999999", pin);
+  if (!response.ok) {
+    const { error } = await response.json();
+    throw new Error(`Falha ao enviar OTP: ${error?.code}`);
+  }
+
+  return response.json(); // { id: "ara_msg_...", status: "PENDING", ... }
+}
 ```
 
----
+Com o SDK Node (`@ararahq/sdk` 1.8.1):
 
-## Dicas Master de Segurança
+```typescript
+import { NodeSDK } from '@ararahq/sdk';
 
-### Expiração Curta
-Recomendamos que códigos de autenticação tenham validade de **5 a 10 minutos**. A Arara registra o `createdAt` para que seu sistema possa validar a janela de tempo pelo Webhook.
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
 
-### Proteção de Rate Limit
-Para evitar ataques de força bruta, a Arara já aplica um **Escudo de Proteção** que limita tentativas excessivas de envio para o mesmo número em um curto intervalo.
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'codigo_verificacao',
+  templateVariables: ['482931'],
+});
+```
 
----
+A API responde `202`. A confirmação de entrega chega pelo webhook `message.status_updated` (`sent`, `delivered`, `read` ou `failed`).
 
-## Próximos Passos
+## Boas práticas
+
+- **Gere e valide o código no seu backend.** A Arara só entrega a mensagem. Guarde o hash do código com o horário de criação e aplique a validade no seu sistema (5 a 10 minutos é o comum).
+- **Limite tentativas por número e por IP no seu backend.** Reenvio sem limite vira custo e abuso.
+- **Não registre o código em log** nem o coloque em URL.
+- **Trate falha de entrega.** Se chegar `message.status_updated` com `failed`, ofereça outro canal (SMS, email). Ver [Erros de envio](/erros).
+
+## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Smart Links" icon="link" href="/cookbooks/marketing-smartlinks">
-    Rastreie cliques em campanhas.
+  <Card title="Webhooks" icon="bell" href="/webhooks">
+    Receba o status de entrega do código.
   </Card>
-  <Card title="Escudo de Erros" icon="shield" href="/erros">
+  <Card title="Erros" icon="shield" href="/erros">
     Trate falhas de entrega de OTP.
   </Card>
 </CardGroup>

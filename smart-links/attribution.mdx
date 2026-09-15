@@ -1,73 +1,42 @@
 ---
-title: 'Atribuição com pixel'
-description: 'Setup do pixel de conversão dos Smart Links. First-party, server-side, sem cookies de terceiros. Sobrevive ao ITP do Safari, ao Brave Shield e a qualquer privacy update futuro.'
+title: 'Atribuição de conversão'
+description: 'Reporte vendas do seu backend pra Arara e ligue cada conversão à última mensagem enviada ao cliente. Alimenta a métrica de conversão do A/B test e o valor recuperado do Recovery.'
 ---
 
-O **clique** já é rastreado automaticamente — o servidor da Arara loga quem clicou. Mas pra saber **se a pessoa converteu** (comprou, cadastrou, ativou trial), você precisa instrumentar o pixel. Esta página mostra os 3 modos de fazer isso.
+O **clique** em links da Arara já é registrado automaticamente (ver [Smart Links](/smart-links)). Pra saber se o cliente **comprou**, o seu backend reporta a conversão pra Arara, que liga a venda à última mensagem enviada àquele telefone.
 
 <Note>
-  Toda atribuição da Arara é **first-party**: o pixel roda no SEU domínio (não em `ararahq.com`). ITP, Brave, uBlock Origin não bloqueiam. Funciona em iOS Safari sem cookies.
+  Não existe pixel JavaScript nem integração nativa com Shopify, WooCommerce ou Stripe pra conversão. A atribuição é feita por chamada server-side, com o telefone como chave.
 </Note>
 
-## As 3 formas de disparar conversão
+## Como a atribuição funciona
 
-<CardGroup cols={3}>
-  <Card title="Pixel JS" icon="code">
-    Tag de script na thank-you page. Mais simples, funciona em qualquer site.
-  </Card>
-  <Card title="Server-side" icon="server">
-    Sua API chama Arara quando confirma pedido. Mais confiável (não depende do navegador).
-  </Card>
-  <Card title="Webhook reverso" icon="rotate">
-    Shopify/WooCommerce/Stripe dispara o evento de pedido, Arara cruza com o clique.
-  </Card>
-</CardGroup>
+1. Você envia `phone`, `order_id` e `value` pro endpoint de conversão da sua organização.
+2. A Arara procura a última mensagem enviada a esse telefone nos **últimos 7 dias**.
+3. Se encontrar, a conversão fica ligada a essa mensagem.
+4. A conversão atribuída alimenta a métrica `CONVERTED` do [A/B test de campanha](/marketing) e o valor recuperado em `GET /v1/recovery/stats`.
 
-## Modo 1 — Pixel JS
+## Endpoint de conversão
 
-Cola na thank-you page (após o pedido confirmar):
+Cada organização tem um endpoint próprio, com código no formato `ara_cnv_...`. Ele nasce ativo.
 
-```html
-<!-- Antes de </body> -->
-<script>
-  (function() {
-    var s = document.createElement('script');
-    s.async = 1;
-    s.src = 'https://pixel.ararahq.com/p.js';
-    s.onload = function() {
-      window.araraPixel('conversion', {
-        orderId: 'ORDER_12345',
-        revenueCents: 19990,        // R$ 199,90
-        currency: 'BRL',
-        items: [
-          { sku: 'camiseta-basica-m', qty: 1, priceCents: 19990 }
-        ]
-      });
-    };
-    document.head.appendChild(s);
-  })();
-</script>
-```
+<Warning>
+  Hoje `GET /v1/conversions/endpoint` só aceita a sessão do dashboard: chamado com chave `ara_live_`, responde `403`. Enquanto isso não muda, peça o código do seu endpoint ao suporte.
+</Warning>
 
-O pixel cruza com o **clique recente** do mesmo navegador (cookie 1st-party, válido 30 dias) e atribui a conversão ao Smart Link de origem.
+| Endpoint (sessão do dashboard) | Função |
+|---|---|
+| `GET /v1/conversions/endpoint` | `{ code, hmacSecret, active, url }` |
+| `POST /v1/conversions/endpoint/regenerate` | Gera novo código |
+| `GET /v1/conversions/ingests?page=0&size=20` | Conversões recebidas `{ content, totalPages, totalElements }` |
 
-**Atenção:** se o cliente clicou no Safari iOS, abriu seu site, depois voltou na compra pelo Chrome desktop — o pixel não cruza. Pra fechar esse gap, use o modo server-side.
+## Reportando uma conversão
 
-## Modo 2 — Server-side (recomendado)
-
-Primeiro, pegue seu **endpoint de conversão** (único por organização):
+Quando o pedido for confirmado no seu backend:
 
 ```bash
-curl https://api.ararahq.com/v1/conversions/endpoint \
-  -H "Authorization: Bearer ara_live_xxx"
-# → { "code": "cnv_...", "hmacSecret": "...", "active": true, "url": "https://api.ararahq.com/l/cnv_..." }
-```
-
-Quando você confirma o pedido no seu backend, POSTa nessa URL:
-
-```bash
-curl -X POST https://api.ararahq.com/l/cnv_xxx \
-  -H "X-Arara-Idempotency-Key: order-12345" \
+curl -X POST https://api.ararahq.com/l/ara_cnv_xxx \
+  -H "Content-Type: application/json" \
   -d '{
     "phone": "+5511999999999",
     "order_id": "ORDER_12345",
@@ -75,76 +44,73 @@ curl -X POST https://api.ararahq.com/l/cnv_xxx \
   }'
 ```
 
-- **`phone`**: chave de cruzamento — a Arara busca o clique/mensagem mais recente desse número e atribui a conversão.
-- A resposta (202) devolve `ingestId` + `attributedCampaignId`/`attributedMessageId` quando o cruzamento fecha.
-- Assine o body com HMAC-SHA256 do `hmacSecret` no header `X-Arara-Signature` pra proteger o endpoint. Vazou? `POST /v1/conversions/endpoint/regenerate`.
-- Auditoria do que chegou: `GET /v1/conversions/ingests`.
+```javascript
+await fetch(`https://api.ararahq.com/l/${conversionCode}`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    phone: order.customerPhone,   // E.164
+    order_id: order.id,
+    value: order.total,           // em reais, ex.: 199.90
+  }),
+});
+```
+
+| Campo | Descrição |
+|---|---|
+| `phone` | Telefone do cliente. É a chave de atribuição |
+| `order_id` | Id do pedido (`orderId` também é aceito). Um `order_id` já recebido não gera nova conversão |
+| `value` | Valor da venda, em reais |
+
+O header opcional `X-Arara-Event` define o tipo registrado (default `conversion`).
+
+A resposta é `202`:
+
+```json
+{
+  "ingestId": "ara_civ_...",
+  "attributedCampaignId": null,
+  "attributedMessageId": "ara_msg_..."
+}
+```
+
+`attributedMessageId` vem `null` quando não houve mensagem pra esse telefone nos últimos 7 dias.
 
 <Warning>
-  **Idempotency obrigatório aqui.** Se você dispara no webhook do gateway de pagamento e o gateway dá retry, vai duplicar conversão. Use `X-Arara-Idempotency-Key: order-{orderId}`.
+  **Mande sempre `order_id`.** Gateways reenviam webhook. Sem `order_id`, cada reenvio vira uma conversão nova.
 </Warning>
 
-## Modo 3 — A partir do webhook do seu gateway
+<Note>
+  Use `https://api.ararahq.com/l/{code}`. O `url` devolvido pelo endpoint aponta pra `ararahq.com/l/{code}`, que só aceita `GET`.
+</Note>
 
-Shopify (`orders/paid`), Stripe (`checkout.session.completed`) e WooCommerce disparam webhooks quando o pedido fecha — no handler desses webhooks, faça o POST do Modo 2 com o telefone e o valor do pedido. São 5 linhas de código no seu backend e funciona com qualquer gateway.
+## A partir do webhook do seu gateway
 
-## Como o `?ara=` aparece no destino
+Shopify (`orders/paid`), Stripe (`checkout.session.completed`), WooCommerce e AbacatePay avisam quando o pedido é pago. No handler desse webhook, faça o `POST` acima com o telefone, o id e o valor do pedido.
 
-Quando o cliente clica no Smart Link, a Arara redireciona pra `destinationUrl` adicionando o query param:
-
-```
-https://meusite.com.br/produto/camiseta?utm_source=whatsapp&ara=FtFmja
-```
-
-Use isso pra:
-
-1. **Armazenar em cookie/localStorage 1st-party** no carregamento da página (sobrevive a navegação).
-2. **Persistir junto com o pedido** no banco (campo `attribution_code`).
-3. **Passar pro server-side** no submit do checkout.
-
-## Validando que tá funcionando
-
-Dashboard em **Smart Links → {link} → Eventos** mostra cada conversão registrada em tempo real. Se você acabou de implementar e nada aparece:
+## Validando
 
 | Sintoma | Causa provável |
 |---|---|
-| Clique aparece, conversão não | Pixel não carregou ou bloqueado por extensão. Teste em aba anônima. |
-| Conversão duplicada | Faltou idempotency. |
-| Conversão sem revenue | Você não passou `revenueCents`. Sem isso, ROI fica zerado. |
-| Conversão sem cruzamento | `customerPhone` não bateu com clique recente. Verifica formato (E.164: `+5511999999999`). |
+| `attributedMessageId` nulo | Nenhuma mensagem pra esse telefone nos últimos 7 dias, ou telefone em formato diferente do usado no envio. Use E.164 (`+5511999999999`) |
+| Conversão não aparece de novo | O `order_id` já tinha sido recebido |
+| Valor recuperado zerado no Recovery | A conversão não foi atribuída a uma mensagem de Recovery |
+| `403 RECOVERY_ENDPOINT_INACTIVE` | Endpoint de conversão desativado |
 
-## Conversão por evento custom
+## Dados registrados
 
-Além de "conversão de pedido", você pode disparar eventos custom:
+- Clique: IP, user agent, referer e país (quando disponível).
+- Conversão: telefone, `order_id`, valor e o corpo recebido.
 
-```javascript
-window.araraPixel('signup', { plan: 'pro' });
-window.araraPixel('trial_started', { source: 'pricing-page' });
-window.araraPixel('upgrade', { from: 'starter', to: 'pro', mrrCents: 9900 });
-```
-
-Esses eventos aparecem no dashboard como funil. Útil pra SaaS rastrear "WhatsApp → trial → paid".
-
-## Privacy e LGPD
-
-A Arara registra:
-
-- IP do cliente (anonimizado pra /24)
-- User agent
-- Número de WhatsApp (você já tem consentimento)
-- Order ID e valor (informação operacional)
-
-**Não registra:** nome, email, conteúdo do carrinho, dados de cartão. O pixel é minimalista por design.
-
-Pra atender a LGPD, declare no seu Política de Privacidade que usa Arara como ferramenta de atribuição. Template em [Compliance](/concepts/compliance).
+Declare na sua política de privacidade que usa a Arara pra medir resultado das mensagens. Ver [Compliance](/concepts/compliance).
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Smart Links overview" icon="link" href="/smart-links">
-    Criando e gerenciando links.
+  <Card title="Smart Links" icon="link" href="/smart-links">
+    Links curtos e contagem de cliques.
   </Card>
-  <Card title="Receita: tracking de campanha" icon="bullseye-arrow" href="/cookbooks/marketing-smartlinks">
-    Fluxo completo de marketing com atribuição.
+  <Card title="Revenue Recovery" icon="rotate-right" href="/recovery">
+    Mensagens automáticas a partir de eventos.
   </Card>
 </CardGroup>

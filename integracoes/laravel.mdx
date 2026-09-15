@@ -1,9 +1,9 @@
 ---
 title: 'Laravel'
-description: 'Integre a Arara num projeto Laravel em minutos. SDK PHP oficial, queue jobs pra envio assíncrono, webhooks com broadcasting.'
+description: 'Integre a Arara num projeto Laravel: SDK PHP, queue jobs para envio assíncrono com idempotência, webhook com validação de assinatura e broadcasting.'
 ---
 
-A Arara tem SDK PHP oficial compatível com Laravel 10+. Esta página mostra setup completo, envio sincrono, queue jobs e receber webhooks com signature verification.
+O SDK PHP da Arara (`ararahq/sdk`, versão publicada 1.8.1) funciona em Laravel e PHP puro. Esta página mostra setup, envio síncrono, queue jobs e recebimento de webhooks com validação de assinatura.
 
 <Note>
   **Requisitos:** PHP 8.2+, Laravel 10+. Compatível com 11.x e 12.x.
@@ -21,11 +21,12 @@ Adicione as variáveis no `.env`:
 
 ```ini
 ARARA_API_KEY=ara_live_xxx
-ARARA_BASE_URL=https://api.ararahq.com
-ARARA_WEBHOOK_SECRET=share_a_secret_with_arara_dashboard
+ARARA_WEBHOOK_SECRET=whsec_xxx
 ```
 
-Cria um Service Provider pra registrar o SDK como singleton:
+O `ARARA_WEBHOOK_SECRET` é o secret do webhook da organização (quando gerado pela Arara, começa com `whsec_`). Você encontra na configuração de webhook do dashboard (https://app.ararahq.com).
+
+Crie um Service Provider para registrar o SDK como singleton:
 
 ```php
 // app/Providers/AraraServiceProvider.php
@@ -42,21 +43,19 @@ class AraraServiceProvider extends ServiceProvider
         $this->app->singleton(Arara::class, function () {
             return new Arara(new Config(
                 apiKey: config('services.arara.key'),
-                baseUrl: config('services.arara.base_url'),
             ));
         });
     }
 }
 ```
 
-Registra em `config/app.php` (ou `bootstrap/providers.php` no Laravel 11+).
+Registre em `config/app.php` (ou `bootstrap/providers.php` no Laravel 11+). O `baseUrl` padrão já é `https://api.ararahq.com`; se sobrescrever, não inclua `/v1`.
 
-E adiciona a chave em `config/services.php`:
+E adicione a chave em `config/services.php`:
 
 ```php
 'arara' => [
     'key' => env('ARARA_API_KEY'),
-    'base_url' => env('ARARA_BASE_URL'),
     'webhook_secret' => env('ARARA_WEBHOOK_SECRET'),
 ],
 ```
@@ -85,87 +84,104 @@ public function store(Request $request, Arara $sdk)
 }
 ```
 
+O `receiver` precisa estar no formato `whatsapp:+<DDI><número>`. Fora disso o SDK lança `Arara\Exceptions\ValidationException` antes de chamar a API. `send` devolve um `array` com `id` (`ara_msg_...`) e `status` inicial.
+
 ## Envio assíncrono com Queue
 
-Em produção, **nunca** envie no controller. Use Queue:
+Em produção, envie de um job. Um cuidado: `send` do SDK 1.8.1 **não aceita** `Idempotency-Key`, e tanto o retry do SDK (5xx) quanto o retry do job podem reenviar a mesma mensagem. Para jobs, chame a API pelo `Http` do Laravel com uma chave derivada do pedido:
 
 ```php
 // app/Jobs/SendOrderConfirmation.php
 namespace App\Jobs;
 
-use Arara\Arara;
+use App\Models\Order;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Support\Facades\Http;
 
 class SendOrderConfirmation implements ShouldQueue
 {
     use Dispatchable, Queueable;
 
+    public int $tries = 4;
+
     public function __construct(public int $orderId) {}
 
-    public function handle(Arara $sdk): void
+    public function handle(): void
     {
         $order = Order::with('customer')->findOrFail($this->orderId);
 
-        $sdk->messages->send(
-            receiver: 'whatsapp:' . $order->customer->phone,
-            templateName: 'confirmacao_pedido',
-            variables: [$order->customer->first_name, $order->code, $order->total_formatted]
-        );
+        Http::withToken(config('services.arara.key'))
+            ->withHeaders(['Idempotency-Key' => "order-confirmation-{$order->id}"])
+            ->timeout(10)
+            ->post('https://api.ararahq.com/v1/messages', [
+                'receiver' => 'whatsapp:' . $order->customer->phone,
+                'templateName' => 'confirmacao_pedido',
+                'templateVariables' => [
+                    $order->customer->first_name,
+                    $order->code,
+                    $order->total_formatted,
+                ],
+            ])
+            ->throw();
     }
 
     public function backoff(): array
     {
-        // retry com backoff: 30s, 2min, 5min
         return [30, 120, 300];
     }
 }
 ```
 
-Dispara assim:
+Dispare assim:
 
 ```php
 SendOrderConfirmation::dispatch($order->id);
 ```
 
+A API responde `202`. Repetir a mesma `Idempotency-Key` devolve a mensagem original, sem novo envio. Em `POST /v1/messages` isso vale mesmo se o payload mudar (a API não compara destinatário nem variáveis), então nunca reaproveite a chave para outra mensagem.
+
 ## Recebendo webhooks
 
-Cria a rota:
+Crie a rota:
 
 ```php
 // routes/api.php
-Route::post('/webhooks/arara', [AraraWebhookController::class, '__invoke'])
+Route::post('/webhooks/arara', AraraWebhookController::class)
     ->name('webhooks.arara');
 ```
 
-E o controller que valida HMAC:
+A Arara assina cada entrega com `X-Arara-Timestamp` (epoch em segundos) e `X-Arara-Signature` (`sha256=` + hex do HMAC-SHA256 de `{timestamp}.{corpo cru}` com o secret). O `WebhookUtils::verifySignature()` da 1.8.1 não inclui o timestamp e nunca bate; valide manualmente:
 
 ```php
 // app/Http/Controllers/AraraWebhookController.php
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class AraraWebhookController extends Controller
 {
+    private const TOLERANCE_SECONDS = 300;
+
     public function __invoke(Request $request)
     {
-        $signature = $request->header('X-Arara-Signature');
         $body = $request->getContent();
+        $timestamp = (string) $request->header('X-Arara-Timestamp', '');
+        $signature = (string) $request->header('X-Arara-Signature', '');
         $secret = config('services.arara.webhook_secret');
 
-        $expected = hash_hmac('sha256', $body, $secret);
+        $expected = 'sha256=' . hash_hmac('sha256', $timestamp . '.' . $body, $secret);
+        $fresh = ctype_digit($timestamp) && abs(time() - (int) $timestamp) <= self::TOLERANCE_SECONDS;
 
-        if (! hash_equals($expected, $signature ?? '')) {
+        if (! $fresh || ! hash_equals($expected, $signature)) {
             abort(401, 'Invalid signature');
         }
 
-        $event = $request->input('event');
-        $data = $request->input('data');
+        $payload = json_decode($body, true);
+        $data = $payload['data'] ?? [];
 
-        match ($event) {
+        match ($payload['event'] ?? null) {
             'message.status_updated' => $this->handleStatus($data),
             'message.received' => $this->handleInbound($data),
             'conversation.needs_human' => $this->handleHandoff($data),
@@ -177,25 +193,25 @@ class AraraWebhookController extends Controller
 
     private function handleStatus(array $data): void
     {
-        // atualiza status no banco, broadcast pro front via Pusher/Reverb
+        // $data['id'] = ara_msg_... ; $data['status']: queued, sent, delivered, read, failed...
     }
 
     private function handleInbound(array $data): void
     {
-        // mensagem recebida — abre ticket no inbox interno
+        // $data['from'], $data['body'], $data['type'] (text | media)
     }
 
     private function handleHandoff(array $data): void
     {
-        // Brain pediu humano — atribui no inbox + notifica atendente
+        // o assistente de IA pediu humano: $data['conversationId'], $data['reason'], $data['summary']
     }
 }
 ```
 
-Como `hash_equals` é constant-time, vc tá protegido contra timing attacks. Não use `==`.
+`hash_equals` compara em tempo constante. Não use `==`. Se a resposta não for 2xx, a Arara tenta de novo (30s, 2min, 15min, 1h, 4h), então o handler precisa aguentar o mesmo evento duas vezes. Use o header `X-Arara-Delivery-Id` como chave de dedupe.
 
 <Warning>
-  Lembre de adicionar a rota ao `VerifyCsrfToken@except` (Laravel 10) ou `bootstrap/app.php` `validateCsrfTokens` (Laravel 11+). Webhooks externos não têm CSRF token.
+  Rotas em `routes/api.php` já ficam fora da verificação de CSRF. Se registrar o webhook em `routes/web.php`, adicione o path ao `VerifyCsrfToken@except` (Laravel 10) ou a `validateCsrfTokens(except: [...])` em `bootstrap/app.php` (Laravel 11+).
 </Warning>
 
 ## Broadcasting (Pusher / Reverb)
@@ -227,16 +243,16 @@ class MessageStatusChanged implements ShouldBroadcast
 E no `handleStatus`:
 
 ```php
-broadcast(new MessageStatusChanged($data['messageId'], $data['status']));
+broadcast(new MessageStatusChanged($data['id'], $data['status']));
 ```
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Receitas práticas" icon="book-open" href="/recipes">
-    Carrinho abandonado, OTP, suporte 24/7.
+    Carrinho abandonado, confirmação de pedido, suporte.
   </Card>
   <Card title="SDK PHP completo" icon="php" href="/sdks/php">
-    Referência de todas as classes e métodos.
+    Métodos disponíveis e limitações da versão publicada.
   </Card>
 </CardGroup>

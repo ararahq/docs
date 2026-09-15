@@ -1,87 +1,171 @@
 ---
 title: 'Revenue Recovery'
-description: 'Recupere automaticamente Pix vencido, cartão recusado e carrinho abandonado. A Arara cruza eventos do AbacatePay com histórico do cliente e dispara reabordagem inteligente — sem você ter de orquestrar nada.'
-keywords: ['recovery', 'recuperação', 'pix vencido', 'abacatepay', 'carrinho abandonado', 'churn', 'falha pagamento']
+description: 'Receba eventos de carrinho abandonado, pagamento recusado, Pix gerado e boleto a vencer da sua plataforma e dispare automaticamente um template no WhatsApp com link de retorno rastreável.'
+keywords: ['recovery', 'recuperação', 'pix', 'boleto', 'carrinho abandonado', 'pagamento recusado', 'webhook']
 ---
 
-Revenue Recovery é o motor da Arara pra **recuperar dinheiro que ia evaporar**. Pix gerado e não pago, cartão recusado, carrinho fechado e abandonado: a Arara detecta, prioriza por valor e janela, e reabre conversa no WhatsApp com mensagem certa pro contexto.
+Revenue Recovery transforma eventos da sua loja ou gateway em mensagens de WhatsApp. Sua plataforma envia o evento pra um endpoint único da sua organização, e a Arara dispara o template vinculado àquele evento pro telefone do cliente, com um botão de retorno rastreável.
 
 <Note>
-  Revenue Recovery integra com **AbacatePay** (Pix nativo BR). Pra recovery de Stripe ou outros gateways, configure webhooks customizados via [Brain Actions](/actions).
+  Recovery depende do plano: os endpoints `/v1/recovery/*` respondem `403 PLAN_FEATURE_LOCKED` quando o plano não inclui o recurso. O número de automações ativas também é limitado pelo plano.
 </Note>
 
-## O problema que isso resolve
+## Eventos
 
-| Cenário | O que normalmente acontece | Com Revenue Recovery |
+| Evento (`X-Arara-Event`) | Template padrão | Categoria |
 |---|---|---|
-| Cliente gera Pix R$ 200, fecha o app | Pix expira em 1h, ninguém faz nada | Em 45min: "Vi que seu Pix tá pra vencer. Quer que eu gere um novo?" |
-| Cliente recebe boleto, não paga | Email no dia 1 + 3 + 5, ignorado | Dia 2: WhatsApp com link de pagamento direto + desconto opcional |
-| Carrinho abandonado | Email 2h depois, taxa de abertura 8% | WhatsApp 1h depois, taxa de abertura 95%, conversão 12-18% |
+| `cart.abandoned` | `arara_recovery_cart_abandoned_pt_br` | MARKETING |
+| `payment.failed` | `arara_recovery_payment_failed_pt_br` | UTILITY |
+| `pix.created` | `arara_recovery_pix_created_pt_br` | UTILITY |
+| `boleto.due` | `arara_recovery_boleto_due_pt_br` | UTILITY |
 
-Operações com ticket médio > R$ 50 normalmente recuperam **8-15% do que se perderia**. Em volume de R$ 500K/mês, isso é R$ 40-75K resgatados.
+Qualquer outro nome de evento é aceito se houver uma automação escutando ele. Sem automação e sem template, o ingest termina com `UNKNOWN_EVENT`.
 
 ## Como funciona
 
 ```
-1. AbacatePay/Stripe envia webhook       (pix.expired, payment.failed, etc)
+1. Sua plataforma faz POST no endpoint     (header X-Arara-Event: cart.abandoned)
    ↓
-2. Arara cruza com histórico do cliente   (LTV, conversas anteriores, tier)
+2. Arara valida endpoint ativo e assinatura (se enviada)
    ↓
-3. Arara decide se vale recuperar         (regra: ticket > X, cliente não-bloqueado)
+3. Normaliza o telefone e checa opt-out
    ↓
-4. Brain monta mensagem contextual        (tom amigável pra novo, direto pra recorrente)
+4. Resolve o template do evento             (vinculado por você ou o padrão provisionado)
    ↓
-5. Envia template ou abre janela 24h      (depende de quando foi última interação)
+5. Envia o template aprovado               (variables.link vira o destino do botão)
    ↓
-6. Brain trata a resposta                 (gera novo Pix, oferece desconto, escala pra humano)
+6. Registra o ingest                        (SENT, REJECTED ou FAILED, com motivo)
 ```
 
 ## Setup
 
 <Steps>
-  <Step title="Conecta o AbacatePay">
-    Configura a [AbacatePay Action](/brain/actions/abacate-pix). Esta Action expõe os eventos de Pix pro motor de recovery.
-  </Step>
-  <Step title="Pega o endpoint da sua org">
-    A Arara cria um endpoint único por organização — ele recebe todos os eventos. No dashboard em **Recuperação**, ou via API:
+  <Step title="Pegue o endpoint da sua organização">
     ```bash
     curl https://api.ararahq.com/v1/recovery/endpoint \
       -H "Authorization: Bearer ara_live_xxx"
     ```
-    Retorna `{ code, hmacSecret, active, url }`. O `url` (`https://ararahq.com/l/{code}`) é o que você configura como destino dos webhooks do parceiro.
+    Responde `{ code, hmacSecret, active, url }`. O endpoint nasce com `active: false`. Os eventos da sua plataforma vão pra `https://api.ararahq.com/l/{code}`.
   </Step>
-  <Step title="Vincula um template a cada tipo de evento">
-    Cada `eventType` (`pix.expired`, `payment.failed`, `cart.abandoned`, etc) aponta pra um template:
+  <Step title="Provisione os templates padrão (opcional)">
     ```bash
-    curl -X PUT https://api.ararahq.com/v1/recovery/events/pix.expired \
+    curl -X POST https://api.ararahq.com/v1/recovery/provision-defaults \
+      -H "Authorization: Bearer ara_live_xxx"
+    ```
+    Cria os 4 templates da tabela acima na sua conta e vincula cada um ao seu evento. Responde `{ data: [{ event, templateName, status, error }] }`. Os templates precisam ser aprovados pela Meta antes do primeiro envio.
+  </Step>
+  <Step title="Ou vincule um template seu a um evento">
+    ```bash
+    curl -X PUT https://api.ararahq.com/v1/recovery/events/cart.abandoned \
       -H "Authorization: Bearer ara_live_xxx" \
+      -H "Content-Type: application/json" \
       -d '{
-        "templateId": "ara_tpl_abc123",
+        "templateId": "3f1c2a9e-5b7d-4e8a-9c0f-1a2b3c4d5e6f",
         "active": true,
-        "variableMapping": {
-          "1": "$.customer.firstName",
-          "2": "$.payment.amount",
-          "3": "$.generated.pixUrl"
-        }
+        "variableMapping": { "nome": "1", "produto": "2", "valor": "3" }
       }'
     ```
-    `variableMapping` usa JSONPath sobre o payload recebido pra preencher cada variável posicional do template.
+    `templateId` é o UUID do template. A seção **Variáveis**, abaixo, explica o `variableMapping`.
   </Step>
-  <Step title="Liga o endpoint">
-    Por default o endpoint sobe `active: false` (dry-run: registra o ingest mas não envia). Ative quando estiver confiante:
+  <Step title="Ative o endpoint">
     ```bash
     curl -X PATCH https://api.ararahq.com/v1/recovery/endpoint \
       -H "Authorization: Bearer ara_live_xxx" \
+      -H "Content-Type: application/json" \
       -d '{ "active": true }'
     ```
+    Com o endpoint inativo, todo evento recebido responde `403 RECOVERY_ENDPOINT_INACTIVE` e nada é registrado.
   </Step>
 </Steps>
 
-## Listando configs e métricas
-
-Configs por evento:
+## Enviando um evento
 
 ```bash
+curl -X POST "https://api.ararahq.com/l/ara_rec_xxx" \
+  -H "Content-Type: application/json" \
+  -H "X-Arara-Event: cart.abandoned" \
+  -H "X-Arara-Idempotency-Key: cart-98765" \
+  -H "X-Arara-Signature: sha256=<hex>" \
+  -d '{
+    "phone": "+5511999999999",
+    "name": "João Silva",
+    "variables": {
+      "nome": "João",
+      "produto": "a Camiseta Linho",
+      "valor": "R$ 189,90",
+      "link": "https://minhaloja.com.br/checkout/98765"
+    }
+  }'
+```
+
+Não precisa de API key: o endpoint é identificado pelo `code`.
+
+<Warning>
+  O campo `url` devolvido por `GET /v1/recovery/endpoint` aponta pra `ararahq.com/l/{code}`, que só aceita `GET` (redirecionamento de links). Envie o `POST` do evento pra `https://api.ararahq.com/l/{code}`.
+</Warning>
+
+| Header | Obrigatório | Descrição |
+|---|---|---|
+| `X-Arara-Event` | Sim | Nome do evento. Sem ele, `400 RECOVERY_EVENT_INVALID` |
+| `X-Arara-Idempotency-Key` | Não | Repetir a chave devolve o ingest original, sem novo envio |
+| `X-Arara-Signature` | Não | HMAC-SHA256 do corpo bruto, em hex, com o `hmacSecret`. O prefixo `sha256=` é opcional |
+
+A resposta é `202` com `{ ingestId, status, reason, messageId }`.
+
+### Assinatura
+
+A assinatura do endpoint de Recovery é calculada **só sobre o corpo bruto** (sem timestamp). Se o header vier e não bater, a resposta é `401 RECOVERY_HMAC_INVALID`. Envie sempre: é o que impede terceiros de disparar mensagens com o seu código.
+
+```javascript
+import crypto from 'node:crypto';
+
+const rawBody = JSON.stringify(payload);
+const signature = 'sha256=' + crypto
+  .createHmac('sha256', process.env.ARARA_RECOVERY_SECRET)
+  .update(rawBody)
+  .digest('hex');
+
+await fetch(`https://api.ararahq.com/l/${recoveryCode}`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Arara-Event': 'cart.abandoned',
+    'X-Arara-Idempotency-Key': `cart-${cartId}`,
+    'X-Arara-Signature': signature,
+  },
+  body: rawBody,
+});
+```
+
+Envie exatamente a string assinada como corpo. Vazou o segredo? `POST /v1/recovery/endpoint/regenerate` gera novo `code` e novo `hmacSecret` (a URL antiga para de funcionar).
+
+<Note>
+  Os webhooks que a Arara envia pra você usam outro esquema (HMAC de `{timestamp}.{rawBody}`). Ver [Webhooks](/webhooks).
+</Note>
+
+### Variáveis
+
+- `variables.link` não entra no corpo do template: vira o destino do botão de link do template, encurtado e rastreado.
+- As demais chaves de `variables` são enviadas como variáveis do template **na ordem alfabética das chaves**.
+- `variableMapping` renomeia chaves antes dessa ordenação. Pra controlar a ordem, mapeie cada chave pra `"1"`, `"2"`, `"3"` na ordem em que aparecem no template (até 9 variáveis).
+
+### Motivos de rejeição
+
+| `reason` | Significado |
+|---|---|
+| `INVALID_PHONE` | Telefone ausente ou inválido |
+| `OPTED_OUT` | O número pediu pra não receber mensagens |
+| `EVENT_DISABLED` | O evento está vinculado com `active: false` |
+| `NO_TEMPLATE` | Nenhum template vinculado nem provisionado pra esse evento |
+| `UNKNOWN_EVENT` | Evento fora da lista e sem automação escutando |
+| `TEMPLATE_NOT_APPROVED` | O template ainda não foi aprovado |
+
+Excesso de eventos por organização responde `429 RECOVERY_RATE_LIMITED` com `Retry-After`.
+
+## Configs, ingests e métricas
+
+```bash
+# Configs por evento
 curl https://api.ararahq.com/v1/recovery/events \
   -H "Authorization: Bearer ara_live_xxx"
 ```
@@ -90,55 +174,51 @@ curl https://api.ararahq.com/v1/recovery/events \
 {
   "data": [
     {
-      "eventType": "pix.expired",
-      "templateId": "ara_tpl_abc123",
-      "templateName": "pix_vencido_v2",
+      "eventType": "cart.abandoned",
+      "templateId": "3f1c2a9e-5b7d-4e8a-9c0f-1a2b3c4d5e6f",
+      "templateName": "arara_recovery_cart_abandoned_pt_br",
       "active": true,
-      "lastTriggeredAt": "2026-05-24T18:22:10Z"
+      "lastTriggeredAt": "2026-09-14T18:22:10Z",
+      "templateStatus": "APPROVED",
+      "rejectionReason": null
     }
   ]
 }
 ```
 
-Stats agregados:
-
 ```bash
-curl "https://api.ararahq.com/v1/recovery/stats?period=30D" \
+# Eventos recebidos (paginado, filtros opcionais event e status)
+curl "https://api.ararahq.com/v1/recovery/ingests?page=0&size=20&event=cart.abandoned&status=FAILED" \
+  -H "Authorization: Bearer ara_live_xxx"
+
+# Reprocessar um ingest
+curl -X POST https://api.ararahq.com/v1/recovery/ingests/ara_ing_xxx/retry \
+  -H "Authorization: Bearer ara_live_xxx"
+
+# Métricas
+curl "https://api.ararahq.com/v1/recovery/stats?period=LAST_30D" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-`period` aceita `TODAY`, `7D`, `30D`.
+- `ingests` responde `{ content, totalPages, totalElements }`, com `id`, `eventType`, `phone`, `status`, `rejectReason` e `receivedAt` por item.
+- `stats` aceita `period` = `TODAY` (default), `YESTERDAY`, `LAST_7D` ou `LAST_30D` e responde `{ period, valueRecovered, valueRecoveredDelta, byEvent }`. O valor recuperado vem das conversões que você reporta (ver [Atribuição](/smart-links/attribution)).
 
 ## Testando sem evento real
 
-Pra validar o setup sem esperar um pagamento falhar, dispare um teste:
-
 ```bash
-curl -X POST https://api.ararahq.com/v1/recovery/events/pix.expired/test \
+curl -X POST https://api.ararahq.com/v1/recovery/events/cart.abandoned/test \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-A Arara monta um payload sintético e processa como se viesse do parceiro. Útil pra ver a mensagem chegar no seu próprio número antes de ligar em produção.
-
-## Receita real de payback
-
-Cliente nosso de e-commerce moda feminina:
-
-- Ticket médio: R$ 180
-- Pix vencidos / mês: ~800 (~R$ 144K em risco)
-- Recovery rate antes: 4% (email)
-- Recovery rate depois: **17%** (WhatsApp)
-- Recuperação adicional: ~R$ 18.700/mês
-- Custo Arara (mensagens + plano): ~R$ 800/mês
-- **ROI: 23x**
+Processa um payload de exemplo como se viesse da sua plataforma e **envia de verdade** pro telefone cadastrado no seu usuário. O endpoint precisa estar ativo e o template aprovado.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Receita: Recuperar carrinho" icon="cart-shopping" href="/recipes/abandoned-cart">
-    Fluxo end-to-end de carrinho abandonado.
+  <Card title="Receita: recuperar carrinho" icon="cart-shopping" href="/recipes/abandoned-cart">
+    Fluxo de carrinho abandonado de ponta a ponta.
   </Card>
-  <Card title="Brain Actions" icon="brain" href="/actions">
-    Como o agente IA orquestra recovery dentro do chat.
+  <Card title="Atribuição" icon="bullseye" href="/smart-links/attribution">
+    Reporte a venda pra medir o valor recuperado.
   </Card>
 </CardGroup>

@@ -1,21 +1,21 @@
 ---
 title: 'Receitas'
-description: 'Soluções prontas para os casos mais comuns: carrinho abandonado, OTP, Black Friday, suporte 24/7 com IA, migração de Twilio. Cada receita vem com código completo e checklist pra ir pra produção.'
+description: 'Guias práticos para os casos mais comuns: carrinho abandonado, confirmação de pedido, OTP, campanhas, atendimento com vários atendentes e operação de várias contas. Cada receita usa só endpoints e SDKs que existem hoje.'
 keywords: ['receitas', 'cookbooks', 'casos de uso', 'exemplos', 'carrinho abandonado', 'otp', 'black friday']
 ---
 
-Cada receita aqui resolve um problema específico de quem usa WhatsApp Business em produção. Não é demo de "hello world" — é o código que você cola, ajusta 3 linhas e está rodando.
+Cada receita resolve um problema específico de quem usa WhatsApp em produção, com os endpoints reais da API, os SDKs publicados (1.8.1) e o que ainda precisa ser feito do seu lado.
 
-Todas seguem a mesma estrutura: **contexto → arquitetura → código completo (4 linguagens) → como testar → checklist de produção**.
+A estrutura se repete: **contexto → como funciona → código → checklist de produção**.
 
 ## E-commerce
 
 <CardGroup cols={2}>
   <Card title="Carrinho abandonado" icon="cart-shopping" href="/recipes/abandoned-cart">
-    Detecta abandono, envia template 1h depois, recupera Pix vencido via AbacatePay. Ticket médio +18% nos clientes que testaram.
+    Endpoint de recuperação, automação com espera entre mensagens e parada quando o cliente compra.
   </Card>
   <Card title="Confirmação de pedido" icon="receipt" href="/recipes/order-confirmation">
-    Template com código do pedido, valor, prazo. Webhook pro status mudar quando entregar. Dispensa email transacional.
+    Templates UTILITY para pedido confirmado, enviado, entregue e falha de pagamento, com idempotência.
   </Card>
 </CardGroup>
 
@@ -23,10 +23,10 @@ Todas seguem a mesma estrutura: **contexto → arquitetura → código completo 
 
 <CardGroup cols={2}>
   <Card title="OTP de login" icon="key" href="/cookbooks/auth-2fa">
-    Código de 6 dígitos com expiração de 5min. Template categoria AUTHENTICATION (mais rápido que MARKETING). Custo médio R$ 0,12 por código entregue.
+    Código de verificação com template da categoria AUTHENTICATION e botão de copiar código.
   </Card>
-  <Card title="2FA via WhatsApp" icon="shield-halved" href="/cookbooks/auth-2fa#2fa">
-    Segunda etapa de login. Substitui SMS (mais barato, mais entregável, mais seguro).
+  <Card title="2FA via WhatsApp" icon="shield-halved" href="/cookbooks/auth-2fa">
+    Segunda etapa de login usando o mesmo template de autenticação.
   </Card>
 </CardGroup>
 
@@ -34,32 +34,32 @@ Todas seguem a mesma estrutura: **contexto → arquitetura → código completo 
 
 <CardGroup cols={2}>
   <Card title="Campanha Black Friday" icon="bullhorn" href="/recipes/black-friday">
-    Disparo segmentado com A/B test. Janela 24h pra responder. Triagem automática de respostas por urgência.
+    Campanha com A/B test, agendamento, estimativa de custo e acompanhamento do disparo.
   </Card>
   <Card title="Smart Links com tracking" icon="link" href="/cookbooks/marketing-smartlinks">
-    Link curto que rastreia clique, atribuição first-party (sem ITP), cohort por origem.
+    Link curto com contagem de cliques por campanha.
   </Card>
 </CardGroup>
 
 ## Suporte
 
 <CardGroup cols={2}>
-  <Card title="Inbox multi-atendente" icon="users" href="/recipes/inbox-support">
-    Conversas distribuídas por skill, escalonamento, Brain como tier 1.
+  <Card title="Atendimento com vários atendentes" icon="users" href="/recipes/inbox-support">
+    Conversas, janela de 24h, Brain respondendo primeiro e escalando para humano.
   </Card>
-  <Card title="Suporte 24/7 com Brain" icon="robot" href="/brain">
-    Agente AI atende, escala pra humano quando preciso. Eval suite pra garantir qualidade.
+  <Card title="Suporte com Brain" icon="robot" href="/brain">
+    Assistente de IA que responde e passa a conversa para o time quando precisa.
   </Card>
 </CardGroup>
 
 ## Operação
 
 <CardGroup cols={2}>
-  <Card title="Webhooks com retry" icon="rotate-right" href="/webhooks">
-    Receber, validar HMAC, dedupar por message ID, retentar com backoff.
+  <Card title="Webhooks" icon="rotate-right" href="/webhooks">
+    Receber eventos, validar a assinatura HMAC e deduplicar entregas.
   </Card>
-  <Card title="Multi-organização" icon="building" href="/recipes/multi-org">
-    Agência operando N contas. Profiles do CLI, escopo por API key.
+  <Card title="Várias contas (agência)" icon="building" href="/recipes/multi-org">
+    Uma organização por cliente, chaves separadas e profiles no CLI.
   </Card>
 </CardGroup>
 
@@ -67,10 +67,10 @@ Todas seguem a mesma estrutura: **contexto → arquitetura → código completo 
 
 <CardGroup cols={2}>
   <Card title="Migrar do Twilio" icon="right-left" href="/migrate/twilio">
-    Diff de código, mapping de campos, paridade de eventos. Sem downtime.
+    Mapeamento de campos e eventos para a API da Arara.
   </Card>
-  <Card title="Migrar do Z-API / Baileys" icon="right-left" href="/migrate/z-api">
-    Sair de gateway não-oficial sem perder número. Risco de banimento Meta zerado.
+  <Card title="Migrar do Z-API" icon="right-left" href="/migrate/z-api">
+    O que muda ao sair de uma conexão via WhatsApp Web para a WhatsApp Business Platform.
   </Card>
 </CardGroup>
 
@@ -78,13 +78,13 @@ Todas seguem a mesma estrutura: **contexto → arquitetura → código completo 
 
 <CardGroup cols={2}>
   <Card title="Laravel" icon="php" href="/integracoes/laravel">
-    Queue jobs, webhook controller, broadcasting.
+    Jobs de fila e controller de webhook.
   </Card>
   <Card title="Next.js" icon="js" href="/integracoes/nextjs">
-    Server Actions, route handlers, streaming de status.
+    Server Actions e route handlers.
   </Card>
 </CardGroup>
 
 ## Quer uma receita nova?
 
-Abre uma issue no [GitHub](https://github.com/ararahq/docs/issues) com seu caso. Se for genérico o suficiente pra outros clientes, vira receita oficial.
+Abra uma issue no [GitHub](https://github.com/ararahq/docs/issues) descrevendo o seu caso.

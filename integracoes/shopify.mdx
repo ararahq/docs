@@ -1,192 +1,139 @@
 ---
 title: 'Shopify'
-description: 'Conecte sua loja Shopify ao WhatsApp via Arara — carrinho abandonado, confirmação de pedido, rastreio, recuperação de Pix vencido. Setup em ~15 minutos com Custom App.'
+description: 'Como ligar uma loja Shopify à Arara hoje: webhooks do Shopify processados no seu backend, ou chamadas HTTP diretas para o endpoint de recuperação. Confirmação de pedido, rastreio e carrinho abandonado.'
 keywords: ['shopify', 'ecommerce', 'carrinho abandonado', 'rastreio', 'whatsapp']
 ---
 
-Shopify é o stack onde a Arara mais cresce. Esta página mostra o setup completo: webhook nativo, sync de catálogo pro Brain, fluxo de carrinho abandonado, confirmação de pedido com código de rastreio, recuperação de Pix vencido via AbacatePay.
+A Arara **não tem app nem conector nativo para Shopify**. Não existe tela "Integrações → Shopify" nem templates criados automaticamente. A integração é feita com o que a API já oferece:
+
+1. **Seu backend recebe os webhooks do Shopify** e chama `POST /v1/messages` com um template aprovado. Controle total, serve para qualquer evento (pedido pago, envio, entrega).
+2. **Endpoint de recuperação da Arara**: uma URL por organização que recebe eventos de carrinho abandonado e pagamento, e dispara o template configurado no dashboard. Serve quando a ferramenta que chama consegue mandar headers e corpo customizados.
 
 <Note>
-  **Requisitos:** loja Shopify ativa (qualquer plano), permissão de admin pra criar Custom App. Não precisa do Shopify Plus.
+  **Antes de começar:** número de WhatsApp conectado na Arara, templates aprovados (veja [Templates](/concepts/templates)) e uma API key `ara_live_...`. O endpoint de recuperação depende do plano da organização.
 </Note>
 
-## Quick-start (10 min)
+## Opção 1: webhook do Shopify no seu backend
 
-<Steps>
-  <Step title="Cria Custom App no Shopify">
-    Admin Shopify → **Apps → App and sales channel settings → Develop apps → Create**.
-    
-    Concede scopes mínimos:
-    - `read_products`, `read_inventory`
-    - `read_orders`, `read_customers`
-    - `write_orders` (apenas se for atualizar status via Arara)
-  </Step>
-  <Step title="Pega Admin API access token">
-    Aparece **uma vez** depois de instalar a Custom App. Copia antes de fechar.
-  </Step>
-  <Step title="Conecta no dashboard Arara">
-    Dashboard → **Integrações → Shopify → Conectar**.
-    
-    Informa:
-    - Store domain (`minha-loja.myshopify.com`)
-    - Admin API access token (`shpat_xxx`)
-    - Eventos a subscrever (checkbox)
-  </Step>
-  <Step title="Configura templates">
-    A Arara cria automaticamente 4 templates HSM e submete pra Meta:
-    - `shopify_carrinho_abandonado`
-    - `shopify_pedido_confirmado`
-    - `shopify_pedido_enviado`
-    - `shopify_pedido_entregue`
-    
-    Aprovação Meta: 1-4h pra UTILITY.
-  </Step>
-  <Step title="Liga workflows">
-    Quando templates aprovarem, ativa cada workflow no dashboard. Carrinho abandonado vai disparar 1h depois (configurável).
-  </Step>
-</Steps>
+### Configure o webhook no Shopify
 
-## Workflows nativos
+No admin do Shopify, crie os webhooks (via app customizado ou em **Configurações → Notificações → Webhooks**) apontando para uma rota sua, por exemplo `https://seusite.com/webhooks/shopify`. Eventos úteis:
+
+| Evento Shopify | Uso |
+|---|---|
+| `orders/paid` | Confirmação de pedido |
+| `fulfillments/create` | Pedido enviado, com código de rastreio |
+| `checkouts/create` / `checkouts/update` | Base para detectar carrinho abandonado |
+
+Valide o `X-Shopify-Hmac-Sha256` de cada entrega conforme a documentação do Shopify antes de processar.
+
+### Envie o template pela Arara
+
+Exemplo em Node (runtime Node, SDK `@ararahq/sdk` 1.8.1) para `orders/paid`:
+
+```typescript
+import { NodeSDK } from '@ararahq/sdk';
+
+const arara = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
+
+export async function onOrderPaid(order: {
+  id: number;
+  name: string;
+  total_price: string;
+  order_status_url: string;
+  customer?: { first_name?: string; phone?: string | null };
+  phone?: string | null;
+}) {
+  const phone = order.customer?.phone ?? order.phone;
+  if (!phone) return; // checkout sem telefone: nada a enviar
+
+  await arara.messages.send(
+    {
+      receiver: `whatsapp:${phone}`,
+      templateName: 'pedido_confirmado',
+      templateVariables: [
+        order.customer?.first_name ?? 'cliente', // {{1}}
+        order.name,                              // {{2}} ex.: #1001
+        order.total_price,                       // {{3}}
+        order.order_status_url,                  // {{4}}
+      ],
+    },
+    { idempotencyKey: `shopify-order-paid-${order.id}` },
+  );
+}
+```
+
+O template `pedido_confirmado` é seu: crie e aprove antes, com o número de variáveis que o código envia. O Shopify reenvia webhooks que não recebem 2xx; a `idempotencyKey` derivada do id do pedido impede mensagem duplicada.
+
+Para `fulfillments/create`, o mesmo padrão com `tracking_number` e `tracking_url` como variáveis.
+
+<Warning>
+  O telefone precisa estar em formato internacional (`+55...`). Se o checkout não obriga telefone, parte dos pedidos não terá para quem enviar. Confira nas configurações de checkout do Shopify.
+</Warning>
 
 ### Carrinho abandonado
 
-Quando: Shopify dispara webhook `checkouts/create` sem `orders/create` correspondente em N minutos.
+O Shopify não envia um evento "carrinho abandonado". O padrão é: grave o checkout em `checkouts/create`, agende uma verificação (por exemplo 1h depois) e, se não houver pedido para aquele checkout, envie o template com o link `abandoned_checkout_url`. O fluxo completo está na [receita de carrinho abandonado](/recipes/abandoned-cart).
 
-```
-[Cliente adiciona item ao carrinho]
-     ↓
-[Cliente fecha o navegador sem finalizar]
-     ↓
-[1h depois - configurável]
-     ↓
-[Arara envia template shopify_carrinho_abandonado]
-     "Oi {{1}}, vi que você ficou com {{2}} no carrinho.
-      Finalize aqui: {{3}} (com 10% OFF nas próximas 2h)"
-     ↓
-[Cliente clica no link]
-     ↓
-[Cliente volta pro Shopify checkout com cupom aplicado]
-```
+## Opção 2: endpoint de recuperação
 
-Configurável por:
-- Delay (15min, 1h, 4h, 24h)
-- Cupom de desconto (gerado dinamicamente pra cada cliente)
-- Valor mínimo do carrinho (não dispara abaixo de R$ X)
-- Lista de exclusão (clientes que pediram opt-out)
-
-### Confirmação de pedido
-
-Webhook: `orders/paid`
-
-Template `shopify_pedido_confirmado` enviado imediatamente:
-
-```
-"Pedido #{{1}} confirmado! Total: R$ {{2}}.
- Você vai receber atualizações por aqui.
- Acompanhar: {{3}}"
-```
-
-### Rastreio
-
-Webhook: `fulfillments/create` (Shopify adiciona código de rastreio)
-
-Template `shopify_pedido_enviado` enviado:
-
-```
-"Seu pedido saiu! Código de rastreio: {{1}}.
- Acompanhe: {{2}}"
-```
-
-### Entrega
-
-Webhook: `fulfillments/update` quando status muda pra `delivered`
-
-Template `shopify_pedido_entregue`:
-
-```
-"Pedido entregue! Tudo certo com a sua compra?
- Em caso de problema, responda este chat."
-```
-
-## Sync de catálogo pro Brain
-
-Pra que o agente AI responda sobre produto, configura a Action de catálogo:
+Cada organização tem uma URL de ingestão. Busque com uma API key com permissão `ADMIN` (chaves com escopo restrito recebem 403 em `/v1/recovery`):
 
 ```bash
-curl -X PATCH https://api.ararahq.com/v1/brain/actions/catalog \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -d '{
-    "enabled": true,
-    "config": {
-      "provider": "shopify",
-      "storeDomain": "minha-loja.myshopify.com",
-      "adminApiAccessToken": "shpat_xxx",
-      "currency": "BRL"
-    }
-  }'
+curl https://api.ararahq.com/v1/recovery/endpoint \
+  -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Sync inicial: ~5 min pra catálogo de até 5K produtos. Sync incremental: a cada 4h ou via webhook `products/update` (configurável no dashboard).
-
-Ver [Brain — Catálogo](/brain/actions/catalog) pro detalhe.
-
-## Recuperação de Pix vencido (AbacatePay)
-
-Se você cobra Pix via AbacatePay, a Arara recupera automaticamente:
-
-<Steps>
-  <Step title="Ativa AbacatePay no Shopify (gateway)">
-    Configura como método de pagamento alternativo.
-  </Step>
-  <Step title="Conecta AbacatePay na Arara">
-    [Configura AbacatePay Action](/brain/actions/abacate-pix).
-  </Step>
-  <Step title="Liga workflow de recovery">
-    Dashboard → **Recuperação → Endpoint Pix vencido → Ativar**.
-  </Step>
-</Steps>
-
-Fluxo:
-
-```
-[Cliente gera Pix no Shopify checkout]
-     ↓
-[Cliente fecha sem pagar]
-     ↓
-[45 min depois - antes do Pix expirar]
-     ↓
-[Arara checa: cliente continuou no chat? AbacatePay confirmou pagamento?]
-     ↓
-[Se não pagou: dispara reabordagem]
-     "Oi {{1}}, vi que seu Pix tá pra vencer.
-      Quer que eu gere um novo com 5% de desconto?
-      Responda SIM"
-     ↓
-[Cliente: SIM]
-     ↓
-[Brain action negotiate_payment → cria novo Pix com desconto]
+```json
+{
+  "code": "ara_rec_...",
+  "hmacSecret": "...",
+  "active": false,
+  "url": "https://ararahq.com/l/ara_rec_..."
+}
 ```
 
-Ver [Revenue Recovery](/recovery) pra fluxo completo.
+O endpoint nasce desligado. Ative com `PATCH /v1/recovery/endpoint` e `{"active": true}` (ou pelo dashboard), e configure o template de cada evento em Recuperação.
 
-## Atribuição com Smart Links
+<Warning>
+  O campo `url` aponta para `ararahq.com/l/{code}`, que só aceita `GET`. Envie o `POST` do evento para `https://api.ararahq.com/l/{code}`.
+</Warning>
 
-Pra rastrear quais campanhas WhatsApp resultam em venda no Shopify:
+Envie eventos para `https://api.ararahq.com/l/{code}`:
 
-1. Cria Smart Link com `destinationUrl=https://minha-loja.myshopify.com/products/X`
-2. Smart Link adiciona `?ara=CODE` no redirect
-3. Configura webhook `orders/paid` no Shopify → `https://hooks.ararahq.com/shopify/{org_id}`
-4. A Arara cruza `note_attributes` ou cookie 1st-party do checkout com clique do Smart Link
+```bash
+BODY='{"phone":"+5511999999999","name":"João","variables":{"1":"João","2":"R$ 189,90","3":"https://minha-loja.myshopify.com/checkouts/abc"}}'
+SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$HMAC_SECRET" | sed 's/^.* //')
 
-Resultado: dashboard mostra "Campanha X → 47 cliques → 8 pedidos → R$ 2.380 atribuídos".
+curl -X POST "https://api.ararahq.com/l/$RECOVERY_CODE" \
+  -H "Content-Type: application/json" \
+  -H "X-Arara-Event: cart.abandoned" \
+  -H "X-Arara-Idempotency-Key: checkout-abc" \
+  -H "X-Arara-Signature: sha256=$SIG" \
+  -d "$BODY"
+```
 
-Ver [Smart Links Attribution](/smart-links/attribution).
+- `X-Arara-Event` é obrigatório. Eventos com recuperação configurável: `cart.abandoned`, `payment.failed`, `pix.created`, `boleto.due`.
+- `X-Arara-Signature` é o HMAC-SHA256 do corpo cru com o `hmacSecret`, com ou sem prefixo `sha256=` (aqui **sem** timestamp, diferente dos webhooks que a Arara envia para você). Envie sempre, mesmo que hoje não seja obrigatório.
+- `X-Arara-Idempotency-Key` evita processar o mesmo evento duas vezes.
+- `variables` preenche o template em ordem alfabética das chaves: use `"1"`, `"2"`, `"3"`... (com 10 ou mais variáveis, `"10"` vem antes de `"2"`).
+- Resposta `202` com `{ ingestId, status, reason, messageId }`. `status` pode ser `ACCEPTED`, `SENT`, `REJECTED` (por exemplo `INVALID_PHONE`, `OPTED_OUT`) ou `FAILED`.
 
-## Limitações conhecidas
+O template usado e o comportamento de cada evento são configurados no dashboard, em Recuperação. Detalhes em [Revenue Recovery](/recovery).
 
-- **Multi-currency**: Shopify Markets com múltiplas moedas precisa configuração extra. A Arara segue a moeda principal da loja por default.
-- **Subscriptions (Recharge)**: webhooks de cobrança recorrente do app Recharge usam payload diferente. Suporte nativo no roadmap; por enquanto, use Brain Action customizada.
-- **Shopify Plus checkout extensions**: integrações custom podem interferir com captura de telefone. Verifique que o campo `phone` está sendo coletado no checkout.
+<Note>
+  Os webhooks nativos do Shopify não permitem definir `X-Arara-Event` nem o formato do corpo. Para usar o endpoint de recuperação a partir do Shopify, é preciso uma camada intermediária (seu backend, ou uma ferramenta de automação que permita requisição HTTP com headers e corpo customizados).
+</Note>
+
+## Catálogo no WhatsApp
+
+O assistente de IA (Brain) tem a action `META_CATALOG_SEND`, que envia um produto do **catálogo da Meta** (Commerce Manager) como card no WhatsApp. A Arara não sincroniza produtos do Shopify: o catálogo precisa estar configurado na Meta, com os produtos já sincronizados por você. Veja [Brain — Catálogo](/brain/actions/catalog).
+
+## Limitações
+
+- Sem app, OAuth ou sincronização automática com Shopify.
+- Sem templates Shopify pré-criados: crie e aprove os seus.
+- Pagamento Pix dentro da conversa depende da action `ABACATE_PIX` do Brain, independente do Shopify. Veja [AbacatePay](/brain/actions/abacate-pix).
 
 ## Próximos passos
 
@@ -195,6 +142,6 @@ Ver [Smart Links Attribution](/smart-links/attribution).
     Fluxo end-to-end detalhado.
   </Card>
   <Card title="Revenue Recovery" icon="rotate-right" href="/recovery">
-    Recuperação de Pix vencido.
+    Endpoint de recuperação e eventos.
   </Card>
 </CardGroup>
