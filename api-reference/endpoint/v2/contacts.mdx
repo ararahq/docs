@@ -1,35 +1,34 @@
 ---
-title: 'Contatos'
-description: 'Gerencie sua base de contatos com upsert em lote, busca por telefone, paginação e estatísticas. CRM leve embarcado pra alinhar disparo + base.'
-keywords: ['contacts', 'contatos', 'crm', 'base', 'upsert', 'batch']
+title: 'Contatos, opt-out e LGPD'
+description: 'Base de contatos com upsert em lote, busca por telefone, tags e estágios. Registro de opt-out e atendimento aos direitos do titular (exportar e apagar).'
+keywords: ['contacts', 'contatos', 'crm', 'upsert', 'batch', 'opt-out', 'lgpd']
 ---
 
-Os contatos são o CRM leve da Arara — phone como chave única, com nome, email e atributos customizáveis. Útil pra segmentar campanhas e enriquecer conversas com contexto.
+Contatos são a base da organização, com o telefone como chave única. A Arara também cria e atualiza contatos sozinha a partir das mensagens enviadas e recebidas.
 
 **Base URL:** `https://api.ararahq.com`
 
 <Note>
-  A criação individual de contato (`POST /v1/contacts`) **não existe**. Pra inserir um contato isolado, use o endpoint batch com array de 1 item.
+  As rotas de contatos exigem plano com a funcionalidade de contatos. Sem ela, a resposta é `403 PLAN_FEATURE_LOCKED`. Leitura exige chave `ADMIN`; escrita aceita `CONTACTS_WRITE`.
 </Note>
 
 ## Listar contatos
 
-`GET /v1/contacts`
+`GET /v1/contacts` · permissão `ADMIN`
 
 ```bash
 curl "https://api.ararahq.com/v1/contacts?q=joão&page=0&size=20" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Query params:
-
 | Param | Tipo | Default | Descrição |
 |---|---|---|---|
-| `q` | string | — | Busca por nome, telefone ou email |
-| `page` | integer | `0` | Página |
-| `size` | integer | `20` | Itens por página |
+| `q` | string | — | Busca por nome, telefone ou email. |
+| `lifecycle` | string | — | Estágio: `NEW`, `ENGAGED`, `SILENT`, `DORMANT`, `OPTED_OUT` (ou `ALL`). |
+| `page` | integer | `0` | Página. |
+| `size` | integer | `20` | Máximo `200`. |
 
-Resposta:
+Resposta (`200 OK`):
 
 ```json
 {
@@ -39,11 +38,19 @@ Resposta:
       "name": "João Silva",
       "phone": "+5511999999999",
       "email": "joao@exemplo.com",
-      "attributes": {
-        "plan": "pro",
-        "ltv": 2400
-      },
-      "createdAt": "2026-05-18T14:30:00Z"
+      "attributes": { "plano": "pro" },
+      "tags": ["vip"],
+      "createdAt": "2026-09-01T14:30:00Z",
+      "lifecycle": "ENGAGED",
+      "source": "API",
+      "outboundCount": 12,
+      "inboundCount": 3,
+      "firstSeenAt": "2026-09-01T14:30:00Z",
+      "lastOutboundAt": "2026-09-14T10:00:00Z",
+      "lastInboundAt": "2026-09-14T10:05:00Z",
+      "lastMessageAt": "2026-09-14T10:05:00Z",
+      "optOutAt": null,
+      "lastTemplateName": "pedido_confirmado"
     }
   ],
   "total": 1,
@@ -53,40 +60,55 @@ Resposta:
 }
 ```
 
-## Buscar contato por telefone
+<Warning>
+  Esta lista usa o envelope `{ contacts, total, page, size, totalPages }`, e não o `{ data, pagination }` padrão.
+</Warning>
 
-`GET /v1/contacts/{phone}`
+## Buscar por telefone
 
-Phone em E.164 **com `+`** no path (sem prefixo `whatsapp:`):
+`GET /v1/contacts/{phone}` · permissão `ADMIN`
+
+Telefone em E.164 com `+` no path:
 
 ```bash
 curl https://api.ararahq.com/v1/contacts/+5511999999999 \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Não existir retorna `404`.
+Contato inexistente responde hoje `422 UNPROCESSABLE_ENTITY` (e não `404`).
+
+## Atualizar contato
+
+`PATCH /v1/contacts/{phone}` · permissão `CONTACTS_WRITE`
+
+```bash
+curl -X PATCH https://api.ararahq.com/v1/contacts/+5511999999999 \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "João S.", "tags": ["vip", "black-friday"] }'
+```
+
+| Campo | Descrição |
+|---|---|
+| `name` | Até 255 caracteres. Vazio é ignorado. |
+| `email` | Até 255 caracteres. String vazia remove o email. |
+| `tags` | Substitui a lista inteira. Até 20 tags. |
+
+Campo omitido não muda. Resposta `200` com o contato atualizado.
 
 ## Importar em lote (upsert)
 
-`POST /v1/contacts/batch`
+`POST /v1/contacts/batch` · permissão `CONTACTS_WRITE`
 
-Cria ou atualiza contatos. Body é **array direto** (não wrapped em objeto):
+O corpo é um **array** de até 5.000 contatos:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/contacts/batch \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '[
-    {
-      "name": "João Silva",
-      "phone": "+5511999999999",
-      "email": "joao@exemplo.com",
-      "attributes": { "plan": "pro", "ltv": 2400 }
-    },
-    {
-      "name": "Maria Santos",
-      "phone": "+5511888888888"
-    }
+    { "name": "João Silva", "phone": "+5511999999999", "email": "joao@exemplo.com", "attributes": { "plano": "pro" } },
+    { "name": "Maria Santos", "phone": "+5511888888888" }
   ]'
 ```
 
@@ -96,96 +118,165 @@ Resposta (`200 OK`):
 {
   "importId": "fa1b2c3d-4567-89ab-cdef-0123456789ab",
   "created": 1,
-  "updated": 1,
-  "skipped": 0,
-  "errors": []
-}
-```
-
-Comportamento upsert:
-
-- Phone **já existe** → atualiza campos enviados (`updated++`)
-- Phone **novo** → cria novo contato (`created++`)
-- Phone **inválido** ou **vazio** → entra em `errors[]` com motivo, `skipped++`
-
-```json
-{
-  "importId": "fa1b2c3d-...",
-  "created": 8,
-  "updated": 2,
+  "updated": 0,
   "skipped": 1,
   "errors": [
-    { "index": 7, "phone": "+5511invalid", "reason": "INVALID_PHONE_NUMBER" }
+    { "index": 1, "phone": "+5511888888888", "reason": "Telefone +5511888888888 fora do formato E.164." }
   ]
 }
 ```
 
+| Campo | Regra |
+|---|---|
+| `name` | Obrigatório, até 255 caracteres. |
+| `phone` | Obrigatório, E.164 (`^\+[1-9]\d{6,14}$`). |
+| `email` | Opcional, até 255 caracteres. |
+| `attributes` | Objeto livre. |
+
+Comportamento:
+
+- Telefone novo: cria (`created`).
+- Telefone existente com dados diferentes: atualiza (`updated`).
+- Telefone existente com dados iguais: `skipped`, sem erro.
+- Linha inválida: `skipped` e entra em `errors` com o índice e o motivo.
+
+<Warning>
+  No lote, `email` e `attributes` **substituem** o que está gravado. Enviar um contato existente sem `email` apaga o email dele. Para mudar só um campo, use `PATCH /v1/contacts/{phone}`.
+</Warning>
+
+`importId` identifica a chamada nos logs; não há rota para consultá-lo depois.
+
 ## Estatísticas
 
-`GET /v1/contacts/stats`
-
-```bash
-curl https://api.ararahq.com/v1/contacts/stats \
-  -H "Authorization: Bearer ara_live_xxx"
-```
-
-Resposta é mapa `String → Long` com contadores agregados:
+`GET /v1/contacts/stats` · permissão `ADMIN`
 
 ```json
 {
-  "totalContacts": 12450,
-  "withActiveConversation": 312,
+  "total": 12450,
+  "newCount": 3100,
+  "engaged": 5200,
+  "silent": 2800,
+  "dormant": 1263,
   "optedOut": 87
 }
 ```
 
-Os campos retornados podem variar conforme features ativas na sua org.
+## Mensagens do contato
 
-## Campos do contato
+`GET /v1/contacts/{phone}/messages?limit=30` · permissão `ADMIN`
 
-| Campo | Tipo | Descrição |
-|---|---|---|
-| `id` | UUID | Identificador interno do contato |
-| `phone` | string | E.164 (`+5511999999999`). **Chave única** na org |
-| `name` | string | Nome — **obrigatório** ao criar/atualizar |
-| `email` | string \| null | Email — opcional, útil pra atribuição cross-channel |
-| `attributes` | object \| null | Chave-valor livre. Acessível em templates via Brain |
-| `createdAt` | ISO 8601 | Quando foi criado |
+Últimas mensagens trocadas com o telefone (`limit` até 100). Cada item traz `id`, `direction`, `status`, `templateName`, `body` e `createdAt`.
 
-`ContactRequest` (no batch) valida:
-- `name`: obrigatório, max 255 chars
-- `phone`: obrigatório, regex E.164 (`^\+[1-9]\d{6,14}$`)
-- `email`: opcional, max 255 chars
-- `attributes`: mapa livre
+---
 
-## Opt-out — comportamento
+## Opt-out
 
-Contato em opt-out **continua na base** mas:
+O opt-out registra que o telefone não quer mais receber mensagens da organização. Todas as rotas exigem chave `ADMIN`.
 
-- `POST /v1/messages` com template `MARKETING` retorna `422 NUMBER_BLOCKED`
-- Template `UTILITY` ainda passa (notificação transacional é permitida)
+<Warning>
+  O envio hoje só é bloqueado por opt-out feito por palavra-chave recebida no WhatsApp (ex.: "SAIR", "PARAR", "STOP"), e mesmo esse bloqueio depende do formato do telefone no envio. O opt-out registrado por `POST /v1/opt-outs` ou pela remoção LGPD ainda **não** é consultado no envio de mensagens e campanhas. Até essa correção, filtre a lista do seu lado antes de enviar.
+</Warning>
 
-Pra registrar opt-out programaticamente, use o endpoint de opt-outs (não documentado aqui ainda). Ver [Compliance](/concepts/compliance).
+### Registrar
+
+`POST /v1/opt-outs`
+
+```bash
+curl -X POST https://api.ararahq.com/v1/opt-outs \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "phone": "+5511999999999", "reason": "pediu por email" }'
+```
+
+Resposta `201`:
+
+```json
+{
+  "phone": "+5511999999999",
+  "channel": "WHATSAPP",
+  "reason": "pediu por email",
+  "createdAt": "2026-09-15T14:30:00Z"
+}
+```
+
+Registrar o mesmo telefone de novo devolve o registro existente. `reason` é cortado em 80 caracteres.
+
+### Consultar
+
+`GET /v1/opt-outs/{phone}`
+
+```json
+{ "phone": "+5511999999999", "channel": "WHATSAPP", "optedOut": true }
+```
+
+### Listar
+
+`GET /v1/opt-outs` devolve `{ "items": [...], "total": N }`, sem paginação.
+
+### Remover (opt-in)
+
+`DELETE /v1/opt-outs/{phone}` responde `204`.
+
+Telefone fora do E.164 em qualquer rota de opt-out: `400 INVALID_PHONE`.
+
+---
+
+## Direitos do titular (LGPD)
+
+### Exportar dados
+
+`GET /v1/contacts/{phone}/lgpd/export` · permissão `ADMIN`
+
+Devolve contato, conversa e até 1.000 mensagens do telefone:
+
+```json
+{
+  "phoneHash": "9f86d08...",
+  "phone": "+5511999999999",
+  "exportedAt": "2026-09-15T14:30:00Z",
+  "contact": { "id": "...", "name": "João Silva", "email": "joao@exemplo.com", "phone": "+5511999999999", "attributes": null, "createdAt": "..." },
+  "conversations": [ { "id": "...", "status": "OPEN", "lastInteractionAt": "...", "windowExpiresAt": "...", "leadStatus": null } ],
+  "messages": [ { "id": "...", "status": "DELIVERED", "sender": "...", "receiver": "...", "body": "...", "processedContent": "...", "createdAt": "..." } ]
+}
+```
+
+### Apagar dados
+
+`DELETE /v1/contacts/{phone}/lgpd?reason=...` · permissão `CONTACTS_WRITE`
+
+Irreversível. Mascara o conteúdo das mensagens e os dados da conversa, apaga o contato e registra opt-out.
+
+```json
+{
+  "phoneHash": "9f86d08...",
+  "deletedAt": "2026-09-15T14:30:00Z",
+  "contactDeleted": true,
+  "conversationsRedacted": 1,
+  "messagesRedacted": 42,
+  "optOutRegistered": true
+}
+```
+
+Telefone fora do E.164: `400 INVALID_PHONE`.
 
 ## Erros
 
-Validação de body (`@Valid`) e autenticação usam o envelope **simplificado** do Spring (sem `error.code`) — ramifique pelo status HTTP. Ver [Erros](/erros).
-
-| HTTP | Envelope | Quando |
+| HTTP | `error.code` | Quando |
 |---|---|---|
-| `400` | simplificado (sem `code`) | Telefone fora do E.164 ou `name`/`phone` ausente (`@Valid`). |
-| `400` | `INVALID_JSON` | JSON malformado. |
-| `401` | simplificado (sem `code`) | Chave inválida, revogada ou expirada. |
-| `404` | — | Phone não existe na sua org (no GET). |
-| `422` | `NUMBER_BLOCKED` | Destinatário em opt-out (no envio pra ele). |
+| `400` | `INVALID_JSON` | JSON malformado, ou `name`/`phone` ausente no lote. |
+| `400` | `INVALID_PHONE` | Telefone inválido em opt-out ou LGPD. |
+| `401` | sem `code` | Chave inválida, revogada ou expirada. |
+| `403` | sem `code` | Chave sem a permissão da rota. |
+| `403` | `PLAN_FEATURE_LOCKED` | Plano sem contatos. |
+| `422` | `UNPROCESSABLE_ENTITY` | Contato não encontrado, telefone fora do E.164 no path, lote vazio ou acima de 5.000. |
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Campanhas" icon="bullhorn" href="/api-reference/endpoint/v2/campaigns">
-    Disparo segmentado pra cohort de contatos.
+    Disparo para a base.
   </Card>
-  <Card title="Compliance LGPD" icon="scale-balanced" href="/concepts/compliance">
-    Opt-in, opt-out, export e delete.
+  <Card title="Compliance" icon="scale-balanced" href="/concepts/compliance">
+    Opt-in, opt-out e LGPD.
   </Card>
 </CardGroup>

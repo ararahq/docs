@@ -1,102 +1,72 @@
 ---
 title: 'Roadmap'
-description: 'O que estamos construindo, com janelas reais (Q2/Q3/Q4 2026). Roadmap em público, atualizado mensalmente, vinculado a issues do GitHub. Sem datas fakes, sem "em breve" eternos.'
-keywords: ['roadmap', 'futuro', 'plano', 'features', 'milestones']
+description: 'O que já está disponível na Arara, o que está em avaliação e o que não está nos planos. Sem datas prometidas.'
+keywords: ['roadmap', 'futuro', 'plano', 'features']
 ---
 
-A Arara é construída em público. Esta página lista o que está em desenvolvimento e quando esperamos lançar. Datas são **estimativas honestas** — não promessas. Mudam quando o trabalho descobre escopo novo.
+Esta página separa o que já dá para usar hoje do que ainda está em avaliação. Itens em avaliação não têm data: entram quando o trabalho estiver pronto, e podem mudar ou sair da lista. Para o histórico de lançamentos, veja o [changelog](/changelog).
 
-<Note>
-  **Atualizado mensalmente.** Última revisão: 2026-05-18. Pra histórico de releases, ver [changelog](/changelog).
-</Note>
-
-## Q2 2026 (em desenvolvimento)
-
-### Em progresso agora
+## Já disponível
 
 <CardGroup cols={2}>
-  <Card title="Flow Builder visual">
-    Builder no-code pra orquestração multi-step (template → espera → condição → template). **Beta privado: jun/2026. Público: jul/2026.**
+  <Card title="Automações">
+    Sequências com gatilho (webhook do seu sistema, carrinho abandonado, pagamento falho, etiqueta aplicada, primeira conversa) e passos de mensagem, espera, condição e etiqueta. API em `/v1/automations`.
   </Card>
-  <Card title="SDK Go público">
-    Extraído do código interno do CLI. **Q3 2026.**
+  <Card title="A/B test em campanhas">
+    Variantes de template na mesma campanha, com acompanhamento em `/v1/campaigns/{id}/ab-test`.
   </Card>
-  <Card title="WooCommerce plugin oficial">
-    Plugin WordPress com webhook nativo + sync de catálogo. **Beta: jul/2026.**
+  <Card title="Templates em carrossel">
+    De 2 a 10 cards com mídia, texto e botões, pelo campo `carouselCards` em `POST /v1/templates`.
   </Card>
-  <Card title="Brain v3.1 — multi-modelo">
-    Suporte a usar seu próprio modelo (BYO OpenAI/Anthropic key) ou usar Brain hospedado. **Beta: jun/2026.**
+  <Card title="Brain Actions">
+    O Brain pode gerar Pix (AbacatePay), checkout Stripe, agendamento Cal.com, enviar item do catálogo Meta e transferir para humano.
+  </Card>
+  <Card title="Áudio no Brain">
+    Áudios recebidos no WhatsApp são transcritos e tratados pelo Brain como texto.
+  </Card>
+  <Card title="Smart Links">
+    Links curtos com rastreamento de clique, inclusive como botão de template.
+  </Card>
+  <Card title="MCP v6">
+    `@ararahq/mcp` conecta agentes de IA à conta. Ver [MCP Server](/mcp-server).
+  </Card>
+  <Card title="CLI">
+    `arara` com `listen --capture`, perfis múltiplos e `arara init`. Ver [CLI](/cli).
   </Card>
 </CardGroup>
 
-### Recém-lançado
+## Em andamento
 
-- ✅ **MCP v4.0** — 10 tools + 10 resources, deploy contínuo (2026-07)
-- ✅ **MCP v3.0** — 84 ferramentas, OAuth, telemetria opt-in (2026-05)
-- ✅ **CLI v0.2** — `arara listen --capture`, profiles, hooks, `arara init` (2026-05)
-- ✅ **AbacatePay Brain Action** — recovery automatizada de Pix (2026-04)
-- ✅ **A/B test em campanhas** com autopilot (2026-04)
-- ✅ **Smart Links com atribuição 1st-party** (2026-03)
+- **SDK Go**: o código está na `main` de [arara-go-sdk](https://github.com/ararahq/arara-go-sdk), ainda sem tag de release.
+- **SDK Ruby**: o código está em [arara-ruby-sdk](https://github.com/ararahq/arara-ruby-sdk), ainda não publicado no RubyGems.
 
-## Q3 2026 (planejado)
+## Em avaliação
 
-<CardGroup cols={2}>
-  <Card title="Brain Actions v2">
-    Actions customizáveis (você define o webhook que o Brain pode chamar). **Set/2026.**
-  </Card>
-  <Card title="Shopify app oficial">
-    Listado no App Store do Shopify. Hoje é integração custom via Admin API. **Q3.**
-  </Card>
-  <Card title="EN i18n da doc">
-    Documentação completa em inglês pra atender mercado global. **Q3.**
-  </Card>
-  <Card title="Multi-region (NA + EU)">
-    Réplica de infra pra clientes US/EU com baixa latência. **Q3.**
-  </Card>
-</CardGroup>
+Ideias que queremos fazer, sem escopo nem data definidos:
 
-## Q4 2026 (idealizado)
+- Plugin para WooCommerce
+- App para Shopify
+- Brain usando o modelo de IA do próprio cliente
+- Brain Actions customizáveis, chamando um endpoint definido pelo cliente
+- Documentação em inglês
 
-Coisas que **queremos fazer** mas escopo ainda não está fechado. Pode mudar.
+## Fora dos planos
 
-- **WhatsApp Pay** — quando Meta liberar pagamentos diretos no chat BR
-- **Voice notes via API** — transcrição automática + Brain processa audio
-- **Templates carousel** — formato de carrossel de produtos no template (Meta beta)
-- **Customer Insights** — dashboard cohorts, retention curves, LTV automático
-- **Self-serve Enterprise** — quem chegou pelo dashboard consegue ativar Enterprise sem precisar de sales
-
-## Não está no roadmap
-
-Honestidade sobre **o que não vamos fazer**:
-
-| Não-roadmap | Por quê |
+| Não vamos fazer | Por quê |
 |---|---|
-| SMS / Email / Voice como canal | Foco em WhatsApp. Pra multi-canal, use Twilio. |
-| Suporte oficial a gateways não-oficiais (Z-API, Baileys) | Risco regulatório. Migrar é melhor caminho. |
-| Editor de fluxo visual super complexo (Blip Builder-style) | Brain + Actions cobre 80%, com 20% do código. |
-| White-label completo | Não no nosso roteiro. Reseller program sim. |
-| Single Sign-On (SSO/SAML) | Q4 2026 → Q1 2027. Não prioritário pro nosso ICP atual. |
+| SMS, e-mail ou voz como canal de envio | Foco em WhatsApp |
+| Suporte a automação do WhatsApp Web (Z-API, Baileys) | Fora dos termos do WhatsApp. O caminho é migrar: veja [Migrar do Z-API](/migrate/z-api) |
 
 ## Como influenciar
 
 <CardGroup cols={2}>
-  <Card title="GitHub Discussions" icon="github" href="https://github.com/orgs/ararahq/discussions">
-    Abre discussão. Issues votadas viram prioridade.
+  <Card title="Issues no GitHub" icon="github" href="https://github.com/ararahq">
+    Abra issue no repositório do SDK, CLI, MCP ou da documentação.
   </Card>
-  <Card title="Feedback direto" icon="envelope" href="mailto:contato@ararahq.com">
-    Cliente pago: prioridade na evolução. Conta seu caso.
+  <Card title="Feedback direto" icon="envelope" href="mailto:suporte@ararahq.com">
+    Conte o seu caso de uso em suporte@ararahq.com.
   </Card>
 </CardGroup>
-
-## Métricas que acompanhamos
-
-Pra calibrar o roadmap, olhamos:
-
-- **NPS** mensal entre clientes pagos
-- **Issues abertas** por repo (priorizamos por upvotes)
-- **Churn cause** — feature missing que fez perder cliente vira prioridade
-- **Acquisition path** — feature que aparece no "como conheceu" entra antes
-- **Volume de uso** — endpoint com 10K req/dia leva preferência sobre 10 req/dia
 
 ## Próximos passos
 
@@ -104,7 +74,7 @@ Pra calibrar o roadmap, olhamos:
   <Card title="Changelog" icon="clock-rotate-left" href="/changelog">
     O que já foi lançado.
   </Card>
-  <Card title="Status atual" icon="signal" href="/status">
-    Uptime e incidentes.
+  <Card title="Status" icon="signal" href="/status">
+    Health check e como reportar problema.
   </Card>
 </CardGroup>

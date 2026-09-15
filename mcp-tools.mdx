@@ -1,180 +1,173 @@
 ---
 title: 'Ferramentas do MCP'
-description: 'Referência das 15 ferramentas, 10 resources e 2 prompts do Arara MCP — o que cada um faz, parâmetros e exemplos.'
-keywords: ['mcp', 'tools', 'send_whatsapp', 'broadcast', 'broadcast_ab', 'ab test', 'check_status', 'create_template', 'buttons', 'smart_link', 'create_smart_link', 'list_campaigns', 'get_campaign', 'save_contacts', 'opt_out', 'resources', 'arara']
+description: 'Referência das 9 ferramentas, 4 painéis interativos, 4 resources e 3 prompts do MCP da Arara: o que cada um faz, parâmetros, limites e exemplos.'
+keywords: ['mcp', 'tools', 'send_whatsapp', 'broadcast', 'campaign_report', 'ab test', 'check_status', 'create_template', 'save_contacts', 'opt_out', 'read_conversation', 'resources', 'prompts', 'mcp apps', 'arara']
 ---
 
-O MCP tem 3 camadas: **tools** (ações que o agente executa), **resources** (dados que o cliente carrega sozinho, sem tool call) e **prompts** (fluxos prontos pra invocar). Instalação e autenticação: [MCP Server](/mcp-server).
+O MCP tem 3 camadas: **tools** (ações que o agente executa), **resources** (dados que o cliente lê sem tool call) e **prompts** (fluxos prontos). Instalação e autenticação: [MCP Server](/mcp-server).
 
-## Enviar
+São 9 tools de propósito. Agente com painel de controle inteiro erra mais do que agente com poucas ações que aceitam o que uma pessoa sabe de cabeça (um nome, um número em qualquer formato) e resolvem o resto.
+
+| Grupo | Ferramentas |
+|---|---|
+| Falar com a base | `send_whatsapp` · `broadcast` |
+| Ver o que voltou | `campaign_report` · `check_status` · `read_conversation` |
+| Preparar | `create_template` · `save_contacts` · `opt_out` |
+| Conta | `whoami` |
+
+## Como um destinatário é resolvido
+
+`send_whatsapp`, `broadcast`, `check_status` e `read_conversation` aceitam em `to` um número em qualquer grafia **ou** o nome de um contato salvo.
+
+- **Número:** o MCP remove pontuação e espaços. Número com `+` ou com 12 dígitos ou mais é tratado como já tendo DDI; se for brasileiro (`55`) com 10 dígitos depois do DDI, ganha o nono dígito. Número sem DDI com 10 ou 11 dígitos ganha `+55`. O resultado precisa ser E.164 válido, senão a tool falha com `INVALID_PHONE`.
+- **Nome:** o MCP busca nos seus contatos salvos. Nenhum resultado dá `CONTACT_NOT_FOUND`; mais de um dá `CONTACT_AMBIGUOUS` com os candidatos, em vez de chutar.
+
+<Note>
+  Busca por nome, `save_contacts` e `read_conversation` usam a base de contatos da Arara, que depende do plano. Em plano sem contatos, a API recusa com `PLAN_FEATURE_LOCKED`; passe o número direto nas tools de envio.
+</Note>
+
+## Falar com a base
 
 ### send_whatsapp
 
-Manda uma mensagem pra **uma** pessoa. É a espinha do MCP: você passa pra quem e o quê, ela resolve o resto.
+Manda uma mensagem pra **uma** pessoa. Texto livre dentro da janela de 24h, ou template aprovado a qualquer hora. Passe **exatamente um** entre `message` e `templateName`.
 
 | Parâmetro | Tipo | Descrição |
 |---|---|---|
-| `to` | string | Número em qualquer formato (`+5511999998888`, `11 99999-8888`) **ou** nome de contato salvo (`"João"`) |
-| `message` | string | O texto, em linguagem natural. Sem template, sem variável. |
-| `from` | string (opcional) | Número de origem em E.164. Omitido = número padrão da org. |
+| `to` | string | Número em qualquer formato ou nome de contato salvo. Até 255 caracteres. |
+| `message` | string (um dos dois) | Texto livre, até 4.096 caracteres. Só passa com a janela de 24h aberta. |
+| `templateName` | string (um dos dois) | Nome de um template aprovado. Funciona com a janela fechada. |
+| `variables` | string[] (opcional) | Valores posicionais do template, na ordem: `["João", "4412"]` preenche `{{1}}` e `{{2}}`. Até 20 itens, 1.024 caracteres cada. |
+| `from` | string (opcional) | Número de origem em E.164. Omitido, a Arara usa o número padrão da organização. |
+| `idempotencyKey` | UUID (opcional) | Chave de idempotência. Omitida, o MCP gera uma por chamada. |
 
-O que ela resolve sozinha:
+O retorno traz o `id` da mensagem, o status de aceite e o destinatário resolvido. Aceite quer dizer **na fila**, não entregue: confira a entrega com `check_status`.
 
-- **Contato por nome** — busca em seus contatos salvos. Se o nome bater com mais de um, devolve as opções em vez de chutar.
-- **Formato do número** — normaliza qualquer coisa pra E.164, incluindo o nono dígito de celulares brasileiros.
-- **Janela de 24h** — se estiver fechada, a Meta só aceita template aprovado. A tool não inventa template: lista os seus aprovados pra você escolher, ou sugere aprovar um novo com `create_template`.
-- **Conteúdo sensível** — mensagens com CPF, CNPJ, CVV, token ou senha são bloqueadas antes do envio.
+Se você mandou texto livre e a janela estava fechada, o erro `CONVERSATION_WINDOW_CLOSED` já vem com até 10 templates aprovados pra escolher, ou sugere criar um com `create_template` se não houver nenhum.
 
 ```
 manda um whatsapp pra Renata: seu pedido 4412 saiu pra entrega
 ```
 
+```
+manda o template aviso_entrega pro 11 99999-8888 com João e 4412
+```
+
 ### broadcast
 
-Manda um **template aprovado** pra várias pessoas de uma vez (até 1.000). Disparo em massa é quase sempre fora da janela de 24h, então a Meta exige template.
+Manda um **template aprovado** pra várias pessoas de uma vez, como campanha. Disparo em massa é quase sempre fora da janela de 24h, então só aceita template. Teste A/B e agendamento são opções da mesma chamada.
 
 | Parâmetro | Tipo | Descrição |
 |---|---|---|
-| `templateName` | string | Nome de um template aprovado (não o ID) |
-| `to` | string[] | Lista de números (qualquer formato) ou nomes de contatos salvos |
-| `variables` | string[] (opcional) | Variáveis posicionais aplicadas a todos, ex: `["promo de junho"]`. Variáveis por pessoa: dashboard. |
-| `name` | string (opcional) | Nome da campanha no dashboard. Omitido = gerado automático. |
-| `from` | string (opcional) | Número de origem em E.164 |
+| `templateName` | string | Nome de um template aprovado (não o ID). Com `abTest`, é a variante A. |
+| `to` | array | De 1 a 1.000 itens. Cada item é um número ou nome (usa as `variables` compartilhadas) **ou** um objeto `{ to, variables }` com valores só daquela pessoa. |
+| `variables` | string[] (opcional) | Variáveis aplicadas a quem veio como string. Até 20 itens. |
+| `name` | string (opcional) | Nome da campanha no dashboard, até 255 caracteres. Omitido: `Broadcast AAAA-MM-DD HH:MM`. |
+| `from` | string (opcional) | Número de origem em E.164. |
+| `scheduledAt` | string (opcional) | Data e hora ISO-8601 em UTC, ex: `2026-09-20T12:00:00Z`. Presente, a campanha nasce agendada em vez de disparar agora. |
+| `abTest` | objeto (opcional) | Liga o teste A/B. Ver abaixo. |
+| `dryRun` | boolean (opcional) | Default `true`. Passe `false` pra disparar de verdade. |
+| `idempotencyKey` | UUID (opcional) | Chave de idempotência do disparo. Omitida, o MCP gera uma por chamada. |
 
-Devolve o ID da campanha e o custo total. Números que não resolver, ele lista — não falha silenciosamente nem derruba o disparo inteiro.
+**Por padrão é uma prévia.** Com `dryRun` omitido ou `true`, o MCP resolve a audiência, renderiza o corpo do template com as variáveis do primeiro destinatário, lista os botões e chama o estimador de custo da Arara. Nada é enviado. A resposta traz a mensagem renderizada, quantos destinatários resolveram, quais não resolveram, custo unitário e total, a configuração de A/B e o agendamento.
 
-```
-dispara o template promo_junho pra lista de clientes VIP com a variável "20% off"
-```
+Com `dryRun: false`, a campanha é criada e a resposta traz o ID, o status, o total de mensagens e o custo total. Pra disparar, a organização precisa ter um número dedicado conectado.
 
-### broadcast_ab
+Números ou nomes que não resolverem vêm listados na resposta, sem derrubar o disparo. Se **nenhum** resolver, a tool falha com `NO_VALID_RECIPIENTS`.
 
-Dispara uma campanha com **teste A/B numa chamada só**: você escolhe dois templates aprovados (A e B), a Arara manda pra uma **fatia** dos leads, mede a melhor, e dispara o **resto pela vencedora sozinha** (autopilot). É "uma decisão": os defaults já vêm prontos.
+`abTest`: a Arara manda as duas variantes pra uma **fatia** da base, meio a meio, mede a melhor na janela de decisão e dispara o **resto pela vencedora**.
 
-| Parâmetro | Tipo | Descrição |
+| Campo de `abTest` | Tipo | Descrição |
 |---|---|---|
-| `templateName` | string | Template da variante A (o principal) |
-| `variantBTemplateName` | string | Template da variante B (a copy que compete) |
-| `to` | string[] | Lista de números ou nomes de contatos salvos |
-| `variables` | string[] (opcional) | Variáveis posicionais aplicadas a todos |
-| `name` | string (opcional) | Nome da campanha no dashboard |
-| `samplePct` | number (opcional) | % dos leads que entra no teste. Default `20` |
-| `decisionWindowMinutes` | number (opcional) | Minutos até decidir. Default `240` (4h) |
-| `metric` | enum (opcional) | `DELIVERED`, `READ`, `CLICKED` ou `CONVERTED`. Default `CLICKED` |
-| `autopilot` | boolean (opcional) | Dispara o resto pela vencedora sozinho. Default `true` |
-| `from` | string (opcional) | Número de origem em E.164 |
+| `variantBTemplateName` | string | Template da variante B (obrigatório). |
+| `metric` | enum (opcional) | `DELIVERED`, `READ`, `CLICKED` ou `CONVERTED`. Default `CLICKED`. |
+| `samplePct` | inteiro (opcional) | % da base que entra no teste, de 1 a 99. Default `20`. |
+| `decisionWindowMinutes` | inteiro (opcional) | Minutos até decidir. Default `240` (4h). |
+| `autopilot` | boolean (opcional) | Dispara o resto pela vencedora sozinho. Default `true`. |
 
-O split A/B dentro da fatia é 50/50. Os dois templates precisam estar aprovados. Acompanhe o resultado com `get_campaign` (o campo de cliques mostra quem está ganhando).
+```
+dispara o template promo_setembro pra lista de clientes VIP com a variável "20% off"
+```
 
 ```
 testa a copy acad_v1 contra a acad_v2 nesses 300 leads: 20% no teste, decide em 4h por clique
 ```
 
-### check_status
+## Ver o que voltou
 
-Responde "chegou? respondeu? posso falar agora?".
+### campaign_report
+
+Sem `campaignId`, lista as campanhas recentes, mais novas primeiro, com status, template, enviados, entregues, lidos, falhas e custo. Com `campaignId`, devolve o relatório completo: enviados, entregues, lidos, **cliques**, **respostas**, conversões (com valor), contatos segurados pelo A/B, bloqueados (com o motivo de cada grupo), estornos (quantidade e valor) e custo. A mensagem de texto já traz cada etapa em percentual da base.
 
 | Parâmetro | Tipo | Descrição |
 |---|---|---|
-| `to` | string (opcional) | Pessoa (número ou nome) — pergunta se a janela de 24h está aberta e quantas horas restam |
-| `messageId` | string (opcional) | Mensagem específica — devolve status de entrega e custo |
+| `campaignId` | UUID (opcional) | ID da campanha, do `broadcast` ou da própria listagem. |
+| `status` | string (opcional) | Filtro da listagem, ex: `COMPLETED`, `COMPLETED_WITH_ERRORS`, `AB_TESTING`, `SCHEDULED`, `CANCELED`, `FAILED`. |
+| `page` | inteiro (opcional) | Página da listagem. Default `0`. |
+| `size` | inteiro (opcional) | Itens por página, de 1 a 100. Default `20`. |
 
-Passe um dos dois. Com a janela aberta, texto livre via `send_whatsapp`; fechada, só template.
+```
+me mostra o relatório da campanha promo_setembro: quantos clicaram e quantos responderam?
+```
+
+### check_status
+
+Responde "chegou?", "posso falar agora?" e "o template aprovou?". Passe **exatamente um** dos três.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `to` | string | Pessoa (número ou nome). Diz se a janela de 24h está aberta e quantas horas restam. |
+| `messageId` | string | O `id` devolvido pelo `send_whatsapp`. Status de entrega, custo e motivo se falhou. |
+| `templateId` | UUID | O `id` devolvido pelo `create_template`. Status de aprovação da Meta (`APPROVED`, `PENDING`, `REJECTED` e afins), com o motivo quando reprovado. |
 
 ```
 posso mandar texto livre pro +5511999998888 agora?
 ```
 
-## Templates
+### read_conversation
+
+Lê o **conteúdo** das mensagens trocadas com uma pessoa, direto da timeline: direção (cliente ou você), status, template usado, texto e data de cada uma. É como você separa interesse real de resposta automática antes de responder com `send_whatsapp`.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `to` | string | Número (qualquer formato) ou nome de contato salvo. |
+| `limit` | inteiro (opcional) | Quantas mensagens trazer, de 1 a 100. Default `30`. |
+
+## Preparar
 
 ### create_template
 
-Submete um template novo pra aprovação da Meta. Use quando a janela de 24h está fechada e você precisa de uma mensagem com texto fixo aprovado. Aprovação costuma levar de 1 a 5 minutos.
+Submete um template novo pra aprovação da Meta. Você precisa de um pra qualquer `broadcast` e pra falar com quem está fora da janela de 24h. A aprovação costuma levar minutos; acompanhe com `check_status` passando o `templateId` que volta na resposta.
 
 | Parâmetro | Tipo | Descrição |
 |---|---|---|
-| `name` | string | Nome único, minúsculo com underscores (`aviso_entrega`) |
-| `category` | enum | `MARKETING`, `UTILITY` ou `AUTHENTICATION` |
-| `body` | string | Corpo com placeholders posicionais: `Oi {{1}}, seu pedido {{2}} saiu` |
-| `language` | string (opcional) | Default `pt_BR` |
-| `header` | string (opcional) | Texto do cabeçalho ou URL de mídia |
-| `headerType` | enum (opcional) | `text`, `media` ou `document` |
-| `footer` | string (opcional) | Rodapé |
-| `samples` | object (opcional) | Exemplo por variável: `{"1": "João"}` — acelera a aprovação |
-| `buttons` | array (opcional) | Até 2 botões: `{ type, text, url?, phone? }`. Tipos: `QUICK_REPLY`, `URL`, `PHONE_NUMBER`, `SMART_LINK`, `COPY_CODE` |
+| `name` | string | Nome único: só letras minúsculas, dígitos e underscore (`aviso_entrega`). Até 512 caracteres. |
+| `category` | enum | `MARKETING`, `UTILITY` ou `AUTHENTICATION`. |
+| `body` | string | Corpo com placeholders posicionais, até 4.096 caracteres: `Oi {{1}}, seu pedido {{2}} saiu`. |
+| `language` | string (opcional) | Default `pt_BR`. |
+| `header` | string (opcional) | Texto do cabeçalho ou URL de mídia. |
+| `headerType` | enum (opcional) | `text`, `media` ou `document`. Quando há `header` sem `headerType`, vale `text`. |
+| `footer` | string (opcional) | Rodapé, até 60 caracteres. |
+| `samples` | objeto (opcional) | Exemplo por variável: `{"1": "João"}`. Ajuda a Meta a entender o template. |
+| `buttons` | array (opcional) | Até 2 botões `{ type, text, url?, phone? }`. Tipos: `QUICK_REPLY`, `URL`, `PHONE_NUMBER`, `SMART_LINK`, `COPY_CODE`. `url` precisa ser URL válida; `phone`, E.164. |
 
 <Warning>
-  A Meta reprova template que é só variável (`{{1}}` sem texto fixo). Escreva o texto real da mensagem; variável é pra nome, número de pedido, valor — não pro corpo inteiro.
+  A Meta reprova template que é só variável (`{{1}}` sem texto fixo). Escreva o texto real da mensagem; variável é pra nome, número de pedido, valor, não pro corpo inteiro.
 </Warning>
 
 <Note>
-  Botão `SMART_LINK`: passe em `url` o **destino real** (ex: `https://wa.me/5583991768778?text=Quero%20saber%20mais`). A Arara encurta e **conta cada clique** — o número aparece no `get_campaign`. É como você descobre qual copy converteu num teste A/B.
+  Botão `SMART_LINK`: passe em `url` o **destino real** (ex: `https://wa.me/5583991768778?text=Quero%20saber%20mais`). A Arara encurta e conta cada clique, que aparece como cliques no `campaign_report`. É assim que você descobre qual copy converteu num teste A/B.
 </Note>
-
-### get_template_status
-
-Confere a aprovação de um template na Meta: `APPROVED`, `PENDING` ou `REJECTED` (com o motivo quando reprovado).
-
-| Parâmetro | Tipo | Descrição |
-|---|---|---|
-| `templateId` | string | ID retornado pelo `create_template` |
-
-## Campanhas
-
-### list_campaigns
-
-Lista as campanhas da organização, mais recentes primeiro, com status e contagens. Para o relatório completo de uma, use `get_campaign`.
-
-| Parâmetro | Tipo | Descrição |
-|---|---|---|
-| `status` | string (opcional) | Filtra por status: `COMPLETED`, `AB_TESTING`, `INGESTING`, `CANCELED`, `FAILED` |
-| `page` | number (opcional) | Página (default `0`) |
-| `size` | number (opcional) | Tamanho da página (default `20`) |
-
-### get_campaign
-
-Relatório completo de uma campanha: enviados, entregues, lidos, **cliques**, **respostas**, conversões (com valor) e custo — cada um com o percentual da etapa. Quando houver, também mostra **holdout** (leads aguardando a vencedora do A/B), **bloqueados** (opt-out) e **estornos**. É como você sabe qual copy performou, incluindo o clique nos smart-links do template.
-
-| Parâmetro | Tipo | Descrição |
-|---|---|---|
-| `campaignId` | string | ID da campanha (do `broadcast` ou do `list_campaigns`) |
-
-```
-me mostra o relatório da campanha promo_junho: quantos clicaram?
-```
-
-## Smart Links
-
-### create_smart_link
-
-Cria um smart-link de WhatsApp (click-to-chat) **rastreável**: um link curto + QR que abre a conversa no seu número já com um texto pronto. Cada clique é contado — use na bio, num anúncio ou numa campanha pra saber de onde o lead veio.
-
-| Parâmetro | Tipo | Descrição |
-|---|---|---|
-| `name` | string | Nome interno, pra identificar a origem (`bio-instagram`) |
-| `phoneNumber` | string | Número que recebe a conversa, em E.164 (`+5583991768778`) |
-| `defaultText` | string (opcional) | Texto que já vem preenchido pro cliente enviar |
-| `qrCodeColor` | enum (opcional) | `BLACK`, `BLUE` ou `GREEN` (default `BLACK`) |
-
-<Note>
-  Diferente do botão `SMART_LINK` de template (que vive dentro de uma mensagem), este é um link **avulso** — pra colar onde quiser.
-</Note>
-
-### list_smart_links
-
-Lista os smart-links de WhatsApp da organização, com a contagem de cliques de cada um.
-
-## Contatos
 
 ### save_contacts
 
-Salva (cria ou atualiza) contatos pra você mandar mensagem **por nome** em vez de decorar número. Até 1.000 por chamada.
+Salva (cria ou atualiza) contatos pra você mandar mensagem **por nome** em vez de decorar número. De 1 a 1.000 por chamada.
 
 | Parâmetro | Tipo | Descrição |
 |---|---|---|
-| `contacts` | array | Lista de `{ name, phone, email?, attributes? }`. Phone em E.164 (`+5511999998888`). |
+| `contacts` | array | Lista de `{ name, phone, email?, attributes? }`. `name` até 255 caracteres; `phone` **obrigatoriamente** em E.164 (`+5511999998888`), sem normalização; `email` válido; `attributes` é um objeto livre de valores JSON. |
 
-Devolve quantos foram criados, atualizados e ignorados — com a lista de erros por índice quando algo não passa.
+Devolve quantos foram criados, atualizados e ignorados, com a lista de erros por índice quando alguma linha não passa.
 
 ```
 salva esses contatos da planilha: João +5511988887777, Renata +5521977776666
@@ -182,72 +175,99 @@ salva esses contatos da planilha: João +5511988887777, Renata +5521977776666
 
 ### opt_out
 
-Registra que um cliente **não quer mais receber mensagens** da sua organização. Idempotente — registrar duas vezes é seguro.
+Registra que uma pessoa **não quer mais receber mensagens** da sua organização, na lista de opt-out da organização. Idempotente: registrar duas vezes é seguro.
 
 | Parâmetro | Tipo | Descrição |
 |---|---|---|
-| `phone` | string | E.164 (`+5511999998888`) |
-| `reason` | string (opcional) | Ex: `"respondeu PARAR"`, `"pediu no suporte"` |
+| `phone` | string | E.164 (`+5511999998888`). Aqui não há normalização nem busca por nome. |
+| `reason` | string (opcional) | Até 80 caracteres. Ex: `"respondeu PARAR"`, `"pediu no suporte"`. |
 
 <Warning>
-  Obrigatório por LGPD: todo envio que atinge um contato em opt-out é violação. Use sempre que o cliente responder PARAR/STOP, pedir no suporte ou por escrito. O backend bloqueia envios pra quem está na lista.
+  Pela LGPD, pedido de saída precisa ser respeitado. Registre sempre que a pessoa responder PARAR/STOP, pedir no suporte ou por escrito.
 </Warning>
 
-## Auth
-
-### login
-
-Autentica via OAuth device flow: abre uma URL, você aprova com 1 clique, o token vai pro keychain do sistema operacional. Rode uma vez; refresh é automático.
-
-### logout
-
-Limpa o token OAuth do keychain. Depois disso, as tools caem pro `ARARA_API_KEY` do ambiente ou falham com `MissingAuth`.
+## Conta
 
 ### whoami
 
-Mostra quem está autenticado: nome, email, role, organização ativa e plano. Útil pra conferir em qual org o agente vai operar antes de disparar qualquer coisa.
+Sem parâmetros. Mostra quem está autenticado (nome e e-mail), o plano atual e o saldo da carteira. Chame antes do primeiro disparo da sessão pra conferir em qual conta o agente vai operar.
 
-## Resources (leitura passiva)
+## Formato de resposta e erros
 
-Resources são dados que o cliente MCP carrega automaticamente — o agente lê sem gastar tool call. É aqui que vive tudo que era `list_*` nas versões antigas.
+Toda tool devolve um texto curto pro modelo e um `structuredContent` estável:
+
+```json
+{ "ok": true, "data": { } }
+```
+
+```json
+{ "ok": false, "error": { "code": "CONTACT_AMBIGUOUS", "message": "...", "retryable": false } }
+```
+
+Em erro de limite (`429`) ou de servidor, `retryable` vem `true` e, quando a API manda `Retry-After`, o campo `retryAfterSeconds` vem junto. Os códigos do próprio MCP:
+
+| Código | Quando |
+|---|---|
+| `INVALID_INPUT` | Combinação de parâmetros inválida (ex: `message` e `templateName` juntos). |
+| `INVALID_PHONE` | O número não vira E.164 válido. |
+| `CONTACT_NOT_FOUND` | Nenhum contato salvo com esse nome. |
+| `CONTACT_AMBIGUOUS` | Mais de um contato com esse nome; a mensagem lista os candidatos. |
+| `CONVERSATION_WINDOW_CLOSED` | Texto livre com a janela de 24h fechada; a mensagem lista templates aprovados. |
+| `NO_VALID_RECIPIENTS` | Nenhum destinatário do `broadcast` resolveu. |
+| `INVALID_API_RESPONSE` | A API respondeu num formato inesperado. |
+| `OPERATOR_NOT_CONFIGURED` / `OPERATOR_NOT_ALLOWED` | Chamada a uma tool de operação interna da AraraHQ. |
+
+Os demais códigos vêm da própria API da Arara e passam sem alteração. Veja [Erros](/erros).
+
+## Painéis interativos
+
+Em clientes com suporte a **MCP Apps**, quatro tools abrem um painel dentro do chat em vez de só texto. O texto continua vindo junto, então clientes sem painel não perdem nada.
+
+| Tool | Painel |
+|---|---|
+| `campaign_report` | Lista de campanhas ou funil da campanha com números grandes, motivos de bloqueio e atualização ao vivo enquanto dispara. Botões **Ver quem respondeu**, **Reenviar aos não lidos** e **Atualizar**. |
+| `broadcast` | Celular com a mensagem renderizada, audiência, custo estimado e A/B. **Aprovar e disparar** chama o `broadcast` com `dryRun: false` e passa a mostrar a entrega em tempo real. |
+| `check_status` | Pra `messageId`, linha do tempo da mensagem (aceita, enviada, entregue, lida) que acompanha sozinha até o status final. Pra `to`, se a janela está aberta ou fechada. Pra `templateId`, se o template foi aprovado ou reprovado, com o motivo. |
+| `read_conversation` | Thread da conversa com campo de resposta que envia texto livre pelo `send_whatsapp`, e botões **Sugerir resposta** e **Pediu pra sair**. |
+
+Os botões que não executam direto viram uma mensagem no chat pro agente continuar (por exemplo, "Reenviar aos não lidos" pede um reenvio com outro template). Os painéis são servidos como resources `ui://arara/campaign.html`, `ui://arara/broadcast.html`, `ui://arara/status.html` e `ui://arara/conversation.html`, e nunca recebem credencial.
+
+## Resources
+
+Dados que o agente lê sem gastar tool call. Todos voltam em JSON; se a leitura falhar, o conteúdo traz `RESOURCE_UNAVAILABLE`.
 
 | Resource | URI | O que devolve |
 |---|---|---|
-| Organização | `arara://organization/me` | Nome, plano e configuração da org ativa |
-| Saldo | `arara://wallet/balance` | Saldo atual da carteira |
-| Templates aprovados | `arara://templates/approved` | Templates prontos pra usar em `broadcast` e fora da janela |
-| Números | `arara://numbers` | Seus números de WhatsApp e status |
-| Saúde dos números | `arara://numbers/health` | Quality rating e limites de envio por número |
-| Campanhas recentes | `arara://campaigns/recent` | Últimos disparos com status e custo |
-| Funil de recuperação | `arara://recovery/funnel` | Eventos e conversão do fluxo de recuperação |
-| Contatos recentes | `arara://contacts/recent` | Últimos contatos salvos |
-| Conversas recentes | `arara://conversations/recent` | Últimas conversas com janela aberta/fechada |
-| Opt-outs | `arara://opt-outs` | Quem pediu pra não receber mensagens |
+| Organização | `arara://organization` | Quem está autenticado, plano atual e saldo da carteira. |
+| Templates aprovados | `arara://templates/approved` | Templates aprovados e disponíveis pra envio (até 100), prontos pra `broadcast` e `send_whatsapp`. |
+| Campanhas recentes | `arara://campaigns/recent` | As 10 últimas campanhas com status, contagens e custo. |
+| Números | `arara://channels` | Seus números de WhatsApp e o estado do slot do plano. |
 
 <Note>
-  Alguns clientes MCP ainda não carregam resources automaticamente. No Claude Code e Claude Desktop funciona nativo; no ChatGPT via SSE, peça pro agente "ler o resource arara://templates/approved" explicitamente.
+  Cada cliente expõe resources de um jeito. Se o seu não mostrar, peça ao agente pra ler a URI, por exemplo `arara://templates/approved`.
 </Note>
 
 ## Prompts
 
-Fluxos prontos que o cliente MCP expõe como atalhos:
+Fluxos prontos que o cliente MCP expõe como atalhos. Nenhum recebe argumento, e todos param pra pedir aprovação antes de enviar.
 
-| Prompt | Argumentos | O que faz |
-|---|---|---|
-| `send_first_message` | `to`, `message` | Envia via `send_whatsapp` e trata a janela fechada mostrando os templates aprovados |
-| `run_broadcast` | `audience`, `goal` | Escolhe o template certo pelos resources, exclui opt-outs, confere saldo e **pede sua aprovação antes de disparar** |
-
-## O que saiu (e pra onde foi)
-
-Se você usava a v3 (84 tools), o mapa da mudança:
-
-| Antes (v3) | Agora (v4) |
+| Prompt | O que faz |
 |---|---|
-| `send_message`, `send_template_to_many`, `reply_in_conversation` | `send_whatsapp` e `broadcast` |
-| `check_window_status`, `get_message_status`, `bulk_window_check` | `check_status` |
-| `list_contacts`, `upsert_contacts`, `get_contact` | `save_contacts` + resource `arara://contacts/recent` |
-| `list_templates`, `get_template_analytics` | resource `arara://templates/approved` |
-| `list_campaigns`, `get_campaign`, `estimate_campaign_cost` | `list_campaigns` e `get_campaign` **voltaram** como tools (relatório completo, com cliques e conversões). Estimativa de custo vem na resposta do `broadcast`. |
-| `get_wallet_balance`, `get_organization_info` | resources `arara://wallet/balance` e `arara://organization/me` |
-| Smart Links | Voltaram como tools: `create_smart_link` e `list_smart_links`. |
-| Brain, API keys, números, A/B test, perfil | [Dashboard](https://ararahq.com/dashboard) — o resto da configuração de conta não é trabalho de agente |
+| `plan_broadcast` | Chama `whoami` pra conferir conta e saldo, lê os templates aprovados e escolhe o que serve (ou propõe um novo com `create_template`), roda `broadcast` em prévia e só dispara com `dryRun: false` depois da sua aprovação explícita. |
+| `campaign_review` | Acha a campanha com `campaign_report`, abre o relatório completo, resume entrega, leitura, cliques, respostas e conversões em percentual da base, explica bloqueados e estornos, e recomenda um próximo passo: responder quem respondeu, reenviar pra quem não leu com outro template, ou parar. |
+| `reply_to_responses` | Lê o que a pessoa escreveu com `read_conversation` e rascunha uma resposta curta. Se ela pediu pra sair, chama `opt_out` em vez de responder. Não envia sem você aprovar o texto exato. |
+
+## O que mudou
+
+A versão atual é o pacote `@ararahq/mcp` 6.x. O pacote antigo sem escopo, `ararahq-mcp`, é a v4 congelada. Se você usava a v4 ou a v5 (voltada a atendimento), o mapa:
+
+| Antes | Agora |
+|---|---|
+| `send_whatsapp` + `send_template` | `send_whatsapp` (com `message` ou `templateName`) |
+| `broadcast` + `broadcast_ab`, `prepare_campaign` + `campaign_preflight` + `publish_campaign` | `broadcast` (prévia por padrão, `abTest` opcional) |
+| `list_campaigns` + `get_campaign` | `campaign_report` (com ou sem `campaignId`) |
+| `check_status` + `check_message` + `get_template_status` | `check_status` (com `to`, `messageId` ou `templateId`) |
+| `get_conversation`, `draft_reply`, `reply_to_conversation` | `read_conversation` + `send_whatsapp` |
+| `create_smart_link`, `list_smart_links`, `create_short_link`, `list_short_links` | Botão `SMART_LINK` no `create_template`; link avulso fica no [dashboard](https://app.ararahq.com) |
+| `login`, `logout` | CLI: `npx -y @ararahq/mcp login` / `logout` |
+| `get_today`, `triage_today`, `find_conversations`, `claim_conversation`, `close_conversation`, `close_case_review`, `list_automations`, `get_automation` | Removidas. Fila de atendimento é trabalho do dashboard, não do agente. |

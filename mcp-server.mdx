@@ -1,189 +1,235 @@
 ---
 title: 'MCP Server'
-description: 'Transforme Claude Code, Claude Desktop, Cursor, Windsurf ou ChatGPT no operador da sua conta WhatsApp. 15 ferramentas: você diz pra quem e o quê, a Arara resolve o resto.'
-keywords: ['mcp', 'model context protocol', 'claude code', 'claude desktop', 'cursor', 'windsurf', 'chatgpt', 'agentes ai', 'tools', 'oauth', 'arara']
+description: 'Conecte Claude Code, Claude Desktop, Cursor ou qualquer cliente MCP à sua conta da Arara. 9 ferramentas: você diz pra quem e o quê, a Arara resolve o resto.'
+keywords: ['mcp', 'model context protocol', 'claude code', 'claude desktop', 'cursor', 'windsurf', 'vs code', 'agentes ai', 'tools', 'oauth', 'arara']
 ---
 
-Plugou, autorizou no browser, o agente já manda mensagem, dispara broadcast e aprova template. Você fala português, o agente faz.
+Instalou, autorizou no browser e o agente já fala com a base: dispara campanha, lê o que voltou e responde quem levantou a mão. Você pede em português, o agente executa.
 
 <Note>
-  **MCP (Model Context Protocol)** é o protocolo aberto da Anthropic pra conectar LLMs a ferramentas externas. Suportado por Claude Code, Claude Desktop, Cursor, Windsurf, ChatGPT (Custom GPT via SSE) e qualquer SDK que fale MCP em Python/TypeScript.
+  **MCP (Model Context Protocol)** é o protocolo aberto, criado pela Anthropic, pra conectar LLMs a ferramentas externas. O pacote `@ararahq/mcp` roda local via stdio em qualquer cliente que fale MCP: Claude Code, Claude Desktop, Cursor, Windsurf, VS Code e SDKs de MCP.
 </Note>
 
 ## Você diz o quê. A Arara resolve o resto.
 
-A v4 cortou o MCP de 84 pra um punhado de **15 ferramentas** enxutas. O motivo: agente bom não precisa de um painel de controle inteiro — precisa de poucas ações que aceitam o que um humano sabe de cabeça e resolvem o resto sozinhas.
+São **9 ferramentas**, de propósito. Agente bom não precisa de um painel de controle inteiro: precisa de poucas ações que aceitam o que uma pessoa sabe de cabeça e resolvem o resto.
 
-Na prática: `send_whatsapp` aceita `"João"` ou `"11 99999-9999"` em qualquer formato. O MCP resolve o contato, normaliza pra E.164, corrige o nono dígito e, se a janela de 24h estiver fechada, não inventa template — lista os seus aprovados e te ajuda a escolher (ou aprovar um novo).
+Na prática: `send_whatsapp` aceita `"Renata"` ou `"11 99999-8888"`. O MCP busca o contato salvo ou normaliza o número pra E.164 e, se a janela de 24h estiver fechada, não inventa template: devolve os seus aprovados pra escolher.
 
 | Grupo | Ferramentas |
 |---|---|
-| Enviar | `send_whatsapp` · `broadcast` · `broadcast_ab` · `check_status` |
-| Templates | `create_template` (com botões/smart-link) · `get_template_status` |
-| Campanhas | `list_campaigns` · `get_campaign` (relatório com cliques) |
-| Smart Links | `create_smart_link` · `list_smart_links` |
-| Contatos | `save_contacts` · `opt_out` |
-| Auth | `login` · `logout` · `whoami` |
+| Falar com a base | `send_whatsapp` · `broadcast` (prévia por padrão, A/B e agendamento) |
+| Ver o que voltou | `campaign_report` · `check_status` · `read_conversation` |
+| Preparar | `create_template` (com botões e smart-link) · `save_contacts` · `opt_out` |
+| Conta | `whoami` |
 
-Leitura leve (contatos, conversas, saldo, números) vive em **resources** que o cliente MCP carrega sozinho, sem gastar chamada. O relatório de campanha, por precisar de um id, é tool (`get_campaign`). O que cada ferramenta e resource faz, com parâmetros e exemplos: [Ferramentas do MCP](/mcp-tools).
+Quatro tools abrem **painéis interativos** dentro do chat (funil da campanha, prévia do disparo com aprovação, linha do tempo da entrega, thread da conversa) em clientes com suporte a MCP Apps. Leitura leve (conta, templates aprovados, campanhas recentes, números) fica em **resources**, sem gastar tool call. Parâmetros, limites e exemplos de cada uma: [Ferramentas do MCP](/mcp-tools).
 
-Configuração de conta (API keys, perfil do negócio, provisionamento de número, Brain) é trabalho de [dashboard](https://ararahq.com/dashboard), não de agente.
+<Note>
+  A lista de tools do cliente também mostra 12 ferramentas de operação interna da equipe AraraHQ (`create_api_key`, `add_credit`, `list_failures` e afins). Elas recusam qualquer conta fora da allowlist interna com `OPERATOR_NOT_CONFIGURED` ou `OPERATOR_NOT_ALLOWED`. Pra sua conta, as 9 acima são as que funcionam.
+</Note>
+
+Configuração de conta (API keys, perfil do negócio, números, automações) é trabalho do [dashboard](https://app.ararahq.com), não do agente.
 
 ## Instalar
 
-### Claude Code
+Requisito: **Node.js 20 ou mais novo**. No Linux, o keychain usa o Secret Service (`libsecret`), que precisa estar instalado.
+
+### 1. Login (uma vez por máquina)
 
 ```bash
-claude mcp add arara --scope user -- npx -y ararahq-mcp
+npx -y @ararahq/mcp login
 ```
 
-Reinicia o Claude Code. Em qualquer conversa, peça:
+O terminal mostra um link e um código e abre a Arara no browser. Você aprova com a sua conta, e os tokens vão pro keychain do sistema (Keychain no macOS, Secret Service no Linux, Credential Manager no Windows). Nada fica em arquivo de projeto nem na configuração do cliente.
 
+Confira:
+
+```bash
+npx -y @ararahq/mcp status
 ```
-faz login na Arara
-```
 
-O Claude vai chamar a tool `login`, abrir o browser, e você aprova com 1 clique. Token vai pro keychain do macOS / Secret Service do Linux / Credential Manager do Windows — nunca no disco.
+### 2. Adicionar ao cliente
 
-### Claude Desktop
+<Tabs>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add ararahq --scope user -- npx -y @ararahq/mcp --stdio
+    ```
 
-Edita `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) ou `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+    Reinicie a sessão do Claude Code.
+  </Tab>
+  <Tab title="Claude Desktop">
+    Edite `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) ou `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
-```json
-{
-  "mcpServers": {
-    "arara": {
-      "command": "npx",
-      "args": ["-y", "ararahq-mcp"]
+    ```json
+    {
+      "mcpServers": {
+        "ararahq": {
+          "command": "npx",
+          "args": ["-y", "@ararahq/mcp", "--stdio"]
+        }
+      }
     }
-  }
-}
-```
+    ```
 
-Reinicia o Claude Desktop, peça "faz login na Arara", aprova no browser.
+    Reinicie o Claude Desktop.
+  </Tab>
+  <Tab title="Cursor">
+    Em `~/.cursor/mcp.json` (global) ou `.cursor/mcp.json` (projeto):
 
-### Cursor
-
-`Settings → Models → MCP Servers → Add Server`:
-
-```json
-{
-  "arara": {
-    "command": "npx",
-    "args": ["-y", "ararahq-mcp"]
-  }
-}
-```
-
-### Windsurf
-
-`.windsurf/mcp.json` na raiz do projeto:
-
-```json
-{
-  "servers": {
-    "arara": {
-      "command": "npx",
-      "args": ["-y", "ararahq-mcp"]
+    ```json
+    {
+      "mcpServers": {
+        "ararahq": {
+          "command": "npx",
+          "args": ["-y", "@ararahq/mcp", "--stdio"]
+        }
+      }
     }
-  }
-}
+    ```
+  </Tab>
+  <Tab title="Outros clientes">
+    Windsurf, VS Code e qualquer cliente com transporte stdio usam o mesmo comando. Aponte a configuração MCP do cliente para:
+
+    ```json
+    {
+      "command": "npx",
+      "args": ["-y", "@ararahq/mcp", "--stdio"]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  Deixe o `--stdio` explícito. Sem ele, se a variável `PORT` existir no ambiente do cliente, o binário sobe em modo HTTP em vez de stdio.
+</Tip>
+
+### Comandos do CLI
+
+| Comando | O que faz |
+|---|---|
+| `npx -y @ararahq/mcp login` | Login OAuth pelo browser (device flow). Salva os tokens no keychain. |
+| `npx -y @ararahq/mcp status` | Diz com qual conta (nome e e-mail) o MCP está autenticado. |
+| `npx -y @ararahq/mcp doctor` | Versão do MCP, versão do Node, URL da API em uso e status do login. |
+| `npx -y @ararahq/mcp tools` | Lista os nomes de todas as tools registradas (inclui as de operação interna). |
+| `npx -y @ararahq/mcp logout` | Remove os tokens do keychain desta máquina. |
+| `npx -y @ararahq/mcp --version` | Versão instalada. |
+
+## Servidor hospedado
+
+A AraraHQ também roda o servidor em `https://mcp.ararahq.com/mcp`, na Cloudflare Workers, pra clientes que falam MCP Streamable HTTP.
+
+```
+URL: https://mcp.ararahq.com/mcp
+Header: Authorization: Bearer <token OAuth da Arara>
 ```
 
-### SSE remoto
+### Conectar no claude.ai ou no ChatGPT
 
-Pra ChatGPT (Custom GPT), n8n, ou qualquer cliente que aceite SSE:
+Adicione um conector personalizado com a URL `https://mcp.ararahq.com/mcp`. O cliente faz o resto sozinho:
 
-```
-URL: https://mcp.ararahq.com/sse
-Header: X-Arara-Key: ara_live_xxx
-```
+1. Lê `/.well-known/oauth-protected-resource` no MCP e descobre o servidor de autorização (`https://api.ararahq.com/api`).
+2. Registra um client via `POST /oauth/register` (registro dinâmico).
+3. Abre `https://app.ararahq.com/oauth/authorize`, onde você entra na sua conta e aprova o acesso.
+4. Troca o código por token em `POST /oauth/token` (authorization code com PKCE `S256`) e passa a mandar o bearer em cada chamada.
 
-Você gera a `ara_live_` em [Dashboard → API Keys](https://ararahq.com/dashboard/apikeys). Permissão da chave vira a permissão do agente.
+Não há API key nem token pra colar em lugar nenhum.
 
-### Headless
+Como o hospedado se comporta:
 
-Sem OAuth, com env var:
-
-```sh
-ARARA_API_KEY=ara_live_xxx npx ararahq-mcp --stdio
-```
-
-Use em pipelines, agentes Python/TS custom, n8n self-hosted, qualquer lugar onde abrir browser não é opção.
+- **Stateless**, só `POST /mcp`. `GET` responde `405`. Não existe endpoint SSE legado.
+- **Só bearer no header** `Authorization`. Não existe credencial na query string nem API key como argumento de tool. Sem token válido, responde `401` com `WWW-Authenticate` apontando pro metadata do recurso.
+- **Protected Resource Metadata** em `/.well-known/oauth-protected-resource` e `/.well-known/oauth-protected-resource/mcp`, com `https://api.ararahq.com/api` como servidor de autorização.
+- **Allowlist de Host e de Origin.** Requisição de browser só é aceita de `https://claude.ai` e `https://chatgpt.com`; cliente sem `Origin` (não browser) passa.
+- **Rate limit por usuário autenticado**, não por IP: 120 requisições por minuto. Acima disso, `429` com `Retry-After: 60`.
+- A identidade do token é consultada na API e guardada por 60 segundos, só com a impressão digital (SHA-256) do token, nome e e-mail. O token em si nunca é armazenado.
+- `GET /health` devolve status, nome e versão.
 
 ## Autenticação
 
-Dois modos, escolhidos automaticamente nessa ordem:
+OAuth, e só OAuth.
 
-| Modo | Quando usa | Como obtém |
-|---|---|---|
-| **OAuth (device flow)** | Default no Claude Code, Desktop, Cursor, Windsurf | Você roda `login`, aprova no browser. Token salvo no keychain do SO. Refresh automático. |
-| **API key via env** | CI, servidor, n8n, ChatGPT (SSE), headless | `ARARA_API_KEY=ara_live_xxx` (stdio) ou header `X-Arara-Key` (SSE) |
+- **Local:** `login` roda o device flow da Arara com o client `arara-mcp`. Access token e refresh token ficam no keychain. Quando o access token está a 30 segundos de expirar, o MCP renova sozinho com o refresh token. Se o refresh também tiver expirado, rode `login` de novo.
+- **Hospedado:** cada requisição carrega o bearer token no header. O servidor não guarda, não renova e não emite token.
+- Ao aprovar o login, a organização recebe um alerta no dashboard ("Novo dispositivo conectado") com o e-mail de quem autorizou.
+- `logout` apaga os tokens desta máquina.
 
-A precedência interna é: chave da sessão SSE → OAuth do keychain → `ARARA_API_KEY` do env. Se nada existir, a tool falha com `MissingAuth` e te manda rodar `login`.
+Sem login, as tools não executam. Rode `status` ou `doctor` pra conferir antes de abrir o cliente.
 
 ## 3 coisas pra pedir hoje
 
-**Mandar mensagem sem pensar em formato**
+**Falar com a base**
 ```
-manda um whatsapp pro João avisando que o pedido dele saiu pra entrega
+dispara o template promo_setembro pra esses 40 números da planilha
 ```
-`send_whatsapp` resolve o contato pelo nome, normaliza o número e envia. Se a janela de 24h estiver fechada, devolve seus templates aprovados pra escolher.
+`broadcast` resolve os números (qualquer formato), renderiza a mensagem e estima o custo **sem enviar**. Você confere a prévia e aprova; só aí a campanha é criada. Quem não resolver aparece listado, não some em silêncio.
 
-**Broadcast com template aprovado**
+**Ver o que voltou**
 ```
-dispara o template promo_junho pra esses 40 números da planilha
+como foi a campanha de ontem? quantos clicaram e quantos responderam?
 ```
-`broadcast` resolve os números (qualquer formato), cria a campanha e devolve o custo total. Quem não resolver, ele lista em vez de falhar silenciosamente.
+`campaign_report` devolve enviados, entregues, lidos, cliques, respostas e conversões, mais quantos foram bloqueados e por quê, estornos e custo.
 
-**Saber se pode falar agora**
+**Responder quem levantou a mão**
 ```
-o cliente +5511999998888 respondeu? posso mandar texto livre?
+lê o que a Renata respondeu e me sugere uma resposta
 ```
-`check_status` responde se a janela de 24h está aberta e quantas horas restam.
+`read_conversation` traz o que ela escreveu; `send_whatsapp` responde depois que você aprova o texto.
 
-## Guarda-rails de envio
+## Guarda-rails
 
-Todo envio passa por checagens built-in antes do dispatch: mensagens contendo CPF, CNPJ, CVV, tokens e senhas são bloqueadas na origem. Contatos em [opt-out](/mcp-tools#opt_out) são protegidos pelo backend — nenhum envio atinge quem pediu pra sair.
+- **Disparo começa em prévia.** `broadcast` só envia com `dryRun: false`. O prompt `plan_broadcast` e o painel de disparo pedem sua aprovação antes.
+- **Retry sem mensagem duplicada.** `send_whatsapp` e `broadcast` mandam `Idempotency-Key` em toda chamada. As retentativas automáticas reaproveitam a mesma chave; pra repetir uma chamada inteira com segurança, passe o mesmo `idempotencyKey`.
+- **Anotações de segurança do MCP.** Tools de leitura vêm marcadas como `readOnlyHint`; `opt_out` vem como `destructiveHint`. Clientes que respeitam as anotações pedem confirmação antes de executar escrita.
+- **Nada some calado.** Destinatário que não resolve volta na resposta; contato bloqueado no disparo aparece no `campaign_report` com o motivo.
+- **Pedido de saída.** `opt_out` registra o número na lista de opt-out da organização. Use sempre que alguém responder PARAR ou pedir pra sair.
 
 ## Segurança
 
-- **OAuth com refresh**: tokens curtos, refresh automático antes de expirar. Cancelável em [Dashboard → Apps autorizados](https://ararahq.com/dashboard/apps).
-- **Keychain do SO**: tokens vivem no macOS Keychain / Linux Secret Service / Windows Credential Manager via [keytar](https://github.com/atom/node-keytar). Nunca no disco em texto puro.
-- **Chaves não persistidas no SSE remoto**: `X-Arara-Key` vai no header de cada request. O servidor não armazena.
-- **Escopo herdado da chave**: o MCP herda permissões da chave ou da org que autorizou. Use chave mínima por caso de uso.
-- **Logs por sessão**: cada tool call fica logado. No Claude Code: `claude mcp logs arara`. No Claude Desktop: `View → Developer → Logs`. Útil pra auditoria.
+- **Credencial nunca aparece:** nenhuma tool aceita ou devolve token. O que chega ao modelo é só o resultado.
+- **Keychain do sistema:** tokens locais nunca ficam em texto puro no disco nem na configuração do cliente.
+- **Payload validado:** toda resposta da API passa por schema antes de ser usada. Formato inesperado vira erro `INVALID_API_RESPONSE`, não crash.
+- **Timeout explícito:** 10 segundos por chamada à API.
+- **Retry contido:** no máximo 2 retentativas, só em métodos seguros ou chamadas com `Idempotency-Key`, respeitando `Retry-After`.
+- **Sem telemetria:** o pacote não coleta nada.
 
 ## Configuração avançada
 
-Variáveis de ambiente reconhecidas pelo binário:
+Variáveis de ambiente lidas pelo binário:
 
 ```sh
-ARARA_API_KEY=ara_live_xxx          # Fallback / headless mode
-ARARA_BASE_URL=https://...          # Override do endpoint (default: https://api.ararahq.com)
-ARARA_MCP_TELEMETRY=off             # Desliga telemetria de uso
-PORT=3333                           # Porta SSE (default 3333)
-MCP_TRANSPORT=sse                   # Força SSE em vez de stdio
+ARARA_API_URL=https://...                 # Endpoint da API (default: https://api.ararahq.com/api)
+MCP_TRANSPORT=http                        # Streamable HTTP em vez de stdio
+PORT=3333                                 # Porta do modo HTTP (default 3333). Sem --stdio, definir PORT liga o modo HTTP
+MCP_PUBLIC_URL=https://.../mcp            # URL pública do recurso, publicada no metadata OAuth
+MCP_RESOURCE_METADATA_URL=https://...     # URL do metadata anunciada no WWW-Authenticate
+MCP_ALLOWED_HOSTS=mcp.ararahq.com         # Allowlist de Host (default: localhost,127.0.0.1,mcp.ararahq.com)
+MCP_ALLOWED_ORIGINS=https://claude.ai     # Allowlist de Origin (default: https://chatgpt.com,https://claude.ai)
+ARARA_OAUTH_ISSUER=https://...            # Servidor de autorização anunciado (default: ARARA_API_URL)
+ARARA_OAUTH_SCOPES="scope1 scope2"        # Escopos publicados no metadata, separados por espaço
 ```
 
-## Posicionamento — MCP vs SDK vs Brain
+No modo HTTP em Node, o corpo da requisição é limitado a 64 KB e o rate limit é de 120 requisições por minuto por IP.
+
+## MCP, SDK ou Automações
 
 | Você precisa de... | Use |
 |---|---|
-| Agente AI que age na sua conta (Claude Code, Cursor, ChatGPT) | **MCP** |
+| Agente de IA que age na sua conta (Claude Code, Claude Desktop, Cursor) | **MCP** |
 | Backend próprio que dispara WhatsApp (e-commerce, CRM) | [SDK](/sdks) |
-| Atendente AI hospedado pela Arara, com knowledge base e handoff | [Brain](/brain) |
-| Automação visual (Zapier-like) sem código | [Integrações](/integracoes) |
+| Resposta automática às respostas da base, com escalada pra pessoa | [Automações](/integracoes) |
+| Automação visual sem código | [Integrações](/integracoes) |
 
-Não são mutuamente exclusivos — agência típica usa SDK pro backend, Brain pro atendimento, e MCP pro founder/operador trabalhar via Claude Code.
+Não são exclusivos: operação típica usa SDK no backend, automações pra responder e MCP pro dono trabalhar pelo agente.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Ferramentas do MCP" icon="wrench" href="/mcp-tools">
-    O que cada uma das 15 ferramentas faz, parâmetros e exemplos.
+    O que cada uma das 9 ferramentas faz, parâmetros, limites e exemplos.
   </Card>
-  <Card title="Source no GitHub" icon="github" href="https://github.com/ararahq/ararahq-mcp">
+  <Card title="Source no GitHub" icon="github" href="https://github.com/ararahq/mcp">
     Código aberto MIT, releases versionadas, issues abertas.
   </Card>
 </CardGroup>

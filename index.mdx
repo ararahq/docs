@@ -1,7 +1,7 @@
 ---
 title: 'Documentação da Arara'
-description: 'A API de WhatsApp Business pra desenvolvedores brasileiros. Pricing em BRL, suporte BR, SDKs com paridade real, CLI nativa, MCP pra agentes IA.'
-keywords: ['whatsapp api', 'arara', 'cpaas', 'brasil', 'api oficial meta', 'business api']
+description: 'A operação de WhatsApp para empresas. Fale com a base inteira e veja o que voltou: API, SDKs, CLI e MCP para agentes de IA, com mensagem a preço de custo.'
+keywords: ['whatsapp api', 'arara', 'whatsapp business', 'brasil', 'campanhas whatsapp', 'business api']
 mode: 'custom'
 ---
 
@@ -50,14 +50,14 @@ mode: 'custom'
 
   <div style={{ maxWidth: '880px', margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
     <p style={{ fontSize: '14px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5fbcc7', marginBottom: '24px', fontWeight: 500 }}>
-      API de WhatsApp Business · Brasil
+      A operação de WhatsApp para empresas
     </p>
     <h1 style={{ fontSize: 'clamp(40px, 6vw, 64px)', fontWeight: 600, lineHeight: 1.05, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
-      A API de WhatsApp que devs brasileiros queriam.
+      Fale com a base inteira. Veja o que voltou.
     </h1>
     <p style={{ marginTop: '24px', fontSize: '18px', lineHeight: 1.6, color: 'rgba(255,255,255,0.7)', maxWidth: '640px', marginLeft: 'auto', marginRight: 'auto' }}>
-      Resend pra WhatsApp. API oficial Meta. SDKs em Node, Python, PHP, Java. CLI nativa.
-      MCP pra agentes IA. Pricing em BRL.
+      API REST, SDKs em Node, Python, PHP, Java e Go, CLI e MCP para agentes de IA.
+      Preços em reais, mensagem a preço de custo.
     </p>
     <div style={{ marginTop: '40px', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
       <a
@@ -114,8 +114,8 @@ curl -X POST https://api.ararahq.com/v1/messages \
   -H "Content-Type: application/json" \
   -d '{
     "receiver": "whatsapp:+5511999999999",
-    "templateName": "hello_world",
-    "templateVariables": ["seu_nome"]
+    "templateName": "confirmacao_pedido",
+    "templateVariables": ["João", "ARA-123"]
   }'
 ```
 
@@ -124,13 +124,12 @@ import { NodeSDK } from '@ararahq/sdk';
 
 const sdk = new NodeSDK({
   apiKey: process.env.ARARA_API_KEY!,
-  baseUrl: 'https://api.ararahq.com',
 });
 
 await sdk.messages.send({
   receiver: 'whatsapp:+5511999999999',
-  templateName: 'hello_world',
-  templateVariables: ['seu_nome'],
+  templateName: 'confirmacao_pedido',
+  templateVariables: ['João', 'ARA-123'],
 });
 ```
 
@@ -141,8 +140,8 @@ from arara_api_sdk.models.message import SendMessageRequest
 with AraraClient(api_key="ara_live_xxx") as client:
     client.messages.send(SendMessageRequest(
         receiver="whatsapp:+5511999999999",
-        template_name="hello_world",
-        template_variables=["seu_nome"],
+        template_name="confirmacao_pedido",
+        template_variables=["João", "ARA-123"],
     ))
 ```
 
@@ -154,8 +153,8 @@ $sdk = new Arara(new Config(apiKey: 'ara_live_xxx'));
 
 $sdk->messages->send(
     receiver: 'whatsapp:+5511999999999',
-    templateName: 'hello_world',
-    variables: ['seu_nome'],
+    templateName: 'confirmacao_pedido',
+    variables: ['João', 'ARA-123'],
 );
 ```
 
@@ -164,9 +163,19 @@ Arara arara = Arara.builder().apiKey("ara_live_xxx").build();
 
 arara.getMessages().send(SendMessageRequest.builder()
     .receiver("whatsapp:+5511999999999")
-    .templateName("hello_world")
-    .templateVariables(List.of("seu_nome"))
+    .templateName("confirmacao_pedido")
+    .templateVariables(List.of("João", "ARA-123"))
     .build());
+```
+
+```go Go
+client, _ := arara.NewClient("ara_live_xxx")
+
+client.Messages.Send(context.Background(), &arara.SendMessageRequest{
+    Receiver:          "whatsapp:+5511999999999",
+    TemplateName:      "confirmacao_pedido",
+    TemplateVariables: []string{"João", "ARA-123"},
+})
 ```
 </CodeGroup>
 
@@ -188,24 +197,24 @@ arara.getMessages().send(SendMessageRequest.builder()
     }}
   >
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>30s</div>
-      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Pra instalar o MCP</div>
+      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>R$ 0</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>De taxa da Arara por mensagem</div>
     </div>
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>5</div>
-      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>SDKs oficiais</div>
+      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>50 mil</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Mensagens por mês no Voo</div>
     </div>
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>100%</div>
-      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Open source MIT</div>
+      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>9</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Ferramentas no MCP</div>
     </div>
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>BSP</div>
-      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Homologada Meta</div>
+      <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>3</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Envios reais grátis para testar</div>
     </div>
     <div style={{ textAlign: 'center' }}>
       <div style={{ fontSize: '36px', fontWeight: 600, color: '#5fbcc7', lineHeight: 1 }}>R$</div>
-      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Pricing em BRL</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '8px' }}>Preços em reais</div>
     </div>
   </div>
 </div>
@@ -267,13 +276,13 @@ arara.getMessages().send(SendMessageRequest.builder()
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.1fr)', gap: '48px', alignItems: 'center' }}>
       <div>
         <p style={{ fontSize: '13px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5fbcc7', marginBottom: '16px', fontWeight: 500 }}>
-          Novo · MCP Server
+          MCP Server · @ararahq/mcp
         </p>
         <h2 style={{ fontSize: '32px', fontWeight: 600, color: '#fff', margin: 0, lineHeight: 1.15, letterSpacing: '-0.01em' }}>
-          Seu Claude Code vira o operador da sua conta WhatsApp.
+          Seu agente de IA opera o WhatsApp da empresa.
         </h2>
         <p style={{ marginTop: '20px', fontSize: '16px', lineHeight: 1.6, color: 'rgba(255,255,255,0.7)' }}>
-          Você diz pra quem e o quê, o agente resolve contato, formato de número e janela de 24h sozinho. 10 ferramentas, zero decoreba. Login via OAuth no browser, zero chave no clipboard.
+          Você diz para quem e o quê; o agente resolve contato, formato de número e janela de 24h. 9 ferramentas: whoami, send_whatsapp, broadcast, campaign_report, check_status, create_template, save_contacts, opt_out e read_conversation. Login por OAuth no navegador, sem chave copiada.
         </p>
         <div style={{ marginTop: '32px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <a
@@ -324,21 +333,21 @@ arara.getMessages().send(SendMessageRequest.builder()
           {'# 1. Instala'}
         </div>
         <div style={{ color: '#e5e7eb', marginBottom: '20px' }}>
-          $ claude mcp add arara <span style={{ color: '#5fbcc7' }}>--scope</span> user{' '}
-          <span style={{ color: '#5fbcc7' }}>--</span> npx <span style={{ color: '#5fbcc7' }}>-y</span> ararahq-mcp
+          $ npx <span style={{ color: '#5fbcc7' }}>-y</span> @ararahq/mcp login
         </div>
         <div style={{ color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>
-          {'# 2. Loga'}
+          {'# 2. Conecta no Claude Code'}
         </div>
         <div style={{ color: '#e5e7eb', marginBottom: '20px' }}>
-          <span style={{ color: '#5fbcc7' }}>{'>'}</span> faz login na Arara
+          $ claude mcp add ararahq <span style={{ color: '#5fbcc7' }}>--scope</span> user{' '}
+          <span style={{ color: '#5fbcc7' }}>--</span> npx <span style={{ color: '#5fbcc7' }}>-y</span> @ararahq/mcp <span style={{ color: '#5fbcc7' }}>--stdio</span>
         </div>
         <div style={{ color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>
           {'# 3. Opera'}
         </div>
         <div style={{ color: '#e5e7eb' }}>
           <span style={{ color: '#5fbcc7' }}>{'>'}</span> manda o template "boas_vindas"{'\n'}
-          <span style={{ color: 'rgba(255,255,255,0.5)' }}>{'   '}pros 200 leads do mês passado</span>
+          <span style={{ color: 'rgba(255,255,255,0.5)' }}>{'   '}para os leads do mês passado</span>
         </div>
       </div>
     </div>
@@ -355,15 +364,15 @@ arara.getMessages().send(SendMessageRequest.builder()
     >
       <div>
         <p style={{ fontSize: '13px', color: '#5fbcc7', fontWeight: 600, marginBottom: '6px' }}>Claude Code · Claude Desktop</p>
-        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>OAuth nativo, token no keychain do SO. Refresh automático.</p>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>OAuth no navegador, token no keychain do sistema.</p>
       </div>
       <div>
         <p style={{ fontSize: '13px', color: '#5fbcc7', fontWeight: 600, marginBottom: '6px' }}>Cursor · Windsurf</p>
-        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>Mesma config JSON do Claude Desktop. stdio via npx.</p>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>Mesma configuração JSON, stdio via npx.</p>
       </div>
       <div>
-        <p style={{ fontSize: '13px', color: '#5fbcc7', fontWeight: 600, marginBottom: '6px' }}>ChatGPT · n8n · custom</p>
-        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>SSE remoto em <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>mcp.ararahq.com/sse</code>.</p>
+        <p style={{ fontSize: '13px', color: '#5fbcc7', fontWeight: 600, marginBottom: '6px' }}>ChatGPT · claude.ai · clientes remotos</p>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>MCP hospedado em <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>https://mcp.ararahq.com/mcp</code>, com OAuth.</p>
       </div>
     </div>
   </div>
@@ -377,100 +386,48 @@ arara.getMessages().send(SendMessageRequest.builder()
   </h2>
 
   <CardGroup cols={2}>
-    <Card title="API oficial Meta, sem risco de banimento" icon="shield-check">
-      Operamos como BSP homologada pela Meta. Z-API e Baileys vão quebrar — você não. Ver [Migrar](/migrate/z-api).
+    <Card title="Mensagem a preço de custo" icon="coins">
+      Tarifa da Meta e do provedor repassadas em reais, sem taxa da Arara. A margem está na mensalidade. Ver [Preços](/concepts/pricing).
     </Card>
-    <Card title="Pricing em BRL transparente" icon="coins">
-      Sem dólar, sem câmbio surpresa. UTILITY a R$ 0,12, MARKETING a R$ 0,40. Ver [Pricing](/concepts/pricing).
+    <Card title="Disparo, resposta e resultado no mesmo lugar" icon="bullhorn">
+      Dispare para a base, responda quem voltou na caixa de entrada e acompanhe entregas, leituras, cliques e respostas por campanha.
     </Card>
-    <Card title="SDKs com paridade real" icon="code">
-      Node, Python, PHP, Java. Snippets validados contra o código, não copy-cola de marketing.
+    <Card title="SDKs validados contra a API" icon="code">
+      Node, Python, PHP, Java e Go. Ver [SDKs](/sdks).
     </Card>
-    <Card title="CLI single-binary em Go" icon="terminal">
-      `arara send`, `arara listen`, `arara api`. Brew, curl, npm. Ver [CLI](/cli).
+    <Card title="CLI em binário único" icon="terminal">
+      `arara send`, `arara listen`, `arara api`. Homebrew, curl ou go install. Ver [CLI](/cli).
     </Card>
-    <Card title="MCP pra agentes IA" icon="server">
-      Você diz pra quem e o quê; o MCP resolve o resto. Claude Code, Claude Desktop, Cursor, Windsurf, ChatGPT. Ver [MCP](/mcp-server).
+    <Card title="MCP para agentes de IA" icon="server">
+      Você diz para quem e o quê; o MCP resolve o resto. Claude Code, Claude Desktop, Cursor, ChatGPT. Ver [MCP](/mcp-server).
     </Card>
-    <Card title="Brain hospedado" icon="brain">
-      Agente IA que atende, executa Pix, agenda no Cal.com, lista produto Shopify. Ver [Brain](/brain).
+    <Card title="IA que responde quem voltou" icon="brain">
+      Incluída nos planos. Responde clientes na caixa de entrada com o contexto do seu negócio e passa para um atendente quando precisa. Ver [Brain](/brain).
     </Card>
   </CardGroup>
 </div>
 
-{/* ──────────────────────────  COMPARATIVO  ────────────────────────── */}
+{/* ──────────────────────────  PLANOS  ────────────────────────── */}
 
 <div style={{ maxWidth: '1100px', margin: '100px auto 0', padding: '0 24px' }}>
   <h2 style={{ fontSize: '28px', fontWeight: 600, color: '#fff', marginBottom: '12px' }}>
-    Por que sair do Twilio (ou do Z-API)
+    Planos
   </h2>
   <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: '32px' }}>
-    Custo cai 30-50%, fatura em BRL, suporte em PT-BR, ferramentas que o Twilio não tem.
+    Todos pagam a mensagem a preço de custo. O que muda é a capacidade da operação.
   </p>
 
-  <div
-    style={{
-      overflow: 'hidden',
-      border: '1px solid rgba(255,255,255,0.08)',
-      borderRadius: '12px',
-      background: 'rgba(255,255,255,0.02)',
-    }}
-  >
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-      <thead>
-        <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-          <th style={{ padding: '16px', textAlign: 'left', color: 'rgba(255,255,255,0.6)', fontWeight: 500, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}></th>
-          <th style={{ padding: '16px', textAlign: 'left', color: 'rgba(255,255,255,0.6)', fontWeight: 500, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Twilio</th>
-          <th style={{ padding: '16px', textAlign: 'left', color: 'rgba(255,255,255,0.6)', fontWeight: 500, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Z-API / Baileys</th>
-          <th style={{ padding: '16px', textAlign: 'left', color: '#5fbcc7', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Arara</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>Pricing</td>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.5)' }}>USD + markup ~50%</td>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.5)' }}>"Grátis" + ban</td>
-          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>BRL transparente</td>
-        </tr>
-        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>BSP oficial Meta</td>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.5)' }}>Sim</td>
-          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
-          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>Sim</td>
-        </tr>
-        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>Suporte</td>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.5)' }}>Inglês, fuso US</td>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.5)' }}>Você é o suporte</td>
-          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>PT-BR, fuso BR</td>
-        </tr>
-        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>MCP pra agentes IA</td>
-          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
-          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
-          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>Sim, nativo</td>
-        </tr>
-        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>Brain (AI) nativo</td>
-          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
-          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
-          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>Sim, R$ 250/mês add-on</td>
-        </tr>
-        <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <td style={{ padding: '16px', color: 'rgba(255,255,255,0.7)' }}>Recovery PIX automático</td>
-          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
-          <td style={{ padding: '16px', color: '#e5484d' }}>Não</td>
-          <td style={{ padding: '16px', color: '#fff', fontWeight: 500 }}>AbacatePay integrado</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div style={{ marginTop: '16px', textAlign: 'center' }}>
-    <a href="/migrate/twilio" style={{ color: '#5fbcc7', fontSize: '14px', textDecoration: 'none', borderBottom: '1px solid rgba(95,188,199,0.3)' }}>
-      Ver roteiro completo de migração →
-    </a>
-  </div>
+  <CardGroup cols={3}>
+    <Card title="Essencial · R$ 597/mês" icon="paper-plane" href="/concepts/pricing">
+      Até 20.000 mensagens por mês, 3 assentos, 1 número incluso, 3 automações.
+    </Card>
+    <Card title="Voo · R$ 997/mês" icon="plane" href="/concepts/pricing">
+      Até 50.000 mensagens por mês, 10 assentos, até 2 números, 10 automações.
+    </Card>
+    <Card title="Primeira Classe · sob consulta" icon="star" href="/concepts/pricing">
+      Sem teto de envio, números e contas WhatsApp sem limite, suporte por WhatsApp.
+    </Card>
+  </CardGroup>
 </div>
 
 {/* ──────────────────────────  O QUE VOCÊ PODE FAZER  ────────────────────────── */}
@@ -488,16 +445,16 @@ arara.getMessages().send(SendMessageRequest.builder()
       Submeta pra aprovação Meta. UTILITY, MARKETING, AUTHENTICATION. Mídia, botões, carrossel.
     </Card>
     <Card title="Disparar campanhas" icon="bullhorn" href="/api-reference/endpoint/v2/campaigns">
-      Broadcast segmentado com A/B test nativo, estimativa de custo e tracking.
+      Disparo para a base com teste A/B, estimativa de custo antes de enviar e relatório por campanha.
     </Card>
     <Card title="Receber webhooks" icon="bell" href="/webhooks">
       Eventos em tempo real com HMAC, retry exponencial e dedupe.
     </Card>
     <Card title="Smart Links" icon="link" href="/smart-links">
-      URLs curtas com atribuição first-party. Sobrevive a ITP e Brave Shield.
+      Links curtos com rastreamento de clique e atribuição por campanha.
     </Card>
-    <Card title="Recuperação automática" icon="rotate-right" href="/recovery">
-      AbacatePay leak detection, reabordagem inteligente, +R$ 40-90K/mês recuperados em e-commerce médio.
+    <Card title="Recuperação de receita" icon="rotate-right" href="/recovery">
+      Carrinho abandonado e Pix pendente viram mensagem automática para o cliente.
     </Card>
   </CardGroup>
 </div>
@@ -517,16 +474,16 @@ arara.getMessages().send(SendMessageRequest.builder()
       Janela 24h, templates HSM, qualidade do número, pricing.
     </Card>
     <Card title="Autenticação" icon="key" href="/api-reference/authentication">
-      API key Bearer (`ara_live_`) ou Firebase JWT.
+      Chave de API no header `Authorization: Bearer ara_live_...`.
     </Card>
     <Card title="Receitas práticas" icon="book-open" href="/recipes">
       Carrinho abandonado, OTP, Black Friday, suporte 24/7.
     </Card>
     <Card title="Migrar do Twilio" icon="arrow-right-arrow-left" href="/migrate/twilio">
-      Roteiro completo. Mantém número, mantém templates, custo cai 30-50%.
+      Roteiro para trazer número e templates para a Arara.
     </Card>
     <Card title="Compliance LGPD" icon="scale-balanced" href="/concepts/compliance">
-      Opt-in, opt-out, ANATEL, Meta policy. Sem multa, sem ban.
+      Opt-in, opt-out e política da Meta.
     </Card>
   </CardGroup>
 </div>
@@ -539,8 +496,8 @@ arara.getMessages().send(SendMessageRequest.builder()
   </h2>
 
   <CardGroup cols={4}>
-    <Card title="Dashboard" icon="gauge" href="https://ararahq.com/dashboard">
-      GUI pra templates, métricas, números.
+    <Card title="Dashboard" icon="gauge" href="https://app.ararahq.com">
+      Caixa de entrada, campanhas, templates e números.
     </Card>
     <Card title="CLI" icon="terminal" href="/cli">
       Ops day-2 do terminal.
@@ -549,7 +506,7 @@ arara.getMessages().send(SendMessageRequest.builder()
       Seu agente opera o WhatsApp.
     </Card>
     <Card title="Postman" icon="rectangle-terminal" href="https://github.com/ararahq/arara-postman">
-      Collection oficial.
+      Coleção com os endpoints da API.
     </Card>
   </CardGroup>
 </div>
@@ -593,7 +550,7 @@ arara.getMessages().send(SendMessageRequest.builder()
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <li><a href="/recipes" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Receitas</a></li>
           <li><a href="/migrate/twilio" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Migrar do Twilio</a></li>
-          <li><a href="/brain" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Brain (AI)</a></li>
+          <li><a href="/brain" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>IA (Brain)</a></li>
           <li><a href="/changelog" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Changelog</a></li>
           <li><a href="/roadmap" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Roadmap</a></li>
         </ul>
@@ -603,7 +560,7 @@ arara.getMessages().send(SendMessageRequest.builder()
         <h4 style={{ fontSize: '13px', color: '#fff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>Empresa</h4>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <li><a href="https://ararahq.com" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Site</a></li>
-          <li><a href="https://ararahq.com/dashboard" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Dashboard</a></li>
+          <li><a href="https://app.ararahq.com" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Dashboard</a></li>
           <li><a href="https://github.com/ararahq" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>GitHub</a></li>
           <li><a href="https://linkedin.com/company/ararahq" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>LinkedIn</a></li>
           <li><a href="mailto:suporte@ararahq.com" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', textDecoration: 'none' }}>Suporte</a></li>
@@ -626,7 +583,7 @@ arara.getMessages().send(SendMessageRequest.builder()
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
         <a href="/status" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'rgba(255,255,255,0.6)', fontSize: '13px', textDecoration: 'none' }}>
           <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 8px rgba(22,163,74,0.6)' }} />
-          Todos os sistemas operacionais
+          Status da plataforma
         </a>
       </div>
       <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', margin: 0 }}>

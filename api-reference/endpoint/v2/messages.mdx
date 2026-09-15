@@ -1,10 +1,10 @@
 ---
 title: 'Mensagens'
-description: 'Envio de mensagens WhatsApp via API: template aprovado, texto livre na janela 24h, mídia, lote de até 1000, agendamento. Endpoint mais usado da Arara.'
-keywords: ['mensagens', 'send message', 'whatsapp', 'template', 'batch']
+description: 'Envio de mensagens WhatsApp via API: template aprovado, texto livre na janela de 24h, mídia, lote de até 1000, agendamento, conversas e consulta de status.'
+keywords: ['mensagens', 'send message', 'whatsapp', 'template', 'batch', 'conversas', 'janela 24h']
 ---
 
-O endpoint mais usado. Aceita template HSM (qualquer hora) ou texto livre (dentro da janela 24h). Suporta lote de até 1000 mensagens, agendamento, mídia, mensagem interativa e localização.
+O endpoint mais usado. Aceita template aprovado (a qualquer hora) ou conteúdo livre (dentro da janela de 24h). Também cobre lote de até 1000 mensagens, agendamento, upload de mídia e resposta em conversas.
 
 **Base URL:** `https://api.ararahq.com`
 
@@ -12,50 +12,35 @@ O endpoint mais usado. Aceita template HSM (qualquer hora) ou texto livre (dentr
 
 ## Enviar mensagem
 
-`POST /v1/messages`
+`POST /v1/messages` · permissão `MESSAGES_SEND`
 
 <CodeGroup>
 ```bash cURL
 curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
+  -H "Idempotency-Key: pedido-12345-confirmacao" \
   -d '{
-    "receiver": "whatsapp:+5511999999999",
+    "receiver": "+5511999999999",
     "templateName": "pedido_confirmado",
-    "templateVariables": ["João", "ARA-12345"]
+    "templateVariables": ["João", "12345"]
   }'
 ```
 
 ```typescript Node.js
 await sdk.messages.send({
-  receiver: 'whatsapp:+5511999999999',
+  receiver: '+5511999999999',
   templateName: 'pedido_confirmado',
-  templateVariables: ['João', 'ARA-12345'],
+  templateVariables: ['João', '12345'],
 });
 ```
 
 ```python Python
 client.messages.send(SendMessageRequest(
-    receiver="whatsapp:+5511999999999",
+    receiver="+5511999999999",
     template_name="pedido_confirmado",
-    template_variables=["João", "ARA-12345"],
+    template_variables=["João", "12345"],
 ))
-```
-
-```php PHP
-$sdk->messages->send(
-    receiver: 'whatsapp:+5511999999999',
-    templateName: 'pedido_confirmado',
-    variables: ['João', 'ARA-12345'],
-);
-```
-
-```java Java
-arara.getMessages().send(SendMessageRequest.builder()
-    .receiver("whatsapp:+5511999999999")
-    .templateName("pedido_confirmado")
-    .templateVariables(List.of("João", "ARA-12345"))
-    .build());
 ```
 </CodeGroup>
 
@@ -63,110 +48,149 @@ Resposta (`202 Accepted`):
 
 ```json
 {
-  "id": "ara_msg_k9Bf2XqP",
+  "id": "ara_msg_k9Bf2Xq",
   "status": "PENDING",
   "mode": "LIVE",
   "sender": "whatsapp:+5511888888888",
   "receiver": "whatsapp:+5511999999999",
-  "cost": null
+  "body": "Oi João, seu pedido 12345 foi confirmado!",
+  "cost": 0.0680,
+  "reason": null
 }
 ```
 
-`cost` vem `null` no envio inicial e é populado depois que a Meta confirma a entrega e a fatura é calculada. Use o `id` pra consultar status atualizado ou casar com eventos de webhook.
+| Campo | Descrição |
+|---|---|
+| `id` | ID da mensagem. Use para consultar e para casar com o webhook. |
+| `status` | Estado atual (tabela em [Status](#status)). |
+| `body` | Conteúdo final, com variáveis aplicadas. |
+| `cost` | Custo em reais. Pode vir `null`. |
+| `reason` | Motivo da falha quando `status` é `FAILED`. |
 
-## Texto livre (janela 24h)
+O status final chega pelo webhook [`message.status_updated`](/webhooks/events).
 
-Cliente respondeu nas últimas 24h? Você pode mandar texto livre em vez de template:
+### Parâmetros
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `receiver` | string | sim | Telefone E.164. Aceita `+5511999999999`, `5511999999999` ou `whatsapp:+5511999999999`. |
+| `templateName` | string | * | Nome do template aprovado. |
+| `templateVariables` | string[] | não | Variáveis posicionais. Alias: `variables`. Sem quebra de linha nem tab. |
+| `body` | string | * | Texto livre. Só com a janela de 24h aberta. |
+| `interactive` | object | * | Botões ou lista. Só com a janela aberta. |
+| `location` | object | * | `latitude`, `longitude`, `name`, `address`. |
+| `reaction` | object | * | `emoji` e `messageId` (ID da mensagem que recebe a reação). |
+| `sender` | string | não | Número remetente da organização. Omitido, usa o padrão. |
+| `replyTo` | string | não | ID da mensagem citada. |
+| `scheduled_at` | string (ISO 8601) | não | Agenda o envio. Aceita também `scheduledAt`. |
+| `smartLinkParam`, `smartLinkUrl` | string | não | Parâmetros do botão de smart link do template. |
+| `type` | string | não | `template`, `text`, `interactive`, `location` ou `reaction`. Inferido quando omitido. |
+
+`*` Exatamente um entre `templateName`, `body`, `interactive`, `location` e `reaction`. Mandar zero ou mais de um responde `400 VALIDATION_ERROR`.
+
+## Texto livre (janela de 24h)
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5511999999999",
+    "receiver": "+5511999999999",
     "body": "Já vou te responder, só preciso checar uma coisa."
   }'
 ```
 
-Antes de mandar, **valida a janela**:
+Fora da janela, a resposta é `422 CONVERSATION_WINDOW_CLOSED`: envie um template para reabrir. Para checar antes, use [window-status](#situação-da-janela-de-24h). Conceito em [Janela de 24h](/concepts/24h-window).
 
-```bash
-curl -X POST https://api.ararahq.com/v1/conversations/window-status \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -d '{ "phones": ["+5511999999999"] }'
-```
+## Template com mídia no cabeçalho
 
-Se `status: CLOSED`, manda template em vez de body. Detalhes em [Janela 24h](/concepts/24h-window).
-
-## Template com mídia (header)
-
-URL da mídia vai como **primeiro elemento** de `templateVariables`:
+A URL da mídia vai na **primeira posição** de `templateVariables`:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5511999999999",
+    "receiver": "+5511999999999",
     "templateName": "fatura_disponivel",
-    "templateVariables": [
-      "https://meusite.com/fatura.pdf",
-      "João",
-      "Janeiro"
-    ]
+    "templateVariables": ["https://meusite.com/fatura.pdf", "João", "Janeiro"]
   }'
 ```
 
-Suportado: imagem (JPEG/PNG, max 5MB), vídeo (MP4 H.264, max 16MB, max 16s), PDF (max 100MB, max 100 páginas).
+O campo `media_url` ainda é aceito, mas é legado. Use a posição do array.
+
+## Upload de mídia
+
+`POST /v1/media/upload` · permissão `MESSAGES_SEND`
+
+Quando o arquivo não está hospedado, suba pela Arara e use a `url` devolvida.
+
+```bash
+curl -X POST https://api.ararahq.com/v1/media/upload \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -F "file=@fatura.pdf"
+```
+
+```json
+{
+  "url": "https://.../l/Ab3dE9x",
+  "directUrl": "https://..."
+}
+```
+
+Aceita imagem até 5 MB e PDF até 100 MB. Outro tipo ou tamanho responde `400` com `{ "error": "mensagem" }`.
 
 ## Mensagem agendada
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/messages \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5511999999999",
+    "receiver": "+5511999999999",
     "templateName": "lembrete_consulta",
     "templateVariables": ["amanhã às 14h"],
-    "scheduled_at": "2026-05-19T14:00:00-03:00"
+    "scheduled_at": "2026-09-19T14:00:00-03:00"
   }'
 ```
 
-Mensagem fica em `status: SCHEDULED` até o horário.
+Data no futuro deixa a mensagem em `SCHEDULED` até o horário. Data no passado envia na hora.
 
-## Mensagem interativa (janela aberta)
-
-Botões de resposta rápida ou listas selecionáveis dentro da janela 24h:
+## Mensagem interativa
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
-    "receiver": "whatsapp:+5511999999999",
+    "receiver": "+5511999999999",
     "interactive": {
       "type": "button",
       "body": "Qual a sua dúvida?",
       "buttons": [
         { "id": "rastreio", "title": "Rastrear pedido" },
-        { "id": "troca", "title": "Trocar produto" },
-        { "id": "humano", "title": "Falar com humano" }
+        { "id": "troca", "title": "Trocar produto" }
       ]
     }
   }'
 ```
 
-Quando cliente clica, vem como webhook `message.received` com `type: button` e o `id` clicado.
+Para lista, use `"type": "list"`, `buttonText` e `sections[].rows[]` (`id`, `title`, `description`). A resposta do cliente chega como [`message.received`](/webhooks/events).
 
-## Lote — até 1000 mensagens
+## Lote de até 1000 mensagens
 
-`POST /v1/messages/batch`
+`POST /v1/messages/batch` · permissão `MESSAGES_SEND`
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/messages/batch \
   -H "Authorization: Bearer ara_live_xxx" \
-  -H "Idempotency-Key: batch-pedidos-20260518" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: lote-pedidos-20260915" \
   -d '{
     "templateName": "pedido_confirmado",
     "messages": [
-      { "receiver": "whatsapp:+5511999999999", "templateVariables": ["João", "ARA-1"] },
-      { "receiver": "whatsapp:+5511888888888", "templateVariables": ["Maria", "ARA-2"] }
+      { "receiver": "+5511999999999", "templateVariables": ["João", "1"] },
+      { "receiver": "+5511888888888", "templateVariables": ["Maria", "2"] }
     ]
   }'
 ```
@@ -175,116 +199,163 @@ Resposta (`202 Accepted`):
 
 ```json
 {
-  "batchId": "ara_batch_xyz",
+  "batchId": "b7c1...",
   "templateName": "pedido_confirmado",
   "total": 2,
   "accepted": 2,
-  "totalCost": 0.24,
+  "totalCost": 0.1360,
   "messages": [
-    {
-      "id": "ara_msg_a",
-      "receiver": "whatsapp:+5511999999999",
-      "status": "PENDING",
-      "cost": 0.12
-    },
-    {
-      "id": "ara_msg_b",
-      "receiver": "whatsapp:+5511888888888",
-      "status": "PENDING",
-      "cost": 0.12
-    }
+    { "id": "ara_msg_a1B2c3D", "receiver": "whatsapp:+5511999999999", "status": "PENDING", "cost": 0.0680 },
+    { "id": "ara_msg_e4F5g6H", "receiver": "whatsapp:+5511888888888", "status": "PENDING", "cost": 0.0680 }
   ]
 }
 ```
 
-Diferença pra `POST /v1/messages` individual: você manda o `templateName` **uma vez** no envelope, cada mensagem só precisa do `receiver` e `templateVariables`.
+Cada item aceita `receiver`, `templateVariables` (alias `variables`), `smartLinkParam`, `smartLinkUrl` e `mediaUrl`. Algum telefone inválido recusa o lote inteiro com `422` (`ararahq-invalid-number`). Com `Idempotency-Key`, repetir a chamada devolve o lote original.
 
-Pra > 1000 destinatários, use [Campanhas](/api-reference/endpoint/v2/campaigns).
+Para acompanhar o lote depois:
 
-## Consultar status
+`GET /v1/messages?batchId={batchId}` · permissão `READ`
 
-`GET /v1/messages/{id}`
+Devolve um array de mensagens no mesmo formato do envio. Para mais de 1000 destinatários, use [Campanhas](/api-reference/endpoint/v2/campaigns).
+
+## Consultar mensagem
+
+`GET /v1/messages/{id}` · permissão `READ`
 
 ```bash
-curl https://api.ararahq.com/v1/messages/ara_msg_k9Bf2XqP \
+curl https://api.ararahq.com/v1/messages/ara_msg_k9Bf2Xq \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Resposta (`200 OK`):
+Resposta (`200 OK`) no mesmo formato do envio, com `status` e `reason` atualizados.
 
-```json
-{
-  "id": "ara_msg_k9Bf2XqP",
-  "status": "DELIVERED",
-  "mode": "LIVE",
-  "sender": "whatsapp:+5511888888888",
-  "receiver": "whatsapp:+5511999999999",
-  "cost": 0.12
-}
-```
+<Warning>
+  Esta rota só devolve mensagens enviadas pelo **mesmo usuário** dono da chave. Mensagem de outro membro da organização responde `403` sem corpo, e ID inexistente responde `404` sem corpo. Para consultar qualquer mensagem da organização, use `GET /dashboard/messages/{id}` (permissão `ADMIN`).
+</Warning>
 
-Em produção, **prefira webhook** (`message.status`) em vez de polling. Ver [Eventos](/webhooks/events).
-
-## Parâmetros do POST
-
-| Campo | Tipo | Obrigatório | Descrição |
-|---|---|---|---|
-| `receiver` | string | sim | E.164 com prefixo `whatsapp:` (`whatsapp:+5511999999999`) |
-| `templateName` | string | * | Nome do template aprovado pela Meta |
-| `templateVariables` | string[] | não | Array posicional. 1º elemento = mídia se template tem header |
-| `body` | string | * | Texto livre — apenas dentro da janela 24h |
-| `interactive` | object | * | Mensagem com botões/lista — apenas dentro da janela 24h |
-| `location` | object | * | Localização — apenas dentro da janela 24h |
-| `reaction` | object | * | Reação a mensagem prévia (emoji) |
-| `replyTo` | string | não | ID de mensagem original pra citar (reply) |
-| `scheduled_at` | string (ISO 8601) | não | Agendamento futuro |
-
-`*` — exatamente um entre `templateName`, `body`, `interactive`, `location`, `reaction`.
+Em produção, prefira o webhook a fazer polling.
 
 ## Status
 
-Respostas síncronas (`POST`/`GET /v1/messages`) retornam o status em **UPPERCASE**:
-
 | Status | Significado |
 |---|---|
-| `PENDING` | Criada, aguardando worker |
-| `SCHEDULED` | Agendada, aguardando horário |
-| `PROCESSING` | Worker pegou |
-| `SENT` | Provider confirmou envio |
-| `DELIVERED` | Chegou no destinatário (2 ticks cinza) |
-| `READ` | Cliente leu (2 ticks azuis) |
-| `FAILED` | Falhou definitivamente |
-| `CANCELED` | Cancelada antes do envio |
+| `PENDING` | Criada, na fila. |
+| `SCHEDULED` | Agendada. |
+| `PROCESSING` | Em processamento. |
+| `SENT` | Aceita pelo provedor. |
+| `DELIVERED` | Entregue no aparelho. |
+| `READ` | Lida. |
+| `FAILED` | Falhou. Veja `reason`. |
+| `CANCELED` | Cancelada antes do envio. |
 
 <Note>
-  Payloads de **webhook** (`message.status_updated`) usam os mesmos estados em **minúsculo** (`queued`, `sent`, `delivered`, `read`, `failed`, `scheduled`, `processing`, `canceled`).
+  O webhook `message.status_updated` usa os mesmos estados em minúsculas, com `PENDING` virando `queued`. O histórico em `/dashboard/messages` mostra o estado técnico `SENT_TO_PROVIDER`, que nesta rota aparece como `SENT`.
 </Note>
+
+---
+
+## Conversas
+
+Conversas agrupam as mensagens trocadas com um telefone e controlam a janela de 24h. Exigem plano com caixa de entrada e número dedicado, e todas as rotas abaixo pedem permissão `ADMIN`.
+
+### Listar conversas
+
+`GET /v1/conversations`
+
+| Param | Descrição |
+|---|---|
+| `status` | `OPEN`, `CLOSED` ou `ARCHIVED`. |
+| `window` | `OPEN` (respondíveis agora) ou `EXPIRED` (exigem template). |
+| `leadStatus` | Filtro de qualificação. |
+| `page`, `size` | Paginação (default `0` e `20`). |
+
+Resposta em `{ content, page, size, totalElements, totalPages }`. Cada item traz `id`, `customerPhone`, `customerName`, `status`, `isWindowOpen`, `windowExpiresAt`, `lastInteractionAt`, `lastMessagePreview` e `lastMessageDirection`, entre outros.
+
+### Mensagens de uma conversa
+
+`GET /v1/conversations/{conversationId}/messages`
+
+`page=0` traz as mensagens mais recentes; dentro da página a ordem é cronológica. Default `size=50`. Cada item traz `id`, `direction` (`INBOUND` ou `OUTBOUND`), `body`, `status`, `reason`, `messageType`, `mediaUrl`, `mediaContentType`, `mediaSummary` e `createdAt`.
+
+### Responder
+
+`POST /v1/conversations/reply`
+
+```bash
+curl -X POST https://api.ararahq.com/v1/conversations/reply \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "conversationId": "3f1c...", "body": "Seu pedido sai hoje." }'
+```
+
+```json
+{
+  "id": "ara_msg_p9Q8r7S",
+  "status": "SENT",
+  "reason": null,
+  "message": "Mensagem enviada com sucesso"
+}
+```
+
+Com a janela expirada, responde `400` com `{ "error": "Janela de 24h expirada. Envie um template para reabrir a conversa." }`. Falha no envio aparece em `status: FAILED` e `reason`.
+
+### Fechar, arquivar ou reabrir
+
+`PATCH /v1/conversations/{conversationId}/status` com `{ "status": "CLOSED" }` (`OPEN`, `CLOSED` ou `ARCHIVED`). Não apaga histórico.
+
+### Situação da janela de 24h
+
+`POST /v1/conversations/window-status`
+
+```bash
+curl -X POST https://api.ararahq.com/v1/conversations/window-status \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "phones": ["5511999999999"] }'
+```
+
+```json
+{
+  "results": [
+    {
+      "phone": "5511999999999",
+      "isWindowOpen": true,
+      "windowExpiresAt": "2026-09-16T10:12:00Z",
+      "hoursRemaining": 19.5,
+      "conversationId": "3f1c..."
+    }
+  ],
+  "truncated": false
+}
+```
+
+Até 200 telefones por chamada; o excedente é ignorado e `truncated` volta `true`. O telefone é comparado com o valor gravado na conversa (`customerPhone`, como aparece na listagem de conversas).
+
+---
 
 ## Erros
 
-Erros de negócio saem no envelope canônico (`{ "error": { "code", "message", "details" } }`). Validação de body (`@Valid`) e autenticação usam o envelope **simplificado** do Spring (sem `code`) — ramifique pelo status. Ver [Erros](/erros).
-
-| HTTP | Código / Envelope | Quando |
+| HTTP | `error.code` | Quando |
 |---|---|---|
-| `400` | simplificado (sem `code`) | `receiver` ausente ou E.164 inválido (`@Valid`). |
-| `400` | `INVALID_JSON` | JSON malformado. |
-| `401` | simplificado (sem `code`) | Chave inválida, revogada ou expirada. |
+| `400` | `VALIDATION_ERROR` | `receiver` ausente, nenhum ou mais de um conteúdo, variável com quebra de linha. |
+| `400` | `INVALID_JSON` | JSON malformado ou tipo errado. |
+| `400` | `INVALID_IDEMPOTENCY_KEY` | `Idempotency-Key` vazia, longa demais ou com caractere de controle. |
+| `401` | sem `code` | Chave inválida, revogada ou expirada. |
 | `402` | `INSUFFICIENT_FUNDS` | Saldo insuficiente. |
-| `403` | `ACCOUNT_NOT_ACTIVATED` / `NO_DEDICATED_NUMBER` / `PLAN_FEATURE_LOCKED` | Conta em onboarding, sem número dedicado, ou feature travada no plano. |
-| `409` | `CONFLICT` | Template não encontrado no envio, ou conflito de estado. |
-| `422` | `UNPROCESSABLE_ENTITY` | Regra de negócio: template não aprovado, variáveis incompatíveis, ou fora da janela 24h (`details.diagnostic: "63016"`). |
-| `422` | `NUMBER_BLOCKED` | Destinatário em opt-out. |
-| `429` | `ORGANIZATION_SUSPENDED` | Org suspensa por taxa de falha alta; ou rate limit global (respeite `Retry-After`). |
+| `403` | `ACCOUNT_NOT_ACTIVATED`, `ORGANIZATION_SUSPENDED`, `NUMBER_BLOCKED`, `FRAUD_SUSPECTED`, `PLAN_FEATURE_LOCKED` | Conta, organização ou destinatário bloqueado. `NUMBER_BLOCKED` é número que falhou repetidamente (inválido ou sem WhatsApp). |
+| `409` | `CONFLICT` | Template não encontrado na organização. |
+| `409` | `PROVIDER_NOT_RESOLVED` | Número remetente não está pronto para enviar. |
+| `422` | `RECIPIENT_OPTED_OUT` | Destinatário pediu para não receber. |
+| `422` | `INVALID_RECIPIENT` | Telefone fora do E.164. |
+| `422` | `CONVERSATION_WINDOW_CLOSED` | Conteúdo livre com a janela fechada. |
+| `422` | `TEMPLATE_PAUSED`, `TEMPLATE_NOT_SENDABLE`, `TEMPLATE_VARIABLES_MISMATCH` | Template pausado, não aprovado ou com número de variáveis diferente. |
+| `422` | `SENDER_NOT_ALLOWED` | `sender` não pertence à organização ou não pode ser usado. |
+| `429` | `SEND_RATE_LIMITED` | Teto de envio (inclui limite diário da chave). Respeite `Retry-After`. |
+| `429` | `MARKETING_FREQUENCY_EXCEEDED` | Contato já recebeu marketing demais na janela. |
+| `429` | `RATE_LIMIT_EXCEEDED` | Rate limit geral da API. |
 
-## Idempotência
-
-POST aceita header `Idempotency-Key`:
-
-```bash
--H "Idempotency-Key: order-confirm-abc123"
-```
-
-Mesma chave + mesmo body em 24h retorna a resposta original. Recomendado em **qualquer caller de produção**.
+Lista completa em [Erros](/erros).
 
 ## Próximos passos
 
@@ -292,7 +363,7 @@ Mesma chave + mesmo body em 24h retorna a resposta original. Recomendado em **qu
   <Card title="Templates" icon="file-lines" href="/api-reference/endpoint/v2/templates">
     Criar e gerenciar templates aprovados.
   </Card>
-  <Card title="Webhooks de status" icon="bell" href="/webhooks/events">
-    Receber `delivered`/`read`/`failed` em tempo real.
+  <Card title="Eventos de webhook" icon="bell" href="/webhooks/events">
+    Receber `delivered`, `read` e `failed` em tempo real.
   </Card>
 </CardGroup>

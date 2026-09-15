@@ -1,10 +1,12 @@
 ---
 title: 'SDKs e ferramentas'
-description: 'Bibliotecas oficiais Node, Python, PHP, Java para integrar a Arara — todas open source, com retry automático, tipagem nativa e exemplos validados contra o código real. CLI single-binary em Go. MCP pra agentes IA.'
-keywords: ['sdks', 'bibliotecas', 'node', 'python', 'php', 'java', 'go', 'cli', 'mcp']
+description: 'Bibliotecas oficiais da Arara para Node, Python, PHP, Java, Go e Ruby: onde instalar, qual versão está publicada, o que cada uma cobre e o que ainda não funciona contra a API atual.'
+keywords: ['sdks', 'bibliotecas', 'node', 'python', 'php', 'java', 'go', 'ruby', 'cli', 'mcp']
 ---
 
-A Arara mantém **4 SDKs oficiais** + CLI single-binary + MCP server. Todos open source, MIT, no [GitHub](https://github.com/ararahq). Snippets nesta página são gerados/validados contra o código real — copia e cola funciona.
+A Arara mantém 6 SDKs open source no [GitHub](https://github.com/ararahq), além do CLI e do MCP server. Todos falam com `https://api.ararahq.com` usando `Authorization: Bearer ara_live_...`.
+
+Esta página diz o que está **publicado** em cada registry. O código na branch `main` de alguns repositórios já tem mais recursos do que a versão publicada; quando for o caso, a página de cada SDK avisa.
 
 ## SDKs
 
@@ -13,99 +15,84 @@ A Arara mantém **4 SDKs oficiais** + CLI single-binary + MCP server. Todos open
     ```bash
     npm install @ararahq/sdk
     ```
-    Estável. Cobre messages, templates, users, organizations, api-keys.
+    npm, versão 1.8.1.
   </Card>
   <Card title="Python" icon="python" href="/sdks/python">
     ```bash
     pip install ararahq-sdk
     ```
-    Mais completo. Inclui campaigns, brain, payments além do core.
+    PyPI, versão 1.8.1. Import `arara_api_sdk`.
   </Card>
   <Card title="PHP / Laravel" icon="php" href="/sdks/php">
     ```bash
     composer require ararahq/sdk
     ```
-    Estável. Laravel-ready. Cobre core.
+    Packagist, versão 1.8.1. PHP 8.2+.
   </Card>
   <Card title="Java / Kotlin" icon="java" href="/sdks/java">
     ```kotlin
-    implementation("com.ararahq:arara-java-sdk:1.8.0")
+    implementation("com.ararahq:arara-java-sdk:1.8.1")
     ```
-    Estável. Spring Boot-ready. Cobre messages, templates, campaigns, users.
+    GitHub Packages (não está no Maven Central). Java 17+.
   </Card>
   <Card title="Go" icon="golang" href="/sdks/go">
-    Em breve. Por enquanto use [CLI](/cli) ou REST direto.
+    ```bash
+    go get github.com/ararahq/arara-go-sdk@main
+    ```
+    Sem tag de release ainda. Go 1.22+.
   </Card>
-  <Card title="Ruby / Elixir / Rust" icon="circle-question">
-    Sem SDK oficial. Use REST com lib HTTP padrão. Snippets em [API Reference](/api-reference/introduction).
-  </Card>
-</CardGroup>
-
-## Paridade entre SDKs
-
-Honestidade: nem todos os SDKs têm cobertura igual. Estado atual:
-
-| Recurso | Node | Python | PHP | Java |
-|---|---|---|---|---|
-| Messages | ✅ | ✅ | ✅ | ✅ |
-| Templates | ✅ | ✅ | ✅ | ✅ |
-| Users | ✅ | ✅ | ✅ | ✅ |
-| Organizations | ✅ | ✅ | ✅ | — |
-| API Keys | ✅ | — | — | — |
-| Campaigns | — | ✅ | — | ✅ |
-| Brain (IA) | — | ✅ | — | — |
-| Payments (Pix) | — | ✅ | — | — |
-
-Pra recurso fora do SDK, use REST direto via método de escape:
-
-```typescript
-// Node SDK não tem .campaigns ainda — use REST direto
-await sdk.api.post('/v1/campaigns', { name: '...', templateName: '...', contacts: [...] });
-```
-
-Paridade total no roadmap pra Q3 2026.
-
-## Ferramentas
-
-<CardGroup cols={2}>
-  <Card title="CLI" icon="terminal" href="/cli">
-    `arara send`, `arara listen`, `arara api`. Single binary Go. Brew, curl, npm. Hooks e `.arara/`.
-  </Card>
-  <Card title="MCP Server" icon="server" href="/mcp-server">
-    Você diz pra quem e o quê; o MCP resolve o resto. Claude, Cursor, Windsurf, ChatGPT.
-  </Card>
-  <Card title="Postman Collection" icon="rectangle-terminal" href="https://github.com/ararahq/arara-postman">
-    Collection oficial. Importa e testa todos endpoints sem código.
-  </Card>
-  <Card title="VS Code Theme" icon="palette" href="https://github.com/ararahq/arara-vscode-theme">
-    Theme dark e light com paleta teal da marca.
+  <Card title="Ruby" icon="gem" href="/sdks/ruby">
+    ```ruby
+    gem "ararahq", git: "https://github.com/ararahq/arara-ruby-sdk"
+    ```
+    Não publicado no RubyGems. Ruby 3.0+.
   </Card>
 </CardGroup>
 
-## Por que usar nossos SDKs
+Para qualquer outra linguagem, use REST com a biblioteca HTTP padrão. Referência em [API Reference](/api-reference/introduction).
 
-Os SDKs não são wrappers fininhos da API. Cada um inclui:
+## Cobertura por SDK
 
-- **Retry com backoff exponencial** pra 429 e 5xx
-- **Validação local** de número (E.164), template name, schema
-- **Tipos nativos** pra todos os request/response (TypeScript, Pydantic, Lombok)
-- **Tipos pra webhook** (`AraraWebhookEvent` discriminated union)
-- **Idempotency-Key** integrado
-- **Headers de auth** automáticos
-- **Honra `Retry-After`** em 429
+Recursos expostos pela versão que você instala hoje (Node, Python, PHP e Java na 1.8.1; Go e Ruby na `main`).
+
+| Recurso | Node | Python | PHP | Java | Go | Ruby |
+|---|---|---|---|---|---|---|
+| Enviar mensagem | Sim | Sim | Sim | Sim | Sim | Sim |
+| Templates | Sim | Parcial | Sim | Parcial | Parcial | Sim |
+| Campanhas | — | Com defeito | — | Parcial | Sim | Sim |
+| Contatos | — | — | — | — | Sim | Sim |
+| Conversas | — | — | — | — | Sim | Sim |
+| Carteira | — | — | — | — | Sim | Sim |
+| Números | — | Parcial | — | — | Sim | Sim |
+| Smart links | — | — | — | — | Sim | Sim |
+| Usuário (`/users/me`) | Sim | Sim | Com defeito | Sim | Sim | Sim |
+| Webhook da organização | Sim | Sim | Com defeito | — | Sim | Sim |
+| Header de idempotência no envio | Sim | — | — | — | Sim | Sim |
+
+"Parcial" e "Com defeito" estão detalhados na página de cada SDK, na seção **Limitações conhecidas**. Alguns métodos existem no SDK mas falham contra a API atual (por exemplo, criar API key e listar templates em SDKs tipados); a página de cada linguagem lista quais.
+
+Para um recurso fora do SDK, chame a API direto com o mesmo header de autenticação.
+
+## O que todos os SDKs fazem
+
+- Enviam `Authorization: Bearer <sua chave>` em toda requisição.
+- Usam `https://api.ararahq.com` como base padrão, configurável.
+- Retentam automaticamente falha de rede e respostas 5xx com backoff exponencial. Node, PHP, Java, Go e Ruby também retentam 429 respeitando `Retry-After`.
+- Convertem erro HTTP em exceção (ou `error`, no Go) com status e corpo da resposta.
+
+<Warning>
+  O retry automático também reenvia `POST /v1/messages` quando a API responde 5xx. Se o seu SDK aceita chave de idempotência no envio (Node, Go, Ruby), passe sempre uma. Nos outros, considere desligar o retry para envios.
+</Warning>
 
 ## Exemplo lado a lado
 
-Mesma operação (enviar template com header de mídia + 2 variáveis):
+Mesma operação: enviar template com header de mídia e 2 variáveis.
 
 <CodeGroup>
 ```typescript Node.js
 import { NodeSDK } from '@ararahq/sdk';
 
-const sdk = new NodeSDK({
-  apiKey: process.env.ARARA_API_KEY!,
-  baseUrl: 'https://api.ararahq.com',
-});
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
 
 await sdk.messages.send({
   receiver: 'whatsapp:+5511999999999',
@@ -113,7 +100,7 @@ await sdk.messages.send({
   templateVariables: [
     'https://meusite.com/fatura.pdf', // header (mídia)
     'João',                            // {{1}}
-    'Janeiro'                          // {{2}}
+    'Janeiro',                         // {{2}}
   ],
 });
 ```
@@ -170,9 +157,59 @@ arara.getMessages().send(
         .build()
 );
 ```
+
+```go Go
+client, err := arara.NewClient(os.Getenv("ARARA_API_KEY"))
+if err != nil {
+    log.Fatal(err)
+}
+
+_, err = client.Messages.Send(context.Background(), &arara.SendMessageRequest{
+    Receiver:     "whatsapp:+5511999999999",
+    TemplateName: "fatura_disponivel",
+    TemplateVariables: []string{
+        "https://meusite.com/fatura.pdf",
+        "João",
+        "Janeiro",
+    },
+})
+```
+
+```ruby Ruby
+require "arara"
+
+client = Arara::Client.new(api_key: ENV.fetch("ARARA_API_KEY"))
+
+client.messages.send(
+  receiver: "whatsapp:+5511999999999",
+  template_name: "fatura_disponivel",
+  template_variables: [
+    "https://meusite.com/fatura.pdf",
+    "João",
+    "Janeiro"
+  ]
+)
+```
 </CodeGroup>
 
-**Padrão de mídia**: URL da mídia (imagem/vídeo/PDF) vai como **primeiro elemento** do array `templateVariables`. Posições seguintes preenchem `{{1}}`, `{{2}}`... do corpo do template.
+**Padrão de mídia**: a URL da mídia (imagem, vídeo ou PDF) do header vai como **primeiro elemento** de `templateVariables`. As posições seguintes preenchem `{{1}}`, `{{2}}`... do corpo do template. O campo `media_url` ainda é aceito, mas está marcado como legado na API.
+
+## Ferramentas
+
+<CardGroup cols={2}>
+  <Card title="CLI" icon="terminal" href="/cli">
+    Envio, escuta de webhooks e chamadas à API pelo terminal.
+  </Card>
+  <Card title="MCP Server" icon="server" href="/mcp-server">
+    Conecte agentes de IA (Claude, Cursor, ChatGPT) à mesma conta.
+  </Card>
+  <Card title="Postman Collection" icon="rectangle-terminal" href="https://github.com/ararahq/arara-postman">
+    Importe e teste os endpoints sem escrever código.
+  </Card>
+  <Card title="VS Code Theme" icon="palette" href="https://github.com/ararahq/arara-vscode-theme">
+    Tema dark e light com a paleta da marca.
+  </Card>
+</CardGroup>
 
 ## Próximos passos
 
@@ -181,6 +218,6 @@ arara.getMessages().send(
     Primeiro envio em 5 minutos.
   </Card>
   <Card title="Receitas práticas" icon="book-open" href="/recipes">
-    Carrinho abandonado, OTP, BF, suporte 24/7.
+    Carrinho abandonado, OTP, Black Friday, suporte.
   </Card>
 </CardGroup>

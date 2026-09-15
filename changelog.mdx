@@ -10,6 +10,24 @@ Histórico de mudanças significativas. Adotamos [SemVer](https://semver.org/lan
   **Política de breaking changes**: anunciadas com **≥ 6 meses de antecedência** via email, banner no dashboard e tag `deprecated` no SDK. Endpoints removidos só após período de sunset.
 </Note>
 
+## Setembro 2026
+
+### Planos e preços
+- **Nova tabela para contas criadas a partir de 10/09/2026**: Essencial (R$ 597/mês, até 20.000 mensagens enviadas no mês), Voo (R$ 997/mês, até 50.000) e Primeira Classe (sob consulta, sem teto). Os planos se diferenciam por assentos, números e automações. Ver [Preços](/concepts/pricing) e [Planos e limites](/business-rules/planos-e-limites).
+- **Mensagem a preço de custo** nos planos novos: tarifa Meta do país de destino mais US$ 0,001 do provedor, convertidos pelo câmbio da Arara, sem taxa por mensagem.
+- **Câmbio de fonte única**, com referência de R$ 5,85 por dólar.
+- **Campanhas em todos os planos.**
+- Contas anteriores a 10/09/2026 mantêm o preço e as condições contratadas.
+
+### API
+- **Códigos próprios para recusa de envio**: `RECIPIENT_OPTED_OUT`, `INVALID_RECIPIENT`, `CONVERSATION_WINDOW_CLOSED`, `TEMPLATE_NOT_SENDABLE`, `TEMPLATE_PAUSED`, `TEMPLATE_VARIABLES_MISMATCH` e `SENDER_NOT_ALLOWED` (422), `FRAUD_SUSPECTED` (403), `SEND_RATE_LIMITED` e `MARKETING_FREQUENCY_EXCEEDED` (429, com `Retry-After`). Antes a maioria saía como `422 UNPROCESSABLE_ENTITY` genérico.
+- **Biblioteca de templates da Meta**: `GET /v1/templates/library` e `POST /v1/templates/library` criam templates UTILITY já aprovados.
+
+### MCP
+- **`@ararahq/mcp` v6.** 9 ferramentas no conjunto padrão: `whoami`, `send_whatsapp`, `broadcast`, `campaign_report`, `check_status`, `create_template`, `save_contacts`, `opt_out` e `read_conversation`. Painéis interativos (MCP Apps) em `broadcast`, `campaign_report`, `check_status` e `read_conversation`. Servidor hospedado em `https://mcp.ararahq.com/mcp` (Streamable HTTP, OAuth); o endpoint SSE antigo não existe mais. Ver [MCP Server](/mcp-server).
+
+---
+
 ## Julho 2026
 
 ### MCP

@@ -1,69 +1,72 @@
 ---
 title: 'Migrar da Take Blip'
-description: 'Sair da Take Blip pra Arara — mantém número e templates, reduz custo ~30-40%, ganha CLI/MCP/Brain, suporte BR mais direto e sem dependência de Blip Builder pra mudanças simples.'
+description: 'Sair da Take Blip para a Arara: quando faz sentido, o que acontece com número e templates, diff de código de envio e webhook, e o que fazer com fluxos do Blip Builder.'
 keywords: ['take blip', 'blip', 'migração', 'whatsapp', 'cpaas']
 ---
 
-Take Blip é um dos maiores BSPs do Brasil — bom em enterprise, vendido a operações grandes. A Arara compete por **devs e operações mid-market** que querem mais agilidade, menos lock-in no Blip Builder, e BRL transparente.
-
-Esta página mostra quando faz sentido migrar e como fazer.
+Take Blip e Arara usam a mesma WhatsApp Business Platform da Meta. A migração é de provedor: o número, a conta WhatsApp Business (WABA) e os templates seguem as regras da Meta, e o seu código troca a API da Blip pela da Arara.
 
 <Note>
-  **Migração entre BSPs (Blip → Arara)** é tecnicamente simples — Meta tem processo padronizado de troca de BSP que mantém número, templates aprovados, histórico no WABA. Não tem o drama do Baileys/Z-API.
+  **Troca de provedor**: a transferência de número e WABA entre provedores é um processo da Meta, com prazos e requisitos definidos por ela. Fale com o suporte da Arara antes de iniciar para alinhar a janela de troca.
 </Note>
 
 ## Quando faz sentido migrar
 
-- Você usa **só uma fração do Blip Builder** (talvez nem usa — pega só a API)
-- **Custo subiu** com o crescimento; conta no plano enterprise quando volume não justifica
-- Quer **CLI/MCP** pra ops via terminal e agentes AI
-- Operação **dev-first**: time prefere documentação técnica em PT-BR e SDK que reflete a API real
-- **Brain nativo**: AI hospedada com Actions integradas (sem Blip Desk extra)
+- Você usa a Blip principalmente pela API, e pouco do Builder.
+- Quer operar pelo terminal ([CLI](/cli)) ou por agentes de IA ([MCP server](/mcp-server)).
+- Quer SDKs e documentação que refletem a API real.
+- Quer um assistente de IA com actions integradas ([Brain](/brain)) na mesma plataforma.
 
-## Quando NÃO migrar
+## Quando não migrar
 
-- Você usa **Blip Builder pra modelar fluxos visuais complexos** e tem dezenas de fluxos em produção. Migrar fluxos visuais é trabalho real
-- Você precisa de **múltiplos canais** (não só WhatsApp — também SMS, Messenger, Apple Business Chat). A Arara é WhatsApp-focused
-- Você tem **SLA enterprise específico** com Blip que ainda valeu a pena. A Arara tem SLA mas é mid-market
+- Você tem **muitos fluxos visuais no Blip Builder** em produção. Recriar fluxos é trabalho real.
+- Você precisa de **vários canais** além de WhatsApp. A Arara é focada em WhatsApp.
+- Você depende de um **contrato ou SLA específico** da Blip.
 
 ## Comparativo
 
 | | Take Blip | Arara |
 |---|---|---|
-| Foco | Multi-canal omnichannel (WhatsApp + SMS + Messenger + ABC + RCS) | **WhatsApp first-class**, profundo |
-| Builder visual | Sim (Blip Builder) | Não (use Brain pra AI ou código direto) |
-| API REST | Sim | Sim (mais consistente) |
-| SDKs oficiais | Limitado | Node, Python, PHP, Java |
-| CLI | Não | Sim (single binary Go) |
-| MCP / agentes AI | Não | Sim |
-| Brain (AI hospedada) | Via Blip Desk add-on | Nativo, Actions integradas |
-| Preço por mensagem | Conforme contrato (USD) | BRL transparente, ~30-40% menor |
-| Faturamento | USD | BRL |
-| Suporte | PT-BR (Belo Horizonte) | PT-BR (build in public) |
+| Foco | Multicanal | WhatsApp |
+| Builder visual de fluxos | Sim (Blip Builder) | Não. Automações por gatilho no dashboard, Brain para IA, ou código |
+| API REST | Sim | Sim |
+| SDKs | Consulte a Blip | Node, Python e PHP (1.8.1 nos registries), Java (GitHub Packages), Go (sem release, via `@main`) e Ruby (via git, fora do RubyGems). Veja [SDKs](/sdks) |
+| CLI | Consulte a Blip | Sim, binário `arara` |
+| MCP para agentes de IA | Consulte a Blip | Sim, `@ararahq/mcp` |
+| Preço | Conforme contrato | Plano + uso, em BRL. Veja [Preços](/concepts/pricing) |
 
 ## O processo de migração
 
-### Fase 1 — preparação (1 semana)
+### Fase 1: preparação
 
-1. Exporta todos os **templates aprovados** do Blip (via Blip Console ou API)
-2. Lista todos os **números em uso**
-3. Lista **integrações ativas** com Blip APIs (especialmente se usa Blip Builder com bots) 
-4. Cria conta Arara
+1. Liste os **templates aprovados** que você usa na Blip (nome, categoria, idioma, texto).
+2. Liste os **números em uso**.
+3. Liste as **integrações** com a API da Blip e os fluxos do Builder.
+4. Crie a organização em https://app.ararahq.com e gere uma API key.
 
-### Fase 2 — troca de BSP no Meta (3-5 dias)
+### Fase 2: número
 
-5. Na sua conta **Meta Business Manager**, abre **WhatsApp Accounts → [seu WABA] → Configurações → BSP**
-6. Solicita troca de BSP de Take Blip para Arara
-7. Confirma na Arara (a gente confirma via Meta)
-8. Meta processa em 24-72h
+5. Conecte o número na Arara pelo dashboard, em Números. Se o número está hoje em uma WABA gerida pela Blip, a liberação segue o processo de troca de provedor da Meta.
+6. Durante a troca, mantenha a Blip ativa até o número estar conectado na Arara.
 
-Durante esse período, **ambos BSPs ficam acessíveis** — bom pra testes paralelos. Sem downtime.
+### Fase 3: templates
 
-### Fase 3 — templates (já vêm)
+7. Confira no dashboard ou em `GET /v1/templates` quais templates estão disponíveis na organização. Os que faltarem, recrie:
 
-9. Templates aprovados ficam com vc no WABA. Não precisa re-submeter — basta a Arara importar referência.
+```bash
+curl -X POST https://api.ararahq.com/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "pedido_confirmado",
+    "category": "UTILITY",
+    "language": "pt_BR",
+    "body": "Oi {{1}}, seu pedido {{2}} foi confirmado.",
+    "samples": { "1": "João", "2": "ARA-123" }
+  }'
+```
 
-### Fase 4 — diff de código
+### Fase 4: diff de código
 
 <CodeGroup>
 ```typescript Blip (antes)
@@ -103,114 +106,92 @@ await axios.post(
 
 ```typescript Arara (depois)
 import { NodeSDK } from '@ararahq/sdk';
-const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY, baseUrl: '...' });
 
-await sdk.messages.send({
-  receiver: 'whatsapp:+5511999999999',
-  templateName: 'pedido_confirmado',
-  templateVariables: ['João', 'ARA-123'],
-});
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
+
+await sdk.messages.send(
+  {
+    receiver: 'whatsapp:+5511999999999',
+    templateName: 'pedido_confirmado',
+    templateVariables: ['João', 'ARA-123'],
+  },
+  { idempotencyKey: 'pedido-ARA-123-confirmado' },
+);
 ```
 </CodeGroup>
 
 Diferenças:
-- **Sem JID Blip (`@wa.gw.msging.net`)**: Arara usa formato E.164 padrão WhatsApp.
-- **Sem namespace de template**: Arara usa o nome direto (já é único por WABA).
-- **Sem components/parameters complexos**: array posicional simples.
+- **Sem identificador de gateway** (`@wa.gw.msging.net`): o destinatário vai como `whatsapp:+<DDI><número>`.
+- **Sem namespace**: o template é identificado pelo nome.
+- **Sem `components`**: variáveis em array posicional. Se o template tem header de mídia, a URL vai na primeira posição.
 
-### Fase 5 — webhooks
+### Fase 5: webhooks
 
 <CodeGroup>
 ```typescript Blip (antes)
 app.post('/blip/webhook', (req, res) => {
   const { type, content, from } = req.body;
-  if (type === 'application/json' && content.type === 'text') {
+  if (type === 'text/plain') {
     const phone = from.replace('@wa.gw.msging.net', '');
-    const text = content.text;
-    // processa
+    const text = content;
   }
   res.send('OK');
 });
 ```
 
 ```typescript Arara (depois)
-app.post('/arara/webhook', validateHmac, (req, res) => {
-  const { event, data } = req.body;
+// Valide X-Arara-Signature com o corpo cru antes de parsear (veja /webhooks).
+app.post('/arara/webhook', express.text({ type: 'application/json' }), (req, res) => {
+  if (!isValidAraraSignature(req)) return res.status(401).end();
+
+  const { event, data } = JSON.parse(req.body);
   if (event === 'message.received') {
-    const phone = data.from; // já em E.164 sem prefix
+    const phone = data.from; // só dígitos, ex.: 5511999999999
     const text = data.body;
-    // processa
   }
   res.status(204).end();
 });
 ```
 </CodeGroup>
 
-Webhook da Arara tem:
-- **HMAC obrigatório**
-- **Envelope `{ event, data }` unificado**
-- **Phone em E.164 sem JID**
+O webhook da Arara:
+- É um só por organização, para todos os eventos (`message.received`, `message.status_updated`, `template.updated`, `campaign.completed` e outros).
+- Vem assinado: `X-Arara-Signature` = `sha256=` + HMAC-SHA256 de `{X-Arara-Timestamp}.{corpo cru}` com o secret da organização.
+- Usa o envelope `{ event, apiVersion, data, timestamp, organizationId }`.
 
-### Fase 6 — Blip Builder flows
+URL e secret são configurados no dashboard. Detalhes em [Webhooks](/webhooks).
 
-Se você modelou bots no Blip Builder visualmente, a migração tem duas opções:
+### Fase 6: fluxos do Blip Builder
 
-**Opção A — replicar lógica no seu backend** (recomendado pra fluxos simples)
-- Trigger no inbound (webhook Arara)
-- Decisão por palavra-chave/regex
-- Resposta via SDK
-- Mais código, mais controle
+**Opção A: lógica no seu backend** (fluxos simples)
+- Gatilho no `message.received`.
+- Decisão por palavra-chave ou regra.
+- Resposta com `POST /v1/messages` dentro da janela de 24h.
 
-**Opção B — usar Brain da Arara** (recomendado pra fluxos complexos com IA)
-- Você sobe knowledge base
-- Configura prompt
-- Brain decide na conversa
-- Substitui maioria dos fluxos Blip Builder com qualidade superior
+**Opção B: Brain** (atendimento com IA)
+- Base de conhecimento (texto, URL ou PDF).
+- Actions como cobrança Pix, link de pagamento, agendamento e encaminhamento para humano.
+- Handoff para o time com o evento `conversation.needs_human`.
 
-## Plano de migração completo
+**Opção C: automações** (sequências por gatilho)
+- Gatilhos como carrinho abandonado, pagamento recusado, etiqueta aplicada ou primeira mensagem.
+- Passos de mensagem (template), espera, condição e etiqueta, montados no dashboard.
 
-Tempo total esperado: **2-3 semanas** pra operação média.
+## Cutover
 
-```
-Semana 1
-├── Day 1: Inventário (templates, números, integrações, fluxos Builder)
-├── Day 2-3: Mapeia equivalente em Brain (se aplicável)
-├── Day 4: Solicita troca de BSP no Meta
-└── Day 5-7: Espera Meta processar (paralelo: começa refactor de código)
-
-Semana 2
-├── Day 8-10: Adapta SDK e webhooks no código
-├── Day 11: Configura Brain (se aplicável)
-└── Day 12-14: Testes em paralelo (Blip ainda no ar)
-
-Semana 3
-├── Day 15: Cutover (DNS / load balancer / config)
-├── Day 16-21: Monitoramento ativo, ajustes
-└── Day 22+: Cancela contrato Blip (após período de garantia)
-```
-
-## Custos do cutover
-
-- **1 dev mid-level × 2-3 semanas** = R$ 8-15K (dependendo se Builder flows são pesados)
-- **Risco operacional baixo** (BSP swap é processo Meta padronizado, sem downtime)
-
-## ROI esperado
-
-Operação média sai economizando **R$ 2-8K/mês** dependendo do volume. Payback típico: 1-3 meses.
-
-Adicione benefícios não-monetários:
-- CLI pra ops day-2
-- MCP pra agentes AI sem desenvolvimento custom
-- Documentação atualizada e em PT-BR
-- Build in public — releases visíveis no GitHub
+1. Número conectado e templates aprovados na Arara.
+2. Webhook configurado e validado.
+3. Deploy do código adaptado, com a Blip ainda disponível para rollback.
+4. Acompanhamento no dashboard nos primeiros dias.
+5. Encerramento na Blip depois de validado.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Conceitos WhatsApp" icon="lightbulb" href="/concepts/whatsapp">
-    Diferenças de modelo mental entre Blip e Arara.
+    Templates, janela de 24h e qualidade do número.
   </Card>
   <Card title="Brain (IA)" icon="brain" href="/brain">
-    Substitui Blip Desk + Builder com mais flexibilidade.
+    Atendimento com IA e actions.
   </Card>
 </CardGroup>

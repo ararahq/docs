@@ -1,152 +1,134 @@
 ---
-title: 'Pricing'
-description: 'Quanto custa a Arara em BRL: custo Meta + acréscimo fixo por mensagem (R$ 0,25 no Free, R$ 0,10 no Voo). Tabela por categoria, calculadora de custo por volume, comparativo com SMS e gateway pirata. Sem letra miúda.'
-keywords: ['preço', 'custo', 'fatura', 'brl', 'meta pricing', 'whatsapp custo', 'voo', 'free']
+title: 'Preços'
+description: 'Quanto custa a Arara: mensalidade do plano (Essencial R$ 597, Voo R$ 997, Primeira Classe sob consulta) e mensagem a preço de custo, repassando Meta e provedor sem taxa da Arara.'
+keywords: ['preço', 'custo', 'fatura', 'brl', 'meta pricing', 'whatsapp custo', 'essencial', 'voo', 'primeira classe']
 ---
 
-A regra geral: **3 atores cobram**. Esta página mostra cada um com número real em BRL.
+A conta tem duas partes:
 
 ```
-Meta (Cloud API) cobra por mensagem entregue
-       ↓
-Arara repassa o custo Meta + acréscimo fixo por mensagem
-       (R$ 0,25 no Free · R$ 0,10 no Voo)
-       ↓
-Você fatura pro cliente final (opcional)
+Mensalidade do plano (Essencial, Voo ou Primeira Classe)
+       +
+Mensagens a preço de custo: tarifa da Meta + tarifa do provedor,
+convertidas para reais, sem taxa da Arara
 ```
+
+A mensalidade paga a plataforma (caixa de entrada, campanhas, automações, IA, assentos, números). A mensagem sai da carteira pré-paga pelo custo real.
 
 <Note>
-  Os preços abaixo são **fixos em BRL** pra números brasileiros — o custo Meta já vem convertido e embutido, sua fatura não flutua com câmbio. Números internacionais têm custo Meta diferente por país; use a [estimativa via API](#estimativa-via-api).
+  Esta página vale para contas criadas a partir de 10/09/2026. Quem assinou antes continua com o preço e as condições que contratou. O valor de cada conta aparece no [Dashboard](https://app.ararahq.com), em Cobrança.
 </Note>
-
-## Custo por mensagem (categoria)
-
-Meta cobra **por mensagem entregue**. Falhas (template rejeitado, número inválido, fora da janela) não custam.
-
-| Categoria | Free | Voo |
-|---|---|---|
-| **MARKETING** — promo, cupom, broadcast | R$ 0,65 | **R$ 0,45** |
-| **UTILITY** — pedido, boleto, agendamento | R$ 0,30 | **R$ 0,15** |
-| **AUTHENTICATION** — OTP, 2FA, verificação | R$ 0,30 | **R$ 0,15** |
-| **Sessão (janela 24h)** — você respondendo | R$ 0,25 | **R$ 0,10** |
-
-Na **janela de 24h** (cliente te chamou, você responde texto livre) a Meta não cobra — você paga só o acréscimo Arara. Fora da janela, só template aprovado, com o custo Meta da categoria embutido.
 
 ## Planos
 
-Dois planos. Sem tier intermediário, sem "fale com vendas".
+| | Essencial | Voo | Primeira Classe |
+|---|---|---|---|
+| **Mensalidade** | R$ 597/mês | R$ 997/mês | Sob consulta |
+| **Anual (pago de uma vez)** | R$ 5.730/ano | R$ 9.570/ano | Negociado |
+| **Mensagens enviadas por mês** | até 20.000 | até 50.000 | sem teto |
+| **Assentos** | 3 | 10 | 10 |
+| **Números WhatsApp** | 1 incluso | 1 incluso, até 2 | 3 inclusos, sem teto |
+| **Contas WhatsApp Business (WABA)** | 1 | 1 | sem teto |
+| **Automações ativas** | 3 | 10 | 10 |
+| **Caixa de entrada, campanhas, contatos** | Sim | Sim | Sim |
+| **Recuperação de receita e IA que responde** | Sim | Sim | Sim |
+| **Lembretes de agendamento** | Não | Sim | Sim |
+| **Suporte** | E-mail, primeira resposta em até 48h úteis | Chat e e-mail, até 24h úteis | Chat, e-mail e WhatsApp, até 4h úteis |
+| **Mensagem** | Preço de custo | Preço de custo | Preço de custo |
 
-| | Free | Voo |
+O teto mensal é de segurança, não de cobrança: todos os planos pagam a mensagem pelo mesmo preço de custo. Quem precisa enviar mais sobe de plano. Números além dos inclusos são cobrados à parte.
+
+Ao ativar um plano pago, a carteira recebe uma única vez um bônus de 30% do valor da mensalidade em créditos.
+
+Detalhe de cada limite e do que acontece quando ele é atingido em [Planos e limites](/business-rules/planos-e-limites).
+
+## Preço por mensagem
+
+```
+preço = (tarifa Meta do país de destino + US$ 0,001 do provedor) × câmbio
+```
+
+- **Tarifa Meta**: depende do país do destinatário e da categoria do template.
+- **Provedor**: US$ 0,001 por mensagem, repassado sem margem.
+- **Câmbio**: definido pela Arara e já inclui IOF e impostos do repasse. Em setembro de 2026, R$ 5,85 por dólar.
+- **Taxa da Arara**: zero. A margem está na mensalidade.
+
+Referência para números brasileiros, com câmbio de R$ 5,85:
+
+| Tipo de mensagem | Tarifa Meta (US$) | Preço aproximado |
 |---|---|---|
-| **Assinatura** | R$ 0 | R$ 349/mês |
-| **Pra quem** | Dev integrando por API | Operação completa |
-| **Número WhatsApp** | 1 próprio (BYON) | Incluído, provisionado pela Arara |
-| **API + SDKs + webhooks** | Sim | Sim |
-| **Mensagens e templates** | Sem cap | Sem cap |
-| **Campanhas, inbox, contatos, lembretes, Brain** | — | Sim |
-| **Mensagem** | Meta + R$ 0,25 | Meta + R$ 0,10 |
+| Template **MARKETING** (promoção, reativação, campanha) | 0,0625 | R$ 0,37 |
+| Template **UTILITY** (pedido, cobrança, agendamento) | 0,0068 | R$ 0,046 |
+| Template **AUTHENTICATION** (código de verificação) | 0,0068 | R$ 0,046 |
+| **Texto livre na janela de 24h** (resposta de atendimento) | 0 | R$ 0,006 |
+| **Mensagem recebida** do cliente | 0 | R$ 0,006 |
 
-Saldo de mensagens é **wallet pré-paga** (Pix ou cartão) e não expira. Quem assinou os planos antigos (Essential, Pro, Business) segue nas condições contratadas — essa tabela vale pra contas novas.
+<Warning>
+  Tarifa Meta e câmbio mudam. A tabela acima é referência. O preço vigente para a sua conta, por categoria e por mercado, sai de `GET /v1/pricing/current`.
+</Warning>
 
-## Calculadora
+Mensagem recebida não paga taxa da Arara: a carteira só é debitada no custo do provedor. Se faltar saldo, a mensagem recebida entra normalmente na caixa de entrada.
 
-Cenário 1 — **E-commerce médio** (Voo):
-- 8.000 mensagens UTILITY/mês (confirmações, rastreio)
-- 4.000 mensagens MARKETING/mês (carrinho abandonado, campanhas)
+Quando um envio falha, o valor debitado volta para a carteira automaticamente.
 
-```
-Plano Voo:                                  R$   349
-8.000 × R$ 0,15 (UTILITY):                  R$ 1.200
-4.000 × R$ 0,45 (MARKETING):                R$ 1.800
-                                           ─────────
-Fatura mensal:                              R$ 3.349
-```
+## Exemplos
 
-Cenário 2 — **SaaS B2B** (Voo):
-- 1.500 mensagens AUTHENTICATION/mês (OTP login)
-- 500 mensagens UTILITY/mês (alertas)
+**Reativação da base** (Voo), 30.000 templates MARKETING no mês e 6.000 respostas de atendimento dentro da janela:
 
 ```
-Plano Voo:                                  R$   349
-1.500 × R$ 0,15 (AUTH):                     R$   225
-500 × R$ 0,15 (UTILITY):                    R$    75
-                                           ─────────
-Fatura mensal:                              R$   649
+Plano Voo:                                   R$    997,00
+30.000 × R$ 0,37  (MARKETING):               R$ 11.100,00
+6.000  × R$ 0,006 (texto livre na janela):   R$     36,00
+                                            ─────────────
+Total aproximado:                            R$ 12.133,00
 ```
 
-Cenário 3 — **Dev prototipando** (Free):
-- 300 mensagens UTILITY/mês em teste de integração
+**Notificações transacionais** (Essencial), 15.000 templates UTILITY no mês:
 
 ```
-Assinatura:                                 R$     0
-300 × R$ 0,30 (UTILITY):                    R$    90
-                                           ─────────
-Fatura mensal:                              R$    90
+Plano Essencial:                             R$    597,00
+15.000 × R$ 0,046 (UTILITY):                 R$    690,00
+                                            ─────────────
+Total aproximado:                            R$  1.287,00
 ```
 
-O delta de mensagem entre Free e Voo (R$ 0,15 na UTILITY/AUTH, R$ 0,20 no MARKETING) paga o plano sozinho a partir de ~2.000 mensagens/mês. Acima disso, Voo é mais barato **e** inclui a operação inteira.
+Valores de mensagem aproximados, com câmbio de R$ 5,85, destinatários no Brasil e sem contar mensagens recebidas.
 
-## Estimativa via API
+## Carteira
+
+As mensagens são pagas com créditos pré-pagos, carregados por Pix ou cartão no Dashboard. Sem saldo, novos envios são recusados com `402 INSUFFICIENT_FUNDS`.
+
+Para não parar a operação, ative a auto-recarga: quando o saldo cai abaixo do limite configurado, a carteira é recarregada no cartão.
 
 ```bash
-curl "https://api.ararahq.com/v1/wallet/calculate?amountCents=10000" \
-  -H "Authorization: Bearer ara_live_xxx"
-```
-
-Retorna quantas mensagens cada R$ 100 compra por categoria + janela 24h, já no preço do seu plano.
-
-## Comparativo
-
-### vs SMS BR
-
-| | SMS | WhatsApp via Arara |
-|---|---|---|
-| Custo por envio | R$ 0,12 - 0,15 (entregue ou não) | R$ 0,15 - 0,65 (só entregue) |
-| Taxa de abertura | ~50% | ~98% |
-| CTR | ~1% | ~8-10% |
-| Resposta possível | Não | Sim (janela 24h) |
-| **CAC efetivo** | Alto (poucos convertem) | Baixo (alto CTR) |
-
-WhatsApp custa 1-4x mais por envio, converte 8-10x mais. CAC efetivo menor.
-
-### vs Z-API / gateway pirata
-
-| | Gateway pirata ("grátis") | Arara |
-|---|---|---|
-| Custo aparente | R$ 100-300/mês fixo | Free + uso, ou R$ 349 tudo incluso |
-| Custo real (incluindo banimento) | **R$ X.000 quando o número quebra** + 30 dias parado | Previsível |
-| Risco de banimento | Alto | Quase zero |
-| Templates aprovados | Não tem | Sim |
-| Volume máximo | 200-500 msg/dia | Sem limite real (com warming) |
-
-[Comparativo completo](/migrate/z-api).
-
-## Onde ver fatura
-
-Dashboard → **Cobrança → Faturas**. Cada fatura tem:
-
-- Resumo: plano + créditos consumidos + saldo
-- Detalhamento por categoria
-- Cohort por template (quanto cada template custou)
-
-## Wallet e auto-recharge
-
-Saldo é em **créditos pré-pagos** (R$ depositados via Pix ou cartão). Quando saldo cai abaixo do threshold, auto-recharge dispara cartão e completa.
-
-```bash
+# Consultar a configuração
 curl https://api.ararahq.com/v1/wallet/auto-recharge \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Configuração: dashboard → **Cobrança → Auto-recarga** ou via PATCH no endpoint acima.
+A mesma configuração é alterada com `PATCH` no endpoint acima ou pelo Dashboard.
+
+## Estimativas via API
+
+```bash
+# Preço vigente por categoria e rate card da Meta por mercado
+curl "https://api.ararahq.com/v1/pricing/current?market=BR" \
+  -H "Authorization: Bearer ara_live_xxx"
+
+# Quantas mensagens de cada categoria um valor compra (em centavos)
+curl "https://api.ararahq.com/v1/wallet/calculate?amountCents=10000" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Os dois endpoints usam o plano e a tabela de preço da sua conta. Para estimar uma campanha antes de disparar, use `GET /v1/campaigns/estimate`.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Marketing no WhatsApp" icon="bullhorn" href="/marketing">
-    Como otimizar custo de marketing.
-  </Card>
   <Card title="Planos e limites" icon="scale-balanced" href="/business-rules/planos-e-limites">
-    O que cada plano libera, em detalhe.
+    Tetos, assentos, números e o que acontece ao atingir cada um.
+  </Card>
+  <Card title="Janela de 24h" icon="clock" href="/concepts/24h-window">
+    Quando dá para mandar texto livre e quando precisa de template.
   </Card>
 </CardGroup>

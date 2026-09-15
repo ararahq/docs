@@ -1,188 +1,159 @@
 ---
 title: 'Qualidade do número'
-description: 'Quality score, tiers (TIER_250 → TIER_100K+), warming progressivo, diagnóstico quando cai, e como manter o número verde. Tudo o que afeta sua taxa de entrega e quanto você pode mandar por dia.'
-keywords: ['quality score', 'tier', 'warming', 'banimento', 'green', 'red', 'meta']
+description: 'Quality rating e limite de envio do WhatsApp: o que cada valor significa na API da Arara, o que derruba a qualidade, como acompanhar por API e webhook, e como usar a recomendação de warming.'
+keywords: ['quality rating', 'tier', 'limite de envio', 'warming', 'banimento', 'meta']
 ---
 
-Cada número conectado à WhatsApp Business API tem um **quality score** atualizado pela Meta a cada 24h. Esse score determina:
+Cada número conectado ao WhatsApp Business Platform tem dois indicadores mantidos pela Meta:
 
-- Quantas mensagens você pode mandar por dia (250 → 1K → 10K → 100K+)
-- Quão proeminente o número aparece no app do cliente
-- Se Meta vai pausar ou banir
+- **Quality rating**: a saúde do número, com base em como os destinatários reagem às suas mensagens.
+- **Limite de envio**: quantos destinatários únicos o número alcança com conversas iniciadas pela empresa em 24h.
 
-É **o ativo mais frágil** da sua operação. Esta página explica como funciona e como manter.
+Qualidade baixa pode levar a Meta a restringir o número. Esta página explica como a Arara expõe esses dados e o que fazer com eles.
 
-## Os 4 quality states
+## Quality rating
 
-| Cor | Significado | Limite de envios/24h |
+| Valor na API (`qualityScore`) | Na Meta | O que fazer |
 |---|---|---|
-| 🟢 **GREEN** | Cliente quer receber. Bloqueio < 0,5%. | Limite do tier atual |
-| 🟡 **YELLOW** | Bloqueio moderado (0,5-1,5%). Vigilância ativa. | Limite do tier atual |
-| 🔴 **RED** | Bloqueio alto (>1,5%). Risco de pausa. | Reduzido |
-| ⚫ **FLAGGED** | Banido temporariamente. | 0 |
+| `HIGH` | Verde | Manter o padrão de envio |
+| `MEDIUM` | Amarelo | Revisar conteúdo e frequência antes de aumentar volume |
+| `LOW` | Vermelho | Reduzir volume, pausar marketing, revisar a base |
+| `FLAGGED` | Sinalizado | Parar marketing e revisar o conteúdo recente |
+| `UNKNOWN` | — | A Arara ainda não recebeu o valor. Não trate como "tudo certo" |
 
-Quality é o **estado de saúde** do número. Tier é o **limite operacional**.
+Quality é o **estado de saúde** do número. Limite de envio é o **teto operacional**.
 
-## Os 5 tiers
+## Limite de envio
 
-| Tier | Limite/24h | Como sobe |
-|---|---|---|
-| **TIER_250** | 250 conversações iniciadas | Novo número começa aqui |
-| **TIER_1K** | 1.000 | 7 dias com quality verde + volume crescente |
-| **TIER_10K** | 10.000 | Mais 7 dias verde + volume crescente |
-| **TIER_100K** | 100.000 | Mais 7 dias verde + volume crescente |
-| **TIER_UNLIMITED** | Ilimitado | Geralmente reservado pra contas enterprise grandes |
+| Valor na API (`messagingTier`) | Destinatários únicos / 24h |
+|---|---|
+| `TIER_50` | 50 |
+| `TIER_250` | 250 |
+| `TIER_1K` | 1.000 |
+| `TIER_2K` | 2.000 |
+| `TIER_10K` | 10.000 |
+| `TIER_100K` | 100.000 |
+| `UNLIMITED` | Sem limite |
+| `UNKNOWN` | Ainda não sincronizado |
 
-Subir 1 tier exige **dobrar o volume diário** mantendo quality verde por 7 dias seguidos. Pular tier não é possível — só sequencial.
+Quem sobe ou desce o limite é a Meta, com critérios próprios que mudam com o tempo. A Arara reflete o valor que a Meta informa; consulte a documentação oficial da Meta para a regra vigente.
 
-## O que afeta o score
+## O que derruba a qualidade
 
-A Meta atualiza baseado em sinais agregados:
+A Meta não publica pesos, mas os sinais conhecidos são:
 
-| Sinal | Peso | Como evitar |
-|---|---|---|
-| **Block** (cliente clicou "Block") | Alto | Opt-in real, conteúdo relevante |
-| **Spam report** | Crítico | Tom apropriado, sem urgência forçada |
-| **Taxa de leitura** | Médio | Horário certo (10-12h, 18-20h), template bom |
-| **Stop receiving messages** (botão Meta) | Alto | Respeite frequência |
-| **Reply rate** | Médio (positivo) | Conteúdo conversacional |
+| Sinal | Como evitar |
+|---|---|
+| Destinatário bloqueia o número | Opt-in real e conteúdo que a pessoa espera |
+| Destinatário denuncia como spam | Tom apropriado, sem urgência forçada |
+| Destinatário para de receber marketing da marca | Frequência controlada |
+| Muitos marketing seguidos para o mesmo contato | Espaçar campanhas para a mesma base |
 
-## Consultar quality
+## Acompanhar por API
 
 ```bash
 curl https://api.ararahq.com/v1/organizations/me/numbers \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Retorna pra cada número:
+Cada item de `numbers` traz, entre outros campos:
 
 ```json
 {
-  "id": "ara_num_abc",
-  "phone": "+5511999999999",
-  "tier": "TIER_10K",
-  "quality": "GREEN",
-  "verification": "BUSINESS_VERIFIED",
-  "messagingLimit": "TIER_10K",
-  "lastQualityCheck": "2026-05-18T10:00:00Z",
-  "metrics": {
-    "blockRate7d": 0.0021,
-    "deliveryRate7d": 0.987,
-    "readRate7d": 0.823,
-    "spamReportRate7d": 0.0003
-  }
+  "id": "4b1f0c7e-2a3d-4e59-9a61-0f2d5c8b7a10",
+  "phoneNumber": "+5511999999999",
+  "status": "ACTIVE",
+  "qualityScore": "HIGH",
+  "messagingTier": "TIER_10K",
+  "verifiedAt": "2026-08-20T13:00:00Z",
+  "lastHealthCheckAt": "2026-09-15T06:00:00Z",
+  "messagesLast7d": 1840,
+  "messagesLast30d": 7215,
+  "deliveredLast30d": 7033
 }
 ```
 
-Acompanhe tier e quality pelo dashboard ou pelo endpoint acima. Hoje não há webhook dedicado de mudança de quality — pra automação, faça polling diário no `GET /v1/numbers/{id}`.
+A resposta completa está em [Números dedicados e qualidade](/numbers). A Arara atualiza quality e limite consultando o provedor a cada 6 horas e ao receber eventos de conta da Meta.
 
-## Warming — subir tier sem queimar
+## Acompanhar por webhook
 
-Subir de tier exige **volume crescente**, mas crescer rápido demais derruba quality. Equilíbrio.
+| Evento | Quando dispara |
+|---|---|
+| `number.tier_updated` | Limite de envio mudou, ou o número foi sinalizado / dessinalizado |
+| `number.status` | Número banido (`BANNED`), restrito (`RESTRICTED`), reativado (`ACTIVE`) ou erro de cadastro (`ONBOARDING_ERROR`) |
+| `template.quality_updated` | A Meta mudou a qualidade de um template (`data.name`, `data.quality`) |
+| `template.updated` | Status do template mudou, inclusive para pausado |
 
-A Arara expõe recomendação baseada em quality atual:
+<Note>
+  Mudança de `qualityScore` detectada na consulta periódica não gera webhook. Para automação que depende do quality do número, consulte `GET /v1/organizations/me/numbers` periodicamente.
+</Note>
+
+Ver [Webhooks](/webhooks) para assinatura e retentativas.
+
+## Warming: subir volume sem queimar
+
+Crescer rápido demais derruba qualidade. A Arara calcula uma recomendação de ritmo diário por número:
 
 ```bash
-curl https://api.ararahq.com/v1/organizations/me/numbers/warming \
+curl https://api.ararahq.com/v1/organizations/me/numbers/{id}/warming \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Retorna:
-
 ```json
-[
-  {
-    "numberId": "ara_num_abc",
-    "currentTier": "TIER_1K",
-    "recommendedSendRate24h": 800,
-    "daysToNextTier": 3,
-    "rationale": "Quality GREEN há 5 dias, bloqueio 0.2%. Pode subir gradualmente."
-  }
-]
+{
+  "numberId": "4b1f0c7e-2a3d-4e59-9a61-0f2d5c8b7a10",
+  "qualityScore": "HIGH",
+  "messagingTier": "TIER_1K",
+  "daysSinceVerified": 5,
+  "dailyCapByTier": 1000,
+  "recommendedDailySends": 200,
+  "recommendedPacePct": 20,
+  "currentDailyAverage": 140,
+  "recommendation": "Days 1-7 of warming. Cap daily sends to 20% of tier ceiling; favor UTILITY over MARKETING."
+}
 ```
 
-Programe seu dispatcher pra respeitar `recommendedSendRate24h`. Em produção, vale segurar mesmo que tenha capacidade.
+O ritmo sai de 20% do limite na primeira semana após a verificação, 50% na segunda, 80% até o dia 30 e 100% depois disso. Com quality `LOW` a recomendação cai para 30%, e com `FLAGGED` ou número ainda não verificado, para 0%.
+
+A recomendação não trava envio. Programe seu disparador para respeitar `recommendedDailySends`.
 
 <Note>
-  Pra **Black Friday e datas críticas**: comece o warming 2-3 semanas antes. Não dá pra subir de TIER_250 pra TIER_10K no dia.
+  Para datas de pico, como Black Friday, comece a aquecer o número semanas antes. Limite de envio não sobe no dia.
 </Note>
 
-## Quando o número cai de tier
-
-Tier descendo é sinal vermelho. Os 3 motivos mais comuns:
+## Quando a qualidade cai
 
 ### 1. Disparo agressivo de marketing
 
-Cenário: você acabou de criar template MARKETING aprovado, dispara pra 5.000 contatos da base. Bloqueio sobe pra 3%. Tier cai pra YELLOW em 24h.
+Cenário: template MARKETING recém-aprovado disparado para a base inteira, incluindo contatos inativos. Bloqueios sobem e a qualidade cai.
 
-**Fix**: pausa marketing por **7 dias**, dispara só UTILITY (notificações reais). Quality sobe.
+**O que fazer**: pause marketing por alguns dias e mantenha só UTILITY com notificações reais.
 
-### 2. Template mal redigido
+### 2. Conteúdo que gera bloqueio
 
-Cenário: template com tom muito agressivo, CAPS, "URGENTE", "ÚLTIMA CHANCE". Conversão é boa, mas taxa de bloqueio também.
+Cenário: texto em caixa alta, "URGENTE", "ÚLTIMA CHANCE", promessa exagerada. Converte, mas também gera bloqueio.
 
-**Fix**: rodar [lint local](/templates/policy) antes de submeter. Tom conversacional converte tanto e bloqueia menos.
+**O que fazer**: revise seguindo a [Política de templates](/templates/policy). Tom conversacional bloqueia menos.
 
 ### 3. Falta de opt-in
 
-Cenário: você importou base do CRM sem consentimento explícito pra WhatsApp. Cliente recebe sem esperar e bloqueia.
+Cenário: base importada do CRM sem consentimento para WhatsApp. A pessoa recebe sem esperar e bloqueia.
 
-**Fix**: re-engajar com email primeiro ("vamos começar a falar com você no WhatsApp também — ok?"). Quem responder vai pro contato WhatsApp ativo.
+**O que fazer**: reconquiste o consentimento por outro canal antes de enviar. Ver [Compliance](/concepts/compliance).
 
-## Diagnóstico
+## Múltiplos números
 
-Dashboard → **Números → {número} → Diagnóstico** mostra:
+Operações maiores usam mais de um número para separar usos (por exemplo, um para marketing e outro para atendimento) e não concentrar todo o risco em uma linha só. Cada número tem quality e limite próprios. O remetente de cada envio é escolhido no campo `sender` de `POST /v1/messages`; sem ele, sai pelo número padrão (`isDefault`).
 
-- Curva de quality dos últimos 30 dias
-- Cohort de mensagens com mais bloqueio (qual template, qual horário)
-- Comparação com benchmark da indústria
-- Sugestões automáticas
-
-Via API:
-
-```bash
-curl https://api.ararahq.com/v1/organizations/me/numbers/{id}/diagnostic \
-  -H "Authorization: Bearer ara_live_xxx"
-```
-
-## Múltiplos números — estratégia
-
-Operação grande pode rodar **5-20 números** pra:
-
-- Distribuir carga (proteção contra ban de um afetar todos)
-- Segmentar por uso (1 número só pra marketing, 1 só pra atendimento)
-- Cobertura por região (DDD local melhora trust)
-
-Configuração no dashboard em **Números → Estratégia**:
-
-- **Round-robin**: distribui sequencialmente
-- **Por região**: DDD do destinatário define qual número usa
-- **Por uso**: marketing usa pool X, atendimento usa Y
-
-A Arara distribui automaticamente. Dashboard agregado mostra performance combinada.
-
-## Como pedir um número novo
-
-```bash
-curl -X POST https://api.ararahq.com/v1/organizations/me/numbers/request \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -d '{
-    "areaCode": "11",
-    "displayName": "Minha Marca",
-    "reason": "Lançamento de campanha BF26",
-    "expectedVolumePerMonth": 50000
-  }'
-```
-
-Nossa operação processa em 2-5 dias úteis. Verificação Meta (Business Verified) leva mais 3-7 dias.
+Quantos números a organização pode ter depende do plano: veja `slot.max` em `GET /v1/organizations/me/numbers`.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Templates" icon="file-lines" href="/concepts/templates">
-    Como não derrubar o quality com template ruim.
+  <Card title="Números dedicados" icon="sim-card" href="/numbers">
+    Listar, pedir número novo e eventos do número.
   </Card>
-  <Card title="Pricing por tier" icon="dollar-sign" href="/concepts/pricing">
-    Tier não muda preço, mas muda volume.
+  <Card title="Templates" icon="file-lines" href="/concepts/templates">
+    Como não derrubar a qualidade com template ruim.
   </Card>
 </CardGroup>

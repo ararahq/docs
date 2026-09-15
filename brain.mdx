@@ -1,205 +1,205 @@
 ---
 title: 'Brain — o motor de IA da Arara'
-description: 'Agente AI hospedado pela Arara. Atende cliente no WhatsApp 24/7, consulta sua base de conhecimento, executa ações (gerar Pix, agendar, listar produto), escala pra humano quando precisa. Configurável em 10 minutos.'
+description: 'Agente de IA hospedado pela Arara. Atende no WhatsApp com base no conhecimento do seu negócio, executa ações (Pix, agendamento, link de pagamento, catálogo) e encaminha pra humano quando precisa.'
 keywords: ['brain', 'ia', 'agente', 'whatsapp', 'chatbot', 'rag', 'knowledge base', 'eval']
 ---
 
-O **Brain** é o agente de IA da Arara — hospedado, treinado no seu negócio, conectado às tools nativas (AbacatePay, Cal.com, Shopify, Stripe). Não é wrapper de OpenAI: é um motor de produção que entende WhatsApp, janela 24h, templates HSM e Guardian Mode nativamente.
+O **Brain** é o agente de IA da Arara. Ele responde conversas do WhatsApp usando a base de conhecimento da sua organização, pode executar [Actions](/actions) (Pix no AbacatePay, agendamento no Cal.com, link de pagamento Stripe, card do catálogo Meta) e encaminha a conversa pra um humano quando não deve responder sozinho.
 
 <Note>
-  Brain é **add-on do plano** (R$ 250/mês a partir do PRO). Inclui modelo de raciocínio, RAG sobre sua base de conhecimento, 5K conversas/mês e Guardian. Acima disso, usage-based.
+  O acesso ao Brain depende do plano. Os endpoints que executam trabalho do Brain (alterar config, ingerir conteúdo, configurar Actions, testar) respondem `403` com `PLAN_FEATURE_LOCKED` quando o plano não inclui Brain, e `403` com `NO_DEDICATED_NUMBER` quando a organização não tem número WhatsApp dedicado.
 </Note>
 
 ## O que o Brain faz
 
 <CardGroup cols={2}>
-  <Card title="Atende em linguagem natural" icon="message">
-    Cliente pergunta, agente responde no tom da sua marca. Sem árvore de decisão.
+  <Card title="Responde em linguagem natural" icon="message">
+    Usa a personalidade, as regras e o conhecimento configurados pra sua organização.
   </Card>
-  <Card title="Executa ações reais" icon="bolt">
-    Não responde só "vou te passar pro atendente". Gera Pix, agenda, lista produto, fecha venda.
+  <Card title="Executa ações" icon="bolt">
+    Gera Pix, lista e reserva horários, cria link de pagamento, envia card de produto. Ver [Actions](/actions).
   </Card>
-  <Card title="Escala quando precisa" icon="user-plus">
-    Detecta urgência, reclamação, ou tópico fora do escopo e passa o bastão pro humano com contexto.
+  <Card title="Encaminha pra humano" icon="user-plus">
+    Abre um handoff com motivo e resumo e dispara o evento de webhook `conversation.needs_human`.
   </Card>
-  <Card title="Aprende sem fine-tuning" icon="brain">
-    Você sobe documento, URL, FAQ — o Brain indexa via RAG. Sem treino, sem custo de modelo customizado.
+  <Card title="Aprende do seu conteúdo" icon="brain">
+    Você adiciona texto, uma URL ou um PDF. O conteúdo é indexado pra consulta nas respostas.
   </Card>
 </CardGroup>
 
 ## Como começa
 
 <Steps>
-  <Step title="Ativa o Brain no plano">
-    Dashboard → **Cobrança → Add-ons → Brain**. R$ 250/mês.
+  <Step title="Confira os pré-requisitos">
+    `GET /v1/brain/prerequisites` lista o que falta. Enquanto houver pré-requisito bloqueante, ligar o Brain (`active: true`) é recusado.
   </Step>
-  <Step title="Configura prompt da marca">
-    **Brain → Configuração**. Tom, restrições, exemplos de resposta. 5 min.
+  <Step title="Configure personalidade e regras">
+    No dashboard em **Brain**, ou via `PATCH /v1/brain/config`.
   </Step>
-  <Step title="Sobe knowledge base">
-    Política de devolução, perguntas frequentes, catálogo. Aceita URL, PDF, texto. Indexação em ~2 min.
+  <Step title="Adicione conhecimento">
+    Texto, URL ou PDF. Ver [Knowledge base](#knowledge-base).
   </Step>
-  <Step title="Configura Actions">
-    Liga as integrações que o Brain pode executar: [AbacatePay](/brain/actions/abacate-pix), [Cal.com](/brain/actions/cal-com), [Catálogo](/brain/actions/catalog), [Stripe](/brain/actions/stripe).
+  <Step title="Configure Actions">
+    [AbacatePay](/brain/actions/abacate-pix), [Cal.com](/brain/actions/cal-com), [Catálogo Meta](/brain/actions/catalog), [Stripe](/brain/actions/stripe). O encaminhamento pra humano (`HANDOFF_TO_HUMAN`) já vem habilitado quando o Brain é ligado.
   </Step>
-  <Step title="Testa com eval suite">
-    Define 20-50 casos esperados ("cliente pergunta X → resposta deve conter Y"). Roda eval. Ajusta até passar.
+  <Step title="Teste com a eval suite">
+    Cadastre perguntas com o que a resposta deve e não deve conter e rode a suite. Ver [Eval suite](#eval-suite).
   </Step>
-  <Step title="Liga em produção">
-    Modo padrão: Brain responde, humano monitora. Modo autopilot: Brain decide quando escalar.
+  <Step title="Ligue">
+    `PATCH /v1/brain/config` com `{"active": true}` e escolha o `assistMode`.
   </Step>
 </Steps>
 
-## Knowledge base (RAG)
+Todos os exemplos usam `Authorization: Bearer ara_live_...`. Não há modo de teste.
 
-A Arara hospeda um vector store dedicado à sua organização. Você adiciona conhecimento por 3 vias:
+## Knowledge base
 
 ```bash
-# Texto puro
+# Texto
 curl -X POST https://api.ararahq.com/v1/brain/knowledge \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
     "type": "FAQ",
-    "content": "Aceitamos devolução em até 7 dias úteis após o recebimento, desde que o produto esteja sem uso..."
+    "content": "Aceitamos devolução em até 7 dias após o recebimento, com o produto sem uso."
   }'
 
-# URL (a Arara faz crawl)
+# URL (lê a página informada)
 curl -X POST https://api.ararahq.com/v1/brain/ingest-url \
   -H "Authorization: Bearer ara_live_xxx" \
-  -d '{ "url": "https://meusite.com.br/ajuda/devolucao", "label": "Política de devolução" }'
+  -H "Content-Type: application/json" \
+  -d '{ "url": "https://meusite.com.br/ajuda/devolucao" }'
 
-# PDF (upload multipart)
+# PDF (multipart, campo file)
 curl -X POST https://api.ararahq.com/v1/brain/ingest-pdf \
   -H "Authorization: Bearer ara_live_xxx" \
-  -F "file=@manual_completo.pdf" \
-  -F "label=Manual operacional"
+  -F "file=@manual.pdf"
 ```
 
-`type` aceita `GENERAL` (default), `FAQ`, `PRICING`, `TONE`.
-
-Limites:
-- URL: até 200 páginas por crawl
-- PDF: até 100MB, 100 páginas
-- Texto direto: 50KB por entrada
+- `POST /v1/brain/knowledge`: `type` é opcional (default `GENERAL`), `content` é obrigatório. `GET /v1/brain/knowledge` lista, `PUT /v1/brain/knowledge/{id}` atualiza o `content`, `DELETE /v1/brain/knowledge/{id}` remove.
+- `ingest-url`: busca uma única página (não faz crawl do site), exige ao menos 200 caracteres de texto útil e extrai dados do negócio e perguntas frequentes pra config do Brain. Responde `{ ok, sourceUrl, charsScraped, extracted, error }`.
+- `ingest-pdf`: até 10 MB e 100 páginas. PDF escaneado sem texto extraível é recusado (sem OCR). Responde `{ ok, fileName, pagesProcessed, charsExtracted, chunksStored, error }`.
+- `GET /v1/brain/sources` lista as fontes indexadas.
 
 ## Eval suite
 
-Antes de soltar em produção, você define casos esperados:
+Cada caso tem uma pergunta e, opcionalmente, um texto que a resposta deve conter e um que não deve conter:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/brain/eval/cases \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
-    "input": "Quero devolver um produto que comprei semana passada",
-    "assertions": {
-      "mustContain": ["7 dias", "sem uso"],
-      "mustNotContain": ["não aceitamos"],
-      "expectedTone": "amigável"
-    }
+    "question": "Quero devolver um produto que comprei semana passada",
+    "expectedHint": "Explicar o prazo de 7 dias e a condição de produto sem uso",
+    "mustContain": "7 dias",
+    "mustNotContain": "não aceitamos"
   }'
 ```
 
-Roda toda a suite contra o Brain configurado:
+| Endpoint | Função |
+|---|---|
+| `GET /v1/brain/eval/cases` | Lista os casos com o último resultado |
+| `PUT /v1/brain/eval/cases/{id}` | Atualiza um caso |
+| `DELETE /v1/brain/eval/cases/{id}` | Remove um caso |
+| `POST /v1/brain/eval/cases/{id}/run` | Roda um caso |
+| `POST /v1/brain/eval/run-all` | Roda todos os casos |
+| `GET /v1/brain/eval/summary` | Resumo da suite |
+| `POST /v1/brain/eval/cases/{id}/thumbs` | Marca a última resposta com `{ "thumbsUp": true }` |
 
-```bash
-curl -X POST https://api.ararahq.com/v1/brain/eval/run-all \
-  -H "Authorization: Bearer ara_live_xxx"
-```
+Cada caso retornado traz `lastResponse`, `lastPassed`, `judgeScore`, `judgeReasoning` e `hallucinationDetected`.
 
-Pra rodar um caso individual:
+## Regras (guardrails)
 
-```bash
-curl -X POST https://api.ararahq.com/v1/brain/eval/cases/{id}/run \
-  -H "Authorization: Bearer ara_live_xxx"
-```
-
-Retorna pass rate, cases que falharam e onde. Iteração ficou rápida.
-
-## Guardian Mode
-
-Toda resposta do Brain passa pelo Guardian antes de sair:
-
-- PII detection (CPF, RG, cartão, senha)
-- Palavras proibidas (configurável por sessão)
-- Tom inadequado (configurável: "não pode soar agressivo")
-- Validação de promessas ("não pode prometer prazo de entrega menor que X dias")
-
-Configurável via `PATCH /v1/brain/config` no campo `guardrails`:
+As regras entram no prompt do Brain. Todas vêm ligadas por padrão:
 
 ```bash
 curl -X PATCH https://api.ararahq.com/v1/brain/config \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
     "guardrails": {
-      "blockOnPII": ["cpf", "rg", "credit_card"],
-      "blockKeywords": ["pague aqui", "última chance"],
-      "requireApprovalAboveCents": 100000,
-      "brandTone": "informal, sem emojis em excesso"
+      "noDealPromises": true,
+      "noDiscounts": true,
+      "noCompetitors": true,
+      "noPriceInvention": true,
+      "noPersonalDataRequest": true,
+      "custom": ["Não prometa entrega no mesmo dia"]
     }
   }'
 ```
 
-Quando o Guardian bloqueia uma resposta, escala pra humano automaticamente.
+Além das regras, a resposta passa por uma moderação antes de sair: bloqueia CPF, RG ou número de cartão no texto, URL fora das fontes conhecidas e menções ao próprio prompt. Resposta bloqueada é trocada por encaminhamento pra humano.
+
+## Modo de operação
+
+`assistMode` aceita:
+
+| Valor | Comportamento |
+|---|---|
+| `COPILOT` (default) | O Brain sugere resposta pro atendente (`POST /v1/brain/suggest-reply`) |
+| `AUTO` | O Brain responde sozinho |
+| `OFF` | Desligado |
 
 ## Métricas
-
-Dashboard em **Brain → Métricas** ou via API:
 
 ```bash
 curl https://api.ararahq.com/v1/brain/metrics \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Retorna:
-
 ```json
 {
-  "period": "30d",
-  "attended": 1820,
-  "resolved": 1456,
-  "escalatedToHuman": 364,
-  "resolutionRate": 0.80,
-  "avgResponseTimeSeconds": 8.4,
-  "p95ResponseTimeSeconds": 23.1,
-  "costCents": 18750,
-  "topUnresolvedTopics": ["política de troca", "horário de funcionamento", "rastreio"]
+  "windowDays": 30,
+  "totalResponses": 1820,
+  "handoffCount": 364,
+  "handoffRate": 0.2,
+  "avgLatencyMs": 8400,
+  "spentCents": 18750,
+  "topHandoffReasons": [
+    { "reason": "pergunta fora do escopo", "count": 120 }
+  ]
 }
 ```
 
-`topUnresolvedTopics` é o sinal mais útil pra evolução: o que o Brain não resolveu sozinho. Adiciona à knowledge base → resolve da próxima vez.
+`topHandoffReasons` mostra o que mais vai pra humano. É o melhor ponto de partida pra adicionar conhecimento. Uso do mês contra o limite do plano: `GET /v1/brain/usage`.
 
 ## Handoff pra humano
 
-Quando o Brain decide escalar (ou Guardian bloqueia), a conversa abre como handoff no inbox:
+Quando o Brain encaminha, a Arara cria um handoff e envia o webhook `conversation.needs_human` com `handoffId`, `conversationId`, `reason`, `summary` e `createdAt`.
 
 ```bash
-curl https://api.ararahq.com/v1/brain/handoffs?status=PENDING \
+curl "https://api.ararahq.com/v1/brain/handoffs?resolved=false&page=0&size=20" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Cada handoff vem com:
-- Contexto completo da conversa
-- Motivo do handoff (`URGENT`, `COMPLAINT`, `OUT_OF_SCOPE`, `GUARDIAN_BLOCK`)
-- Sugestão de resposta (humano pode aceitar/editar)
+A resposta é `{ content, totalPages, totalElements }`. Cada item traz `id`, `conversationId`, `reason`, `summary`, `briefing`, `createdAt`, `resolvedAt` e `resolvedByUserId`.
 
-## Quando NÃO usar Brain
+- `POST /v1/brain/handoffs/{id}/resolve` marca como resolvido.
+- `POST /v1/brain/handoffs/{id}/return-to-brain` devolve a conversa pro Brain.
 
-- Conversas com alto risco financeiro/jurídico (acima de R$ 5K). Use modo "assistir": Brain sugere, humano aprova.
-- Mercados altamente regulados (saúde, financeiro, jurídico). Compliance pode exigir humano no loop.
-- Volume baixo (< 100 conversas/mês). Não compensa o add-on — opera no humano direto.
+## Quando não usar o Brain em modo `AUTO`
 
-## Configuração avançada — API
+- Conversas com alto risco financeiro ou jurídico. Use `COPILOT`: o Brain sugere, o humano envia.
+- Setores regulados (saúde, financeiro, jurídico) em que a política interna exige humano no processo.
+
+## Referência de endpoints
 
 | Endpoint | Função |
 |---|---|
-| `GET /v1/brain/config` | Retorna config atual |
-| `PATCH /v1/brain/config` | Atualiza prompt, toggles, guardrails |
-| `GET /v1/brain/prompt-preview` | Preview do prompt final |
-| `GET /v1/brain/prerequisites` | Checa se está pronto pra ligar |
-| `POST /v1/brain/test` | Testa resposta com mensagem-mock |
-| `POST /v1/brain/cost-estimate` | Estima custo mensal por volume |
-| `GET /v1/brain/handoffs` | Lista escaladas pra humano |
-| `POST /v1/brain/handoffs/{id}/resolve` | Marca como resolvido |
+| `GET /v1/brain/config` | Config atual |
+| `PATCH /v1/brain/config` | Atualiza `active`, `entryMode`, `businessHours`, `exitTriggers`, `personalityPreset`, `personalityCustom`, `guardrails`, `guidedKnowledge`, `model`, `autoDetectLanguage`, `notifyAdmins`, `assistMode` |
+| `GET /v1/brain/config/versions` | Histórico de versões da config |
+| `POST /v1/brain/config/versions/{id}/rollback` | Volta pra uma versão |
+| `GET /v1/brain/prompt-preview` | Prompt final gerado |
+| `GET /v1/brain/prerequisites` | O que falta pra ligar |
+| `GET /v1/brain/templates` | Presets de config por vertical |
+| `POST /v1/brain/templates/apply` | Aplica um preset (`{ "templateId": "..." }`) |
+| `POST /v1/brain/test` | Testa uma resposta (`{ "prompt": "...", "conversationHistory": [] }`) |
+| `POST /v1/brain/cost-estimate` | Estimativa de custo (`{ "monthlyConversations": 1000 }`) |
+| `GET /v1/brain/actions` / `POST /v1/brain/actions` | Lista e configura [Actions](/actions) |
+| `GET /v1/brain/handoffs` | Handoffs |
+| `POST /v1/brain/handoffs/{id}/resolve` | Resolve um handoff |
 
 ## Próximos passos
 
@@ -208,6 +208,6 @@ Cada handoff vem com:
     O que o Brain pode executar.
   </Card>
   <Card title="Posicionamento" icon="lightbulb" href="/agents">
-    Brain vs MCP vs SDK — qual usar quando.
+    Brain, MCP e SDK: qual usar quando.
   </Card>
 </CardGroup>

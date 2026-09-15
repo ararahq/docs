@@ -1,21 +1,27 @@
 ---
 title: 'Visão Geral da Arquitetura'
-description: 'Uma visão de alto nível de como os componentes da Arara se conectam para entregar uma experiência simples e robusta.'
+description: 'Uma visão de alto nível de como uma mensagem sai da sua aplicação, passa pela Arara e chega no WhatsApp, e de como os eventos voltam para você.'
 ---
 
+## Visão geral
 
-## Visão Geral
+A Arara fica entre a sua aplicação e o WhatsApp. Você fala com uma API REST única; a Arara cuida de validação, cobrança, fila, envio pelo provedor parceiro da Meta e devolução dos eventos.
 
-A Arara foi projetada com uma arquitetura moderna e escalável, focada em simplicidade para o desenvolvedor e confiabilidade para o negócio. A plataforma é construída em torno de princípios de design que priorizam:
+```
+Sua aplicação ──► API da Arara ──► Fila de envio ──► Provedor parceiro da Meta ──► WhatsApp
+      ▲                                                        │
+      └──────────── Webhooks assinados (status, respostas, eventos) ◄──┘
+```
 
-- **Simplicidade**: API simples e intuitiva
-- **Confiabilidade**: Sistema robusto que garante entrega de mensagens
-- **Escalabilidade**: Arquitetura que cresce com sua demanda
-- **Segurança**: Proteção de dados e autenticação robusta
+1. **Requisição**: `POST /v1/messages` (ou campanha) com `Authorization: Bearer ara_live_...`.
+2. **Pré-voo**: a API valida o destinatário, a janela de 24h ou o template, o opt-out e os limites do plano, e responde `202` com o `id` público (`ara_msg_...`).
+3. **Fila**: o envio é processado de forma assíncrona. Mensagem com `scheduled_at` fica em `SCHEDULED` até o horário.
+4. **Provedor**: a mensagem sai pela WhatsApp Business Platform (Cloud API) por meio do provedor parceiro.
+5. **Eventos**: recibos de entrega e leitura, respostas do cliente e mudanças no número ou nos templates voltam para a Arara e são repassados ao seu webhook, assinados com HMAC-SHA256.
 
-## Funcionalidades Essenciais
+O backend é escrito em Kotlin com Spring Boot, usa PostgreSQL como banco principal e roda na AWS.
 
-A plataforma Arara é construída em torno de um conjunto de funcionalidades que garantem uma experiência completa, intuitiva e robusta para desenvolvedores e empresas.
+## Funcionalidades essenciais
 
 <CardGroup cols={2}>
   <Card
@@ -23,15 +29,15 @@ A plataforma Arara é construída em torno de um conjunto de funcionalidades que
     icon="paper-plane"
     href="/api-reference/endpoint/v2/messages"
   >
-    Envio de templates e consulta de status via um único identificador público (`ara_msg_...`), abstraindo a complexidade da Meta.
+    Envio de template, texto na janela de 24h, mídia, interativo e lote de até 1.000, com consulta de status pelo identificador público `ara_msg_...`.
   </Card>
 
   <Card
-    title="Smart Links & Analytics"
+    title="Smart Links"
     icon="link"
-    href="/business-rules/template-management"
+    href="/smart-links"
   >
-    Encurtamento automático de URLs com rastreamento de cliques por organização, integrado nativamente aos botões de template.
+    Links curtos com rastreamento de clique por organização, inclusive como botão `SMART_LINK` de template.
   </Card>
 
   <Card
@@ -39,30 +45,30 @@ A plataforma Arara é construída em torno de um conjunto de funcionalidades que
     icon="bezier-curve"
     href="/api-reference/endpoint/v2/templates"
   >
-    Criação e edição visual de templates com validação "Foolproof" antes da submissão para a Meta.
+    Criação de templates com validação de formato e moderação de conteúdo antes da submissão para a Meta.
   </Card>
 
   <Card
-    title="Escudo de Erros Arara"
+    title="Erros com código"
     icon="shield-check"
     href="/erros"
   >
-    Diagnósticos humanos para falhas da Meta. Traduzimos erros técnicos obscuros em ações claras de como resolver o problema.
+    Falhas voltam com `error.code` e uma mensagem legível, para você tratar cada caso no código.
   </Card>
 
   <Card
-    title="Gestão de Números (DIDs)"
+    title="Gestão de números"
     icon="sim-card"
     href="/numbers"
   >
-    Suporte a números compartilhados e dedicados, com provisionamento instantâneo via Dashboard.
+    Quality rating, limite de envio, recomendação de warming e eventos do número por API e webhook.
   </Card>
 
   <Card
-    title="Agendamento Nativo"
+    title="Agendamento nativo"
     icon="clock-rotate-left"
-    href="/api-reference/endpoint/v2/messages#agendada"
+    href="/api-reference/endpoint/v2/messages#mensagem-agendada"
   >
-    Suporte ao parâmetro `scheduled_at` para programar disparos futuros sem infraestrutura de cron externa.
+    Parâmetro `scheduled_at` para programar envios futuros sem cron do seu lado.
   </Card>
 </CardGroup>

@@ -1,142 +1,135 @@
 ---
 title: 'Como funciona a WhatsApp Business API'
-description: 'Os 4 conceitos do WhatsApp Business que ninguém explica direito: sessão vs template, qualidade do número, aprovação Meta e o que diferencia API oficial de gateway pirata. Em 10 minutos você entende tudo.'
-keywords: ['whatsapp', 'business api', 'meta', 'cloud api', 'oficial', 'twilio', 'z-api', 'baileys']
+description: 'Os 4 conceitos do WhatsApp Business que ninguém explica direito: janela de 24h vs template, categorias, qualidade do número e webhooks. O mapa mental antes de escrever a primeira linha de código.'
+keywords: ['whatsapp', 'business api', 'meta', 'cloud api', 'template', 'janela 24h', 'quality rating']
 ---
 
-Se você nunca integrou com WhatsApp Business API, gasta dias até entender os 4 conceitos básicos que ninguém explica direito. Esta página é o **mapa mental** que você precisa antes de escrever uma linha de código.
+Quem nunca integrou com a WhatsApp Business API gasta dias até entender os conceitos básicos. Esta página é o **mapa mental** que você precisa antes de escrever uma linha de código.
 
 ## O que é
 
-WhatsApp Business API é a API oficial da Meta pra empresas se comunicarem com clientes via WhatsApp. É **diferente** do WhatsApp Business app (free, single device, sem API) e do WhatsApp pessoal.
+A WhatsApp Business Platform é a API da Meta para empresas conversarem com clientes pelo WhatsApp em escala. É **diferente** do app WhatsApp Business (instalado no celular, pensado para pequeno negócio) e do WhatsApp pessoal.
 
 ```
-WhatsApp pessoal           WhatsApp Business app       WhatsApp Business API
-(você)                     (pequeno negócio)           (médio/grande negócio)
-                                                       │
-                                                       ├── Cloud API (Meta hospeda)
-                                                       └── On-premise (você hospeda)
-                                                            ↑
-                                                       A Arara usa Cloud API
+WhatsApp pessoal           App WhatsApp Business       WhatsApp Business Platform (API)
+(você)                     (pequeno negócio)           (integração por API)
+                                                            │
+                                                            └── Cloud API (hospedada pela Meta)
+                                                                 ↑
+                                                            A Arara envia por aqui
 ```
 
-A Arara é uma **Business Solution Provider (BSP)** homologada pela Meta — operamos a Cloud API por baixo, com camadas adicionais (Brain, Smart Links, Recovery, Templates lint, multi-tenant, BRL billing).
+A Arara envia pela Cloud API por meio de um provedor parceiro da Meta e adiciona as camadas de operação por cima: templates, campanhas, contatos, conversas, Brain, Smart Links, Recovery e cobrança em reais.
 
-## API oficial vs gateway não-oficial
+<Info>
+  Um número pode usar a API e continuar ativo no app WhatsApp Business ao mesmo tempo (Coexistence). Na API da Arara, isso aparece no campo `isCoexistence` do número.
+</Info>
 
-Antes de tudo: existe **diferença real e legal** entre API oficial da Meta e gateways pirata.
+## API vs automação do WhatsApp Web
 
-| | API oficial (via BSP como Arara) | Gateway não-oficial (Z-API, Baileys, WPPConnect) |
+Ferramentas que automatizam o WhatsApp Web (como Baileys ou Z-API) não passam pela WhatsApp Business Platform. As diferenças práticas:
+
+| | WhatsApp Business Platform | Automação do WhatsApp Web |
 |---|---|---|
-| **Como funciona** | Tráfego pela Cloud API da Meta | Engenharia reversa do WhatsApp Web |
-| **Risco de banimento** | Quase zero (você está jogando dentro das regras) | **Alto e imprevisível**. Número some sem aviso. |
-| **Templates aprovados** | Sim — comunicação fora da janela 24h | Não — só janela 24h |
-| **Volume** | 100K+ msg/dia possível | 200-500 msg/dia antes do banimento começar |
-| **Marca verificada** | Sim (selo verde Meta) | Não |
-| **Preço** | ~R$ 0,12 - R$ 0,40 por mensagem | "Grátis" mas inclui o custo de quando seu número quebra |
-| **SLA** | Sim (BSP responde por uptime) | Você é o suporte |
+| **Como funciona** | API da Meta | Controle de uma sessão do WhatsApp Web |
+| **Mensagem fora da janela de 24h** | Por template aprovado | Não há conceito de template |
+| **Termos de uso do WhatsApp** | Dentro dos termos | Fora dos termos |
+| **Quality rating e limite de envio** | Visíveis e acompanháveis por API | Não existem |
 
-<Warning>
-  Quase todo gateway "barato" do Brasil é não-oficial. Funciona no começo, quebra na hora errada. Migrar pra oficial depois do banimento exige número novo, recomeça do zero. Ver [Migrar do Z-API](/migrate/z-api) e [Migrar do Baileys](/migrate/baileys).
-</Warning>
+Se você está saindo de uma dessas ferramentas, veja [Migrar do Z-API](/migrate/z-api) e [Migrar do Baileys](/migrate/baileys).
 
 ## Os 4 conceitos que você precisa
 
-### 1. Sessão vs Template
+### 1. Janela de 24h vs template
 
 O WhatsApp opera em 2 modos de mensagem:
 
 <CardGroup cols={2}>
   <Card title="Janela de 24h (sessão)" icon="message">
-    Cliente te mandou mensagem? Você tem **24h** pra responder com texto livre. Qualquer texto. Sem aprovação.
+    O cliente te mandou mensagem? Você tem **24h** para responder com texto livre, mídia, interativo ou localização.
   </Card>
   <Card title="Fora da janela (template)" icon="file-lines">
-    Cliente não interagiu nas últimas 24h? Você só pode mandar **templates HSM aprovados** pela Meta. Texto livre é bloqueado.
+    O cliente não escreveu nas últimas 24h? Você só pode mandar **template aprovado** pela Meta. Texto livre é recusado.
   </Card>
 </CardGroup>
 
-Ver [Janela de 24h em detalhe](/concepts/24h-window) e [Templates HSM](/concepts/templates).
+Ver [Janela de 24h em detalhe](/concepts/24h-window) e [Templates](/concepts/templates).
 
 ### 2. Categorias de template
 
-Templates têm 3 categorias com regras e preços diferentes:
+Todo template tem uma categoria, e a Meta cobra e revisa de forma diferente em cada uma:
 
-| Categoria | Quando usar | Preço médio | Aprovação |
-|---|---|---|---|
-| **UTILITY** | Notificação que cliente espera (pedido, OTP, lembrete) | R$ 0,12 | 1-4h |
-| **MARKETING** | Promoção, oferta, lançamento | R$ 0,40 | 12-72h |
-| **AUTHENTICATION** | Apenas códigos OTP/2FA | R$ 0,12 | 1-2h |
+| Categoria | Quando usar |
+|---|---|
+| **UTILITY** | Notificação que o cliente espera: pedido, entrega, lembrete, status de pagamento |
+| **MARKETING** | Promoção, oferta, lançamento, reengajamento |
+| **AUTHENTICATION** | Só códigos de verificação (OTP/2FA) |
 
-Categoria errada = template reclassificado retroativamente, multa, queda de qualidade do número. Ver [Política de templates](/templates/policy).
+A Meta pode reclassificar um template depois de aprovado. Quando isso acontece, a Arara envia o evento `template.category_changed` e a mudança pode alterar o preço por mensagem. Preços em [Preços](/concepts/pricing). Regras de conteúdo em [Política de templates](/templates/policy).
 
 ### 3. Qualidade do número
 
-Cada número tem um "tier" visível: **GREEN / YELLOW / RED**. Determina:
+Cada número tem dois indicadores mantidos pela Meta:
 
-- Quantas mensagens você pode mandar por dia (250 → 1K → 10K → 100K+)
-- Quão visível é seu número no app do cliente
-- Se Meta vai pausar ou banir
+- **Quality rating** (`qualityScore`: `HIGH`, `MEDIUM`, `LOW`, `FLAGGED`): a saúde do número, com base em bloqueios e denúncias.
+- **Limite de envio** (`messagingTier`, de `TIER_50` a `UNLIMITED`): quantos destinatários únicos o número alcança com conversas iniciadas pela empresa em 24h.
 
-O tier sobe quando taxa de bloqueio fica baixa. Desce quando sobe. Ver [Qualidade do número](/concepts/number-quality).
+Qualidade baixa pode levar a Meta a restringir o número. Ver [Qualidade do número](/concepts/number-quality).
 
 ### 4. Webhooks
 
-A Arara avisa seu backend em tempo real quando:
+A Arara avisa o seu backend quando:
 
-- Status de uma mensagem mudou (`message.status_updated` — `sent`, `delivered`, `read`, `failed`)
-- Cliente respondeu (`message.received`)
-- Status de um template mudou (`template.updated` — `APPROVED`, `REJECTED`, `PAUSED`)
-- Campanha terminou (`campaign.completed`)
-- Brain pediu intervenção humana (`conversation.needs_human`)
+- O status de uma mensagem mudou (`message.status_updated`: `sent`, `delivered`, `read`, `failed`...)
+- O cliente respondeu (`message.received`)
+- O status de um template mudou (`template.updated`, com `status` e `rejectionReason`)
+- Uma campanha terminou (`campaign.completed`)
+- O Brain pediu intervenção humana (`conversation.needs_human`)
+- A Meta mudou algo no número (`number.status`, `number.tier_updated`)
 
-Sem polling. Validação HMAC. Retry exponencial. Ver [Webhooks](/webhooks).
+Cada entrega é assinada com HMAC-SHA256 e retentada quando o seu endpoint não aceita. Ver [Webhooks](/webhooks).
 
 ## O fluxo mental que você vai usar todo dia
 
 ```
 Cliente: "Quero saber sobre o produto X"
   ↓
-Você verifica: cliente interagiu nas últimas 24h?
+Você verifica: o cliente escreveu nas últimas 24h?
   ↓
-  ├── SIM (sessão aberta) → responde com texto livre ou template
+  ├── SIM (janela aberta) → responde com texto livre ou template
   │
-  └── NÃO (janela fechada) → só template HSM aprovado
+  └── NÃO (janela fechada) → só template aprovado
         ↓
         Qual categoria? UTILITY (notificação real) ou MARKETING (promoção)?
         ↓
-        Template aprovado? Não → cria e submete pra Meta (1-72h espera)
-        Aprovado? Sim → manda direto
+        Template aprovado? Não → cria e submete para a Meta, espera a aprovação
+        Aprovado? Sim → envia
 ```
 
-Esse fluxo é a **principal causa de confusão** de quem chega na WhatsApp Business API. Internalize.
+Esse fluxo é a **principal causa de confusão** de quem chega na WhatsApp Business API.
 
-## Pricing — quem cobra o quê
+## Quem cobra o quê
 
-3 atores cobram:
+| Quem | O que cobra |
+|---|---|
+| **Meta e provedor de envio** | Tarifa por mensagem, que varia por categoria e país do destinatário |
+| **Arara** | Mensalidade do plano, mais as mensagens |
+| **Você** | O que fizer sentido no seu modelo com o seu cliente final |
 
-| Quem | O que cobra | Quando |
-|---|---|---|
-| **Meta** | Por mensagem entregue (modelo "per-message", desde 2025) | Faturamento mensal direto Arara → Meta |
-| **Arara** | Custo Meta + acréscimo fixo por mensagem (R$ 0,25 no Free, R$ 0,10 no Voo) + assinatura do plano | Faturamento mensal Arara → você |
-| **Você** | (opcional) Pro seu cliente final | Depende do seu modelo |
+A composição completa, em reais, está em [Preços](/concepts/pricing).
 
-Falhas (template rejeitado, número inválido, fora da janela) não custam.
+## Compliance: o essencial
 
-Ver [Pricing em detalhe](/concepts/pricing) com tabela completa em BRL.
-
-## Compliance — o que NÃO pode
-
-- **Opt-in obrigatório**: cliente precisa ter consentido explicitamente em receber WhatsApp da sua marca. CDC + LGPD.
-- **Opt-out fácil**: cliente que pediu "Stop receiving" não pode ser contactado de novo.
-- **Não pode**: cobrança ameaçadora, sorteios sem licença, conteúdo adulto/político/saúde fora de regulação.
-- **Janela 21h-9h**: proibido enviar fora desse horário pra consumidor (CDC).
+- **Opt-in**: o cliente precisa ter consentido em receber WhatsApp da sua marca. Exigência da Meta e da LGPD.
+- **Opt-out**: quem pediu para sair não pode continuar recebendo.
+- **Conteúdo**: a Meta proíbe categorias de produto e tipos de mensagem nas políticas comerciais do WhatsApp.
 
 Ver [Compliance](/concepts/compliance) e [Política de templates](/templates/policy).
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Quickstart — primeiro envio em 5 min" icon="rocket" href="/quickstart">
+  <Card title="Quickstart: primeiro envio em 5 min" icon="rocket" href="/quickstart">
     Já entendeu o domínio? Hora de mandar a primeira mensagem.
   </Card>
   <Card title="Janela de 24h" icon="clock" href="/concepts/24h-window">

@@ -1,246 +1,263 @@
 ---
 title: 'Campanha Black Friday'
-description: 'Disparo segmentado em massa com A/B test nativo, triagem de respostas por urgência, warming de número antes da data, fallback para failover. Receita testada em operações de R$ 1M+ em vendas BF.'
+description: 'Planeje uma campanha de data sazonal na Arara: templates aprovados com antecedência, estimativa de custo, campanha com A/B test e agendamento, reabordagem segmentada e atendimento das respostas.'
 keywords: ['black friday', 'campanha', 'a/b test', 'bf', 'disparo em massa', 'marketing']
 ---
 
-Black Friday é o stress test anual da sua operação WhatsApp. Volume 10-20x maior que normal, janela curta, e cada falha técnica vira receita perdida. Esta receita é o playbook completo testado em operações que faturaram R$ 1M+ na BF.
+Data sazonal concentra volume em poucos dias. O que costuma dar errado não é o disparo em si, é o que ficou para a última hora: template não aprovado, base sem consentimento, número com qualidade baixa e ninguém para responder.
+
+Esta receita usa `POST /v1/campaigns` (A/B test e agendamento no mesmo pedido), `GET /v1/campaigns/{id}` para acompanhar e o Brain para as respostas.
 
 <Warning>
-  **Comece a preparar em outubro.** Warming de número, aprovação de templates, A/B test de cohort, treinamento do time. Quem começa em novembro perde 30-50% do potencial.
+  Os SDKs publicados (1.8.1) não têm métodos de campanha. Os exemplos usam a API REST direto.
 </Warning>
 
-## Cronograma — 6 semanas antes da BF
+## Antes da data
 
-### Semana -6 a -4: Preparação infra
+### Infra e base
 
-- [ ] **Warming dos números**: começa volume crescente progressivo. Ver [Number quality](/concepts/number-quality).
-- [ ] **Templates submetidos pra aprovação** (MARKETING leva até 72h):
-  - `bf_aquecimento` — pra base inteira, 1 semana antes
-  - `bf_lancamento` — pra base segmentada, dia D
-  - `bf_lembrete_d2` — pra quem viu mas não comprou
-  - `bf_ultimo_dia` — pra quem ainda não converteu, dia D+2
-  - `bf_pos_bf_thank_you` — pra quem comprou, no D+3
+- [ ] **Qualidade do número**: acompanhe antes de subir volume. Ver [Qualidade do número](/concepts/number-quality) e os webhooks `number.status`, `number.tier_updated` e `template.quality_updated`.
+- [ ] **Consentimento**: só entra na campanha quem aceitou receber mensagens de marketing no WhatsApp.
+- [ ] **Segmentação**: separe a base em grupos (clientes recentes, inativos, quem já comprou). A segmentação é do seu lado: a campanha recebe a lista pronta.
+- [ ] **Opt-out**: tire da lista quem pediu para sair. Confira os contatos com `optOutAt` preenchido (`GET /v1/contacts`) e os números em `GET /v1/opt-outs`.
 
-### Semana -3 a -1: Validação
+### Templates
 
-- [ ] **A/B test pré-BF**: rodar A/B em cohort pequena (5-10% da base) com 2 variantes de copy. Vence quem teve maior CTR.
-- [ ] **Segmentação**: separar a base em cohorts (VIPs, ativos 30d, ativos 90d, inativos 6m+). Não tratar igual.
-- [ ] **Smart Links**: criar pra cada cohort com tracking dedicado. Ver [Smart Links Attribution](/smart-links/attribution).
-- [ ] **Brain ou time treinado**: configurar respostas pra as 20 perguntas mais comuns ("vocês entregam pra X?", "essa promo vale pra Y?").
-- [ ] **Capacidade infra**: testar dispatch de N mensagens em 1h via API. Bottleneck normalmente é seu backend, não a Arara.
+Submeta todos com antecedência. A aprovação é da Meta e o prazo não é controlado pela Arara. Exemplo de conjunto:
 
-### Semana 0: Black Friday
-
-- [ ] **Dispatcher pronto**: cron, filas, retry, dedupe.
-- [ ] **Monitoring em tempo real**: dashboard Arara aberto, alertas configurados.
-- [ ] **Atendimento de plantão**: time pronto pra responder fila do inbox.
-
-## Aquecimento (D-7)
-
-Antes de tudo, "aquece" a base — mensagem soft pra preparar pro pico.
+| Template | Uso |
+|---|---|
+| `bf_aquecimento` | Aviso alguns dias antes |
+| `bf_lancamento_a` / `bf_lancamento_b` | Variantes A e B do dia principal |
+| `bf_lembrete` | Reabordagem de quem não comprou |
+| `bf_ultimo_dia` | Último dia da promoção |
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
     "name": "bf_aquecimento",
     "category": "MARKETING",
     "language": "pt_BR",
-    "body": "Oi {{1}}, dia {{2}} a gente abre nossa Black Friday — e os clientes do WhatsApp recebem **acesso 6h antes** do site geral.\n\nQuer participar? Responde SIM e te avisamos quando abrir.",
-    "samples": ["João", "29/11"]
+    "body": "Oi {{1}}, no dia {{2}} começa a nossa Black Friday. Quer receber o aviso quando abrir? Responda SIM.",
+    "samples": { "1": "João", "2": "27/11" }
   }'
 ```
 
-Dispare 7 dias antes pra **base que consentiu marketing**. Não precisa segmentar muito — é mensagem genérica, mas com CTA claro (SIM = qualified).
+`samples` é um objeto com o número da variável como chave. Acompanhe a aprovação com `GET /v1/templates/{id}/status` ou pelo webhook `template.updated`.
 
-Quem responder SIM vira **cohort VIP**. Esses receberão a oferta primeiro, com URL exclusiva.
+## Estimar o custo
 
-## Disparo principal (D0)
-
-### Criar campanha com A/B test
+Pela contagem de destinatários:
 
 ```bash
-# 1. Criar campanha
+curl "https://api.ararahq.com/v1/campaigns/estimate?templateName=bf_lancamento_a&count=50000" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Pela lista real de telefones (calcula por país de destino):
+
+```bash
+curl -X POST https://api.ararahq.com/v1/campaigns/estimate \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "templateName": "bf_lancamento_a", "phones": ["+5511999999999", "+5521988888888"] }'
+```
+
+| Campo da resposta | Conteúdo |
+|---|---|
+| `templateCategory` | Categoria do template |
+| `recipientCount` | Quantidade de destinatários |
+| `templateCost` | Custo Meta total |
+| `araraFee` | Taxa Arara total |
+| `unitPrice` | Preço médio por mensagem |
+| `totalCost` | Total estimado |
+| `markets` | Quebra por mercado de destino (só no `POST`) |
+
+Use o valor para aprovação interna antes do disparo.
+
+## Aquecimento
+
+Dispare `bf_aquecimento` alguns dias antes para a base que consentiu. Quem responder SIM abre a janela de 24h e vira um grupo prioritário para o dia principal. Para identificar as respostas, escute o webhook `message.received` e marque o contato do seu lado (ou com etiqueta via `PATCH /v1/contacts/{phone}`).
+
+## Campanha principal com A/B test
+
+A campanha aceita o A/B test e o agendamento no mesmo pedido. `templateName` é a variante A.
+
+```bash
 curl -X POST https://api.ararahq.com/v1/campaigns \
   -H "Authorization: Bearer ara_live_xxx" \
-  -H "Idempotency-Key: bf26-main" \
+  -H "Idempotency-Key: 6f1c2e0a-3b7d-4c55-9e21-8d4a7b90c3f1" \
+  -H "Content-Type: application/json" \
   -d '{
-    "name": "BF-26-main",
-    "templateName": "bf_lancamento_v1",
-    "contacts": [...]
-  }'
-
-# 2. Adicionar A/B test
-curl -X POST https://api.ararahq.com/v1/campaigns/{campaign_id}/ab-test \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -d '{
-    "variantATemplateName": "bf_lancamento_v1",
-    "variantBTemplateName": "bf_lancamento_v2",
-    "metric": "CLICKED",
-    "samplePct": 15,
-    "splitPct": 50,
-    "decisionWindowMinutes": 120,
-    "autopilot": true
+    "name": "BF principal",
+    "templateName": "bf_lancamento_a",
+    "contacts": [
+      { "to": "+5511999999999", "variables": ["João"] },
+      { "to": "+5521988888888", "variables": ["Maria"] }
+    ],
+    "abTest": {
+      "variantBTemplateName": "bf_lancamento_b",
+      "metric": "CLICKED",
+      "samplePct": 20,
+      "splitPct": 50,
+      "decisionWindowMinutes": 240,
+      "autopilot": true
+    },
+    "scheduledAt": "2026-11-27T12:00:00Z"
   }'
 ```
 
-Agendamento na hora certa: gere a campanha próximo ao horário e dispare imediatamente. A API não aceita `scheduledAt` no `POST /v1/campaigns` — pra orquestrar horário, agende do seu lado e dispare em batch.
+Resposta `200` com `{ id, name, status, totalMessages, totalCost, scheduledAt }`. `status` nasce `SCHEDULED` quando há `scheduledAt` e `INGESTING` quando dispara na hora. `totalCost` é o custo calculado para a lista.
 
-`samplePct: 15` significa: dispara variantes A e B pra 15% da base, espera `decisionWindowMinutes` (2h aqui), promove a vencedora pra os 85% restantes.
+**Campos:**
 
-`autopilot: true` faz a Arara decidir automaticamente. Caso queira controlar manualmente, deixe `false` e force vencedora via `POST /v1/campaigns/{id}/ab-test/winner`.
+- `Idempotency-Key` é **obrigatório**. Repetir a chave devolve a campanha já criada, sem novo disparo. Use um UUID novo por campanha.
+- `contacts[].to` é o telefone; `contacts[].variables` preenche `{{1}}`, `{{2}}`... na ordem.
+- `sender` (opcional) escolhe o número de envio. A organização precisa ter um número conectado.
+- `scheduledAt` (opcional, ISO-8601): de 5 minutos a 30 dias no futuro. Fora disso a API responde `CAMPAIGN_SCHEDULE_TOO_SOON` ou `CAMPAIGN_SCHEDULE_TOO_FAR`. Sem `scheduledAt`, dispara na hora.
 
-### Métrica de vencedor
+**A/B test (`abTest`):**
 
-Escolha conforme objetivo:
+| Campo | Default | Significado |
+|---|---|---|
+| `variantBTemplateName` | obrigatório | Template da variante B, da sua organização |
+| `metric` | `CLICKED` | `DELIVERED`, `READ`, `CLICKED` ou `CONVERTED` |
+| `samplePct` | `20` | Percentual dos contatos que entra no teste. O restante espera a vencedora. |
+| `splitPct` | `50` | Divisão entre A e B dentro da amostra (1 a 99) |
+| `decisionWindowMinutes` | `240` | Prazo máximo para decidir |
+| `autopilot` | `true` | Envia o restante pela vencedora assim que houver decisão |
+
+A vencedora é decidida quando a diferença entre A e B fica estatisticamente significativa ou quando a janela termina. Com `autopilot: false`, o restante fica retido até você escolher:
+
+```bash
+curl -X POST https://api.ararahq.com/v1/campaigns/{id}/ab-test/winner \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "winner": "A" }'
+```
+
+`GET /v1/campaigns/{id}/ab-test` mostra o estado do teste (`winner`, `decidedReason`, `pValue`, métricas de cada variante).
+
+<Warning>
+  A janela de decisão conta a partir da **criação** da campanha, não do disparo. Em campanha agendada, some o tempo até o `scheduledAt` ao `decisionWindowMinutes`, senão o teste termina antes de ter métricas.
+</Warning>
+
+**Qual métrica usar:**
 
 | Métrica | Quando usar |
 |---|---|
-| `DELIVERED` | Quase nunca (vc não controla isso) |
-| `READ` | Pra brand awareness — leu a oferta |
-| `CLICKED` | Default — clicou no Smart Link |
-| `CONVERTED` | Melhor — converteu em pedido. Precisa pixel/server-side |
+| `READ` | Quando o objetivo é a mensagem ser lida |
+| `CLICKED` | Template com link rastreado: mede clique |
+| `CONVERTED` | Só se você registra conversões (ver [Atribuição](/smart-links/attribution)) |
+| `DELIVERED` | Raramente útil: entrega não depende da copy |
 
-Pra campanha de venda, **`CONVERTED` se você tem pixel configurado**. Senão, `CLICKED`.
-
-## Estimando custo antes
+## Acompanhar o disparo
 
 ```bash
-curl "https://api.ararahq.com/v1/campaigns/estimate?templateName=bf_lancamento_v1&count=50000" \
+curl https://api.ararahq.com/v1/campaigns/{id} \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Retorna:
+Campos principais: `status`, `totalMessages`, `sentCount`, `deliveredCount`, `readCount`, `failedCount`, `clickedCount`, `convertedCount`, `replyCount`, `holdoutCount` (retidos esperando a vencedora), `blockedCount` e `blockReasons` (cada motivo de bloqueio com a quantidade de contatos), `refundCount`, `refundValue`, `totalCost`, `startedAt`, `finishedAt`.
 
-```json
-{
-  "templateCategory": "MARKETING",
-  "recipientCount": 50000,
-  "templateCost": 0.295,
-  "araraFee": 0.0885,
-  "unitPrice": 0.3835,
-  "totalCost": 19175.00
-}
-```
+`GET /v1/campaigns?status=...` lista as campanhas paginadas. `POST /v1/campaigns/{id}/cancel` cancela. Ao terminar, a Arara envia o webhook `campaign.completed`.
 
-Use pra ter aprovação interna **antes** do disparo.
+Durante o pico, fique de olho em:
 
-## Reabordagem (D+2)
+| Sinal | O que fazer |
+|---|---|
+| `failedCount` subindo | Veja `blockReasons` e o `errorDetails` dos webhooks `message.status_updated` |
+| Webhook `number.tier_updated` ou `template.quality_updated` | Reduza volume de marketing e revise a copy |
+| `replyCount` alto | Garanta Brain ou time respondendo |
 
-Quem viu mas não comprou. A segmentação roda do seu lado:
-- Pega quem recebeu BF-26-main (via `GET /v1/campaigns/{id}` ou seu CRM)
-- Cruza com quem ainda não tem pedido nas últimas 48h
-- Opcional: filtra por quem clicou no Smart Link mas não converteu (vê isso no `convertedCount` vs `clickedCount` da campanha)
+## Reabordagem
 
-Aí monta a lista de contatos e dispara nova campanha:
+Quem recebeu e não comprou. O cruzamento é do seu lado:
+
+1. Pegue quem recebeu a campanha principal (sua lista de envio).
+2. Remova quem comprou no período (seu sistema de pedidos) e quem está em opt-out.
+3. Crie uma nova campanha com a lista resultante:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/campaigns \
   -H "Authorization: Bearer ara_live_xxx" \
-  -H "Idempotency-Key: bf26-reabordagem" \
+  -H "Idempotency-Key: 0e7d4b21-9c3a-4f18-b6e2-5a1c8d3f7b92" \
+  -H "Content-Type: application/json" \
   -d '{
-    "name": "BF-26-reabordagem",
-    "templateName": "bf_lembrete_d2",
+    "name": "BF reabordagem",
+    "templateName": "bf_lembrete",
     "contacts": [
       { "to": "+5511999999999", "variables": ["João"] }
-    ]
+    ],
+    "scheduledAt": "2026-11-29T15:00:00Z"
   }'
 ```
 
-Tom da reabordagem: **escassez real**. "Última hora" se for verdade. Não invente.
+O mesmo vale para o último dia, com `bf_ultimo_dia`. Escassez só se for verdade.
 
-## Último dia (D+5)
+## Responder quem respondeu
 
-Mesma lógica: segmenta do seu lado e dispara no horário desejado. A API não aceita `scheduledAt` em campanha — agende o cron do seu lado e bata o `POST /v1/campaigns` na hora.
+Resposta a template abre a janela de 24h. Com volume alto, o [Brain](/brain) pode responder primeiro e passar para o time quando precisar.
 
-```bash
-curl -X POST https://api.ararahq.com/v1/campaigns \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Idempotency-Key: bf26-ultimo-dia" \
-  -d '{
-    "name": "BF-26-ultimo-dia",
-    "templateName": "bf_ultimo_dia",
-    "contacts": [ /* só quem ainda não comprou */ ]
-  }'
-```
-
-## Triagem de respostas
-
-Cliente vai responder. Em volume de 50K disparos, espera **5-15% de respostas** = 2.5K-7.5K conversas pra responder em 2-3 dias. Inviável fazer humano. Usa Brain:
+Adicione o conteúdo da promoção à base de conhecimento:
 
 ```bash
-# Garante Brain ligado
-curl -X PATCH https://api.ararahq.com/v1/brain/config \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -d '{ "active": true }'
-
-# Sobe knowledge específico da BF (FAQ)
 curl -X POST https://api.ararahq.com/v1/brain/knowledge \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
-    "type": "FAQ",
-    "content": "Promo válida 29/11 a 02/12. Frete grátis acima de R$ 199. Cupom não cumula com outros descontos. Devolução padrão de 7 dias mantida. Pix tem 5% adicional. Cartão em até 12x sem juros."
+    "content": "Promoção válida de 27/11 a 30/11. Frete grátis acima de R$ 199. Cupom não acumula com outros descontos. Troca em até 7 dias."
   }'
 ```
 
-Configure Brain pra escalar pra humano quando:
-- Cliente reclamar (`COMPLAINT`)
-- Cliente tiver urgência alta (`URGENT`)
-- Brain não saber a resposta (`OUT_OF_SCOPE`)
-
-Resto, Brain resolve sozinho.
-
-Ver [Brain](/brain).
-
-## Monitoring de tempo real
-
-Durante o disparo, **dashboard aberto** com:
-
-| Métrica | Alerta se |
-|---|---|
-| Taxa de entrega | < 95% (algo na infra) |
-| Taxa de bloqueio | > 1% (template ruim ou base sem opt-in) |
-| Tier do número | Mudou de GREEN pra YELLOW (parar marketing por 24h) |
-| Backend SLA | Erro 5xx > 0.5% (seu backend tá no limite) |
-| Conversões | Cair vs A/B test (algo na URL/checkout) |
-
-A Arara expõe via API:
+Ligue a resposta automática e defina quando passar para humano:
 
 ```bash
-curl https://api.ararahq.com/v1/campaigns/{campaign_id} \
-  -H "Authorization: Bearer ara_live_xxx"
+curl -X PATCH https://api.ararahq.com/v1/brain/config \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "active": true,
+    "assistMode": "AUTO",
+    "exitTriggers": {
+      "customerAsks": ["falar com atendente", "humano", "reclamação"],
+      "maxMessages": 10
+    }
+  }'
 ```
 
-Retorna métricas em tempo real do disparo.
+- `assistMode`: `AUTO` responde sozinho, `COPILOT` só sugere resposta para o atendente, `OFF` desliga.
+- `exitTriggers.customerAsks`: frases que, se aparecerem na mensagem do cliente, passam a conversa para humano.
+- `exitTriggers.maxMessages`: quando o histórico com o contato atinge esse número de mensagens (as da campanha contam), a conversa passa para humano.
 
-## Pós-BF (D+7)
+Cada passagem para humano gera o webhook `conversation.needs_human` e aparece em `GET /v1/brain/handoffs`. O `reason` indica o motivo, por exemplo `CUSTOMER_REQUEST`, `MAX_MESSAGES` ou `QUOTA_EXCEEDED`. O Brain depende do plano e de número conectado, e `active: true` é recusado enquanto houver pré-requisito pendente. Detalhes em [Brain](/brain).
 
-- Resumo financeiro: receita total, atribuída a WhatsApp, custo total, CAC, ROAS
-- Análise: qual cohort converteu melhor, qual template performou, qual horário
-- Documenta: usa pra calibrar a próxima campanha
-- Thank-you: template `bf_pos_bf_thank_you` pra quem comprou, mantém relacionamento
+## Depois da data
+
+- Compare as campanhas pelo `GET /v1/campaigns/{id}`: entregues, lidas, cliques, conversões e custo.
+- Envie o agradecimento para quem comprou em uma nova campanha.
+- Registre qual grupo, template e horário funcionaram para a próxima data.
 
 ## Checklist de produção
 
-- [ ] Warming completo do número, tier no GREEN
-- [ ] 5 templates aprovados pela Meta
-- [ ] Base segmentada com consentimento WhatsApp explícito
-- [ ] A/B test configurado com autopilot
-- [ ] Smart Links criados com tracking por cohort
-- [ ] Brain configurado com FAQ específica
-- [ ] Time de atendimento de plantão pros escalonamentos
-- [ ] Dashboard Arara aberto durante todo o pico
-- [ ] Backend testado pra capacidade do dispatch (50K mensagens em 4-6h)
-- [ ] `Idempotency-Key` em cada chamada
-- [ ] Plan B se número cair pra YELLOW: rotear pra número 2
+- [ ] Templates aprovados antes da data
+- [ ] Base com consentimento e sem opt-outs
+- [ ] Estimativa de custo aprovada internamente
+- [ ] `Idempotency-Key` única (UUID) em cada `POST /v1/campaigns`
+- [ ] `decisionWindowMinutes` considerando o tempo até o `scheduledAt`
+- [ ] Webhooks `message.status_updated`, `campaign.completed` e `conversation.needs_human` tratados
+- [ ] Brain com a promoção na base de conhecimento, ou time de plantão
+- [ ] Qualidade do número acompanhada durante o pico
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Marketing no WhatsApp" icon="bullhorn" href="/marketing">
-    Princípios gerais que valem fora da BF.
+    Princípios que valem fora da data sazonal.
   </Card>
   <Card title="Carrinho abandonado" icon="cart-shopping" href="/recipes/abandoned-cart">
-    Fluxo que roda contínuo, pós-BF inclusive.
+    Fluxo contínuo, que segue rodando depois da campanha.
   </Card>
 </CardGroup>

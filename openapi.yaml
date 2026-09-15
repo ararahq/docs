@@ -2,51 +2,56 @@ openapi: 3.0.3
 info:
   title: AraraHQ API
   description: |
-    AraraHQ é um CPaaS brasileiro, "Resend pra WhatsApp". Esta API expõe envio de
-    mensagens WhatsApp, gestão de templates, campanhas, contatos, conversas,
-    wallet, números e mais.
+    API REST da AraraHQ para WhatsApp: envio de mensagens, templates, campanhas,
+    contatos, opt-out, conversas, smart links, carteira e webhooks.
 
-    Esta é a **V2** da documentação. O escopo é exclusivamente **WhatsApp** (SMS
-    e canais legados foram removidos). Os paths reais do backend ficam em
-    `/v1/*`, `/auth/*`, `/dashboard/*` e afins — "V2" se refere à versão da doc,
-    não a um prefixo de URL.
+    Esta especificação cobre só os endpoints que aceitam **API key**
+    (`Authorization: Bearer ara_live_...`). Rotas usadas apenas pelo painel
+    (sessão de usuário), como gestão de chaves, configuração do webhook,
+    pagamentos e perfil pessoal, ficam de fora.
 
     ## Autenticação
 
-    Dois esquemas convivem:
+    Header `Authorization: Bearer ara_live_...`. As chaves são sempre LIVE:
+    mensagens são entregues de verdade e o custo sai da carteira.
 
-    - **`bearerAuth`** — API key emitida pelo dashboard. Header
-      `Authorization: Bearer ara_live_...`. Usado por todos os endpoints
-      `/v1/*` e `/dashboard/*`.
-    - **`firebaseAuth`** — Firebase ID token. Usado em `/auth/*`, `/users/*` e
-      `/v1/profile/*` (operações que pertencem ao usuário, não à organização).
+    ## Permissões da chave
 
-    As chaves são sempre LIVE (`ara_live_...`). Não há chave de sandbox nem modo
-    de teste — mensagens entregam de verdade e créditos são debitados.
+    Chave criada sem permissões explícitas tem acesso total (`ADMIN`). Chave
+    com permissões restritas só alcança:
 
-    ## Rate limiting
+    - `READ`: `GET` em `/v1/messages`, `/v1/campaigns`, `/v1/templates` e
+      `/v1/organizations/me/numbers`.
+    - `MESSAGES_SEND`: escrita em `/v1/messages/**` e `POST /v1/media/upload`.
+    - `TEMPLATES_WRITE`: escrita em `/v1/templates/**`.
+    - `CAMPAIGNS_SEND`: escrita em `/v1/campaigns/**`.
+    - `CONTACTS_WRITE`: escrita em `/v1/contacts/**`.
+    - `WEBHOOKS_MANAGE`: escrita em `/webhook/**`.
 
-    Requests acima do limite recebem `429 Too Many Requests` com header
-    `Retry-After`. Honre o header antes de retentar.
+    Qualquer outra rota exige `ADMIN`. Fora do escopo, a resposta é `403`.
+
+    ## Rate limit
+
+    Por usuário da chave, por instância da API: 1.200 leituras (`GET`) por
+    minuto e 3.000 escritas por minuto (valor de produção). Toda resposta traz
+    `X-RateLimit-Remaining`. Acima do limite: `429` com `Retry-After: 1` e
+    `error.code = RATE_LIMIT_EXCEEDED`. Há ainda limites de envio próprios
+    (`SEND_RATE_LIMITED`, `MARKETING_FREQUENCY_EXCEEDED`).
 
     ## Formato de erro
 
-    Todo erro segue o formato canônico:
-
     ```json
-    {
-      "error": {
-        "code": "ERROR_CODE",
-        "message": "Descrição legível",
-        "details": {}
-      }
-    }
+    { "error": { "code": "ERROR_CODE", "message": "Descrição", "details": {} } }
     ```
-  version: 2.0.0
+
+    Exceções conhecidas: falha de autenticação volta no formato padrão do
+    Spring (`timestamp`, `status`, `error`, `path`, sem `code`), e alguns `404`
+    voltam sem corpo. Veja a página Erros.
+  version: 2.1.0
   contact:
-    name: AraraHQ Support
+    name: AraraHQ
     url: https://ararahq.com
-    email: support@ararahq.com
+    email: oi@ararahq.com
 
 servers:
   - url: https://api.ararahq.com
@@ -56,122 +61,97 @@ security:
   - bearerAuth: []
 
 tags:
-  - name: auth
-    description: Sessão, identidade do usuário autenticado e listagem de organizações.
+  - name: account
+    description: Identidade do dono da chave.
   - name: messages
     description: Envio e consulta de mensagens WhatsApp.
+  - name: media
+    description: Upload de mídia para usar em templates.
   - name: templates
-    description: Criação, listagem, status e analytics de templates WhatsApp.
+    description: Criação, listagem, status e analytics de templates.
   - name: campaigns
-    description: Campanhas em massa, estimativa de custo, cancelamento e A/B testing.
+    description: Disparo em massa, estimativa, agendamento, cancelamento e teste A/B.
   - name: contacts
-    description: Listagem, importação em lote e LGPD-friendly lookup de contatos.
+    description: Base de contatos e direitos LGPD do titular.
+  - name: opt-outs
+    description: Registro e consulta de opt-out por telefone.
   - name: conversations
-    description: Inbox de conversas, mensagens, reply em janela de 24h e status da janela.
-  - name: api-keys
-    description: 'Gestão de chaves de API: criar, listar, rotacionar, revogar, stats e events.'
-  - name: webhook-config
-    description: Configuração do webhook outbound da organização.
-  - name: webhooks
-    description: Webhook de carrinho abandonado (recurso histórico).
-  - name: wallet
-    description: Cálculo de recarga, auto-recharge e extrato de transações.
-  - name: payments
-    description: Checkout Stripe e PIX via AbacatePay.
+    description: Conversas, mensagens da thread, resposta na janela de 24h.
+  - name: smart-links
+    description: Links wa.me rastreáveis com QR code.
   - name: numbers
-    description: Números dedicados, requests de novo número e warming.
+    description: Números WhatsApp da organização.
   - name: business-profile
-    description: Perfil do negócio sincronizado com Meta/Twilio.
-  - name: profile
-    description: Perfil pessoal, MFA, mudança de email e LGPD.
-  - name: recovery
-    description: Endpoint de Recovery (carrinho abandonado), eventos e ingests.
+    description: Perfil comercial exibido no WhatsApp.
+  - name: wallet
+    description: Saldo, extrato, recarga automática e simulação de recarga.
   - name: pricing
-    description: Preços por categoria de template e país.
+    description: Preço por categoria e custo Meta por mercado.
   - name: organization
-    description: Plano e dados da organização autenticada.
+    description: Plano atual da organização.
+  - name: phone-lookup
+    description: Consulta de linha e WhatsApp (cobrada).
+  - name: recovery
+    description: Endpoint de recuperação (carrinho abandonado, PIX, boleto).
   - name: dashboard
-    description: Métricas agregadas para o dashboard.
+    description: Histórico de mensagens e métricas agregadas.
+  - name: legacy
+    description: Rotas antigas mantidas por compatibilidade.
   - name: health
     description: Health check.
 
 paths:
-  # ---------------------- AUTH ----------------------
-  /auth:
-    post:
-      tags: [auth]
-      operationId: firebaseLogin
-      summary: Troca um Firebase ID token por sessão Arara
-      description: |
-        Recebe um Firebase ID token e retorna o `UserResponseDTO`, um token de
-        sessão e (eventualmente) uma API key inicial. Endpoint público — não
-        requer Authorization. IP do cliente é extraído de `X-Forwarded-For` /
-        `X-Real-IP` quando vindo via CDN.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FirebaseLoginRequest'
-      responses:
-        '200':
-          description: Login OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '429': { $ref: '#/components/responses/TooManyRequests' }
-
+  # ---------------------- ACCOUNT ----------------------
   /auth/me:
     get:
-      tags: [auth]
+      tags: [account]
       operationId: getCurrentUser
-      summary: Retorna o usuário autenticado
-      security:
-        - firebaseAuth: []
-        - bearerAuth: []
+      summary: Usuário dono da chave
+      description: 'Permissão: `ADMIN`.'
       responses:
         '200':
-          description: Usuário autenticado
+          description: Usuário
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponseDTO'
+                $ref: '#/components/schemas/UserResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /auth/me/organizations:
     get:
-      tags: [auth]
+      tags: [account]
       operationId: getMyOrganizations
-      summary: Lista organizações do usuário autenticado
-      description: |
-        Lê membership do usuário em todas as orgs. A org primária está incluída
-        pelo backfill V117 — se por algum motivo faltar, é adicionada no topo.
-      security:
-        - firebaseAuth: []
-        - bearerAuth: []
+      summary: Organizações do dono da chave
+      description: 'Permissão: `ADMIN`.'
       responses:
         '200':
-          description: Lista de organizações
+          description: Organizações
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrganizationListResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   # ---------------------- MESSAGES ----------------------
   /v1/messages:
     post:
       tags: [messages]
       operationId: sendMessage
-      summary: Envia mensagem WhatsApp (template, texto, interativa, localização ou reação)
+      summary: Envia uma mensagem
       description: |
-        Aceita exatamente **um** tipo de payload por request: `templateName`,
-        `body`, `interactive`, `location` ou `reaction`. Retorna `202 Accepted`
-        com o ID interno; o status real chega via webhook.
+        Aceita exatamente **um** conteúdo: `templateName`, `body`,
+        `interactive`, `location` ou `reaction`. Responde `202` com o ID
+        interno; o status final chega pelo webhook `message.status_updated`.
+
+        `Idempotency-Key` (opcional, até 255 caracteres): a mesma chave, para o
+        mesmo usuário, devolve a mensagem já criada, sem novo envio nem nova
+        cobrança. A chave não expira e o corpo não é comparado.
+
+        Permissão: `MESSAGES_SEND`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:
         required: true
         content:
@@ -180,23 +160,52 @@ paths:
               $ref: '#/components/schemas/SendMessageRequest'
       responses:
         '202':
-          description: Mensagem aceita pra envio
+          description: Mensagem aceita
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+    get:
+      tags: [messages]
+      operationId: getBatchMessages
+      summary: Mensagens de um lote
+      description: |
+        Devolve as mensagens criadas por `POST /v1/messages/batch`. O parâmetro
+        `batchId` é obrigatório nesta rota. Permissão: `READ`.
+      parameters:
+        - in: query
+          name: batchId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Mensagens do lote
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MessageResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /v1/messages/batch:
     post:
       tags: [messages]
       operationId: sendBatchMessages
-      summary: Envia múltiplas mensagens com o mesmo template
-      description: Limite de **1000 mensagens** por lote. Faz batch insert e enfileira em lote.
+      summary: Envia até 1000 mensagens do mesmo template
+      description: |
+        Um template, até 1000 destinatários. Com `Idempotency-Key`, repetir a
+        chamada devolve o lote original sem reenviar. Permissão: `MESSAGES_SEND`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:
         required: true
         content:
@@ -212,6 +221,8 @@ paths:
                 $ref: '#/components/schemas/BatchMessageResponse'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
@@ -219,30 +230,79 @@ paths:
     get:
       tags: [messages]
       operationId: getMessage
-      summary: Busca uma mensagem pelo ID interno
+      summary: Consulta uma mensagem
+      description: |
+        Só devolve mensagens enviadas pelo mesmo usuário dono da chave. Mensagem
+        de outro membro da organização responde `403` sem corpo.
+        Permissão: `READ`.
       parameters:
-        - $ref: '#/components/parameters/MessageInternalId'
+        - in: path
+          name: internalId
+          required: true
+          schema: { type: string }
+          description: ID retornado no envio (campo `id`).
       responses:
         '200':
-          description: Mensagem encontrada
+          description: Mensagem
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Mensagem de outro usuário (sem corpo) ou chave sem permissão.
+        '404':
+          description: Mensagem não encontrada (sem corpo).
+
+  # ---------------------- MEDIA ----------------------
+  /v1/media/upload:
+    post:
+      tags: [media]
+      operationId: uploadMedia
+      summary: Faz upload de imagem ou PDF
+      description: |
+        Imagem até 5 MB ou PDF até 100 MB. Use a `url` devolvida como variável
+        de cabeçalho do template. Permissão: `MESSAGES_SEND`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Arquivo salvo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, directUrl]
+                properties:
+                  url:
+                    type: string
+                    description: Link curto público do arquivo.
+                  directUrl:
+                    type: string
+        '400':
+          description: 'Tipo ou tamanho inválido. Corpo `{ "error": "mensagem" }`.'
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------------- TEMPLATES ----------------------
   /v1/templates:
     post:
       tags: [templates]
       operationId: createTemplate
-      summary: Cria e submete um template à Twilio/Meta para aprovação
+      summary: Cria e submete um template para aprovação
       description: |
-        Requer conta ACTIVE (live mode). Plano FREE limitado a 3 templates.
-        Submete pra Twilio; status inicial fica `PENDING`. Use
-        `/v1/templates/{id}/status` pra checar aprovação.
+        Exige conta ativa (`ACCOUNT_NOT_ACTIVATED` caso contrário) e respeita o
+        limite de templates aprovados do plano (`PLAN_LIMIT_REACHED`).
+        O status inicial fica em `providerStatus`. Permissão: `TEMPLATES_WRITE`.
       requestBody:
         required: true
         content:
@@ -251,7 +311,7 @@ paths:
               $ref: '#/components/schemas/CreateTemplateRequest'
       responses:
         '201':
-          description: Template criado e submetido
+          description: Template criado
           content:
             application/json:
               schema:
@@ -260,32 +320,38 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
-
     get:
       tags: [templates]
       operationId: listTemplates
       summary: Lista templates da organização
+      description: 'Paginado em `{ data, pagination }`. Permissão: `READ`.'
       parameters:
         - in: query
           name: name
-          schema: { type: string }
           required: false
-          description: Filtra por nome exato.
+          schema: { type: string }
+          description: Nome exato. Devolve no máximo 1 item.
         - in: query
           name: status
-          schema:
-            type: string
-            enum: [PENDING, APPROVED, REJECTED, PAUSED, DISABLED]
           required: false
+          schema: { type: string, example: APPROVED }
+          description: Filtra por `providerStatus` (sem diferenciar maiúsculas).
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - $ref: '#/components/parameters/WabaIdHeader'
       responses:
         '200':
-          description: Lista de templates
+          description: Página de templates
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TemplateResponse'
+                $ref: '#/components/schemas/TemplatePage'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
@@ -293,7 +359,8 @@ paths:
     get:
       tags: [templates]
       operationId: getTemplate
-      summary: Busca um template específico
+      summary: Consulta um template
+      description: 'Permissão: `READ`.'
       parameters:
         - $ref: '#/components/parameters/TemplateId'
       responses:
@@ -303,18 +370,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TemplateResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [templates]
       operationId: deleteTemplate
-      summary: Remove um template
+      summary: Apaga um template
+      description: |
+        Apaga primeiro no provedor (Meta) e depois na Arara. Se o provedor
+        recusar, nada é apagado. Permissão: `TEMPLATES_WRITE`.
       parameters:
         - $ref: '#/components/parameters/TemplateId'
       responses:
         '204':
-          description: Removido
+          description: Apagado
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -323,10 +394,10 @@ paths:
     get:
       tags: [templates]
       operationId: getTemplateStatus
-      summary: Consulta status atualizado de aprovação na Twilio/Meta
+      summary: Status de aprovação
       description: |
-        Bate na Twilio (source of truth), persiste o status localmente e retorna.
-        Em caso de falha do provider, devolve o status já no banco.
+        Para templates Gupshup devolve o status mantido pelo webhook do provedor;
+        para templates Twilio consulta o provedor na hora. Permissão: `READ`.
       parameters:
         - $ref: '#/components/parameters/TemplateId'
       responses:
@@ -344,20 +415,14 @@ paths:
     get:
       tags: [templates]
       operationId: getTemplateAnalytics
-      summary: Analytics agregadas de um template
-      description: Conta mensagens enviadas, entregues, lidas e falhadas via GROUP BY no banco.
+      summary: Métricas de envio de um template
+      description: 'Permissão: `READ`.'
       parameters:
         - $ref: '#/components/parameters/TemplateId'
-        - in: query
-          name: period
-          schema:
-            type: string
-            enum: [7d, 30d, 90d]
-            default: 30d
-          required: false
+        - $ref: '#/components/parameters/AnalyticsPeriod'
       responses:
         '200':
-          description: Analytics
+          description: Métricas
           content:
             application/json:
               schema:
@@ -366,22 +431,128 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /v1/templates/analytics:
+    get:
+      tags: [templates]
+      operationId: getTemplatesAnalytics
+      summary: Métricas de todos os templates
+      description: 'Uma linha por nome de template enviado no período. Permissão: `READ`.'
+      parameters:
+        - $ref: '#/components/parameters/AnalyticsPeriod'
+      responses:
+        '200':
+          description: Métricas por template
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateAnalyticsBatchItem'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/templates/library:
+    get:
+      tags: [templates]
+      operationId: listLibraryTemplates
+      summary: Templates pré-aprovados da biblioteca da Meta
+      description: |
+        Templates `UTILITY` que a Meta já aprovou. Exige número conectado.
+        Permissão: `READ`.
+      parameters:
+        - in: query
+          name: languageCode
+          required: false
+          schema: { type: string, default: pt_BR }
+      responses:
+        '200':
+          description: Templates da biblioteca
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LibraryTemplateResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [templates]
+      operationId: createTemplateFromLibrary
+      summary: Cria template a partir da biblioteca
+      description: 'Nasce aprovado, sem a espera da revisão. Permissão: `TEMPLATES_WRITE`.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLibraryTemplateRequest'
+      responses:
+        '201':
+          description: Template criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /v1/templates/sync:
+    post:
+      tags: [templates]
+      operationId: syncTemplates
+      summary: Sincroniza templates com o provedor
+      description: |
+        Importa templates criados direto no gerenciador da Meta e corrige
+        status e categoria divergentes. Sem número conectado responde `422`
+        `GUPSHUP_APP_NOT_READY`. Permissão: `TEMPLATES_WRITE`.
+      responses:
+        '200':
+          description: Resultado da sincronização
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [imported, updated, unchanged, skipped]
+                properties:
+                  imported:
+                    type: array
+                    items: { type: string }
+                  updated:
+                    type: array
+                    items: { type: string }
+                  unchanged: { type: integer }
+                  skipped:
+                    type: array
+                    items: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
   # ---------------------- CAMPAIGNS ----------------------
   /v1/campaigns:
     post:
       tags: [campaigns]
       operationId: createCampaign
-      summary: Cria uma campanha em massa
+      summary: Cria uma campanha
       description: |
-        Requer plano PRO+ e número dedicado atrelado à organização. Header
-        `Idempotency-Key` é obrigatório — mesmo header em retries retorna a
-        mesma campanha.
+        Valida template e variáveis, reserva a cota do plano e debita o custo
+        total da carteira antes de enfileirar. Exige número dedicado conectado.
+
+        - `Idempotency-Key` é obrigatório. Repetir a chave devolve a campanha
+          já criada.
+        - `scheduledAt` agenda o disparo (entre 5 minutos e 30 dias à frente).
+        - `abTest` cria o teste A/B junto com a campanha: `templateName` é a
+          variante A.
+
+        Permissão: `CAMPAIGNS_SEND`.
       parameters:
         - in: header
           name: Idempotency-Key
           required: true
-          schema: { type: string }
-          description: Identificador único do retry (UUID recomendado).
+          schema: { type: string, maxLength: 255 }
+          description: Identificador único da campanha (UUID recomendado).
       requestBody:
         required: true
         content:
@@ -390,43 +561,63 @@ paths:
               $ref: '#/components/schemas/CampaignRequest'
       responses:
         '200':
-          description: Campanha criada
+          description: Campanha criada (ou existente, se a chave já foi usada)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CampaignResponse'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
-
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500':
+          description: '`Idempotency-Key` ausente hoje cai no handler genérico e responde 500.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     get:
       tags: [campaigns]
       operationId: listCampaigns
-      summary: Lista campanhas da organização
+      summary: Lista campanhas
+      description: |
+        Envelope `{ content, totalPages, totalElements }` (não segue o padrão
+        `{ data, pagination }`). Permissão: `READ`.
       parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/SizeParam'
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
         - in: query
           name: status
-          schema:
-            type: string
-            enum: [PENDING, RUNNING, PAUSED, COMPLETED, CANCELED, FAILED]
           required: false
+          schema:
+            $ref: '#/components/schemas/CampaignStatus'
+        - $ref: '#/components/parameters/WabaIdHeader'
       responses:
         '200':
-          description: Lista paginada
+          description: Página de campanhas
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CampaignListResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /v1/campaigns/estimate:
     get:
       tags: [campaigns]
       operationId: estimateCampaign
-      summary: Estima custo de uma campanha antes de criar
+      summary: Estima custo por quantidade de destinatários
+      description: |
+        Usa o preço de referência do mercado local. Para campanha com números
+        de vários países, use o `POST`. `templateName` aceita nome ou ID.
+        Permissão: `READ`.
       parameters:
         - in: query
           name: templateName
@@ -435,10 +626,7 @@ paths:
         - in: query
           name: count
           required: true
-          schema:
-            type: integer
-            minimum: 1
-          description: Número de destinatários.
+          schema: { type: integer, minimum: 1, maximum: 1000000 }
       responses:
         '200':
           description: Estimativa
@@ -446,15 +634,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CampaignEstimateResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+    post:
+      tags: [campaigns]
+      operationId: estimateCampaignByPhones
+      summary: Estima custo exato pela lista de telefones
+      description: |
+        Calcula o preço por país de destino e devolve a quebra em `markets`.
+        Não cria nada nem debita. Permissão: `CAMPAIGNS_SEND`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignEstimateRequest'
+      responses:
+        '200':
+          description: Estimativa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignEstimateResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
 
   /v1/campaigns/{id}:
     get:
       tags: [campaigns]
       operationId: getCampaign
-      summary: Detalhe de uma campanha com métricas
+      summary: Detalhe da campanha com métricas
+      description: 'Permissão: `READ`.'
       parameters:
         - $ref: '#/components/parameters/CampaignId'
       responses:
@@ -465,27 +677,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/CampaignDetailResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /v1/campaigns/{id}/cancel:
     post:
       tags: [campaigns]
       operationId: cancelCampaign
-      summary: Cancela uma campanha em andamento
+      summary: Cancela uma campanha
+      description: |
+        Marca `CANCELED` e estorna na carteira os contatos que ainda não viraram
+        mensagem. Mensagens já enfileiradas seguem. Campanha em `COMPLETED`,
+        `COMPLETED_WITH_ERRORS`, `CANCELED` ou `FAILED` responde `422`.
+        Permissão: `CAMPAIGNS_SEND`.
       parameters:
         - $ref: '#/components/parameters/CampaignId'
       responses:
         '204':
           description: Cancelada
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
 
   /v1/campaigns/{campaignId}/ab-test:
     post:
       tags: [campaigns]
       operationId: createCampaignAbTest
-      summary: Cria um A/B test para uma campanha
+      summary: Adiciona teste A/B a uma campanha existente
+      description: |
+        Prefira o campo `abTest` no `POST /v1/campaigns`: lá o teste nasce na
+        mesma transação da campanha. Criado depois, a expansão pode já ter
+        disparado contatos sem o teste. Permissão: `CAMPAIGNS_SEND`.
       parameters:
         - $ref: '#/components/parameters/CampaignIdPath'
       requestBody:
@@ -496,35 +719,48 @@ paths:
               $ref: '#/components/schemas/CreateAbTestRequest'
       responses:
         '201':
-          description: A/B test criado
+          description: Teste criado
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AbTestResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: '`INVALID_AB_TEST` (métrica ou split inválido).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Campanha não encontrada (sem corpo).
     get:
       tags: [campaigns]
       operationId: getCampaignAbTest
-      summary: Consulta A/B test de uma campanha
+      summary: Consulta o teste A/B da campanha
+      description: 'Permissão: `READ`.'
       parameters:
         - $ref: '#/components/parameters/CampaignIdPath'
       responses:
         '200':
-          description: A/B test
+          description: Teste A/B
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AbTestResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Campanha ou teste não encontrado (sem corpo).
 
   /v1/campaigns/{campaignId}/ab-test/winner:
     post:
       tags: [campaigns]
       operationId: forceCampaignAbTestWinner
-      summary: Força um vencedor manualmente no A/B test
+      summary: Força a variante vencedora
+      description: |
+        Define o vencedor (`decidedReason = FORCED_MANUAL`) e libera os contatos
+        que aguardavam o resultado. Permissão: `CAMPAIGNS_SEND`.
       parameters:
         - $ref: '#/components/parameters/CampaignIdPath'
       requestBody:
@@ -540,87 +776,110 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AbTestResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: '`INVALID_WINNER`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Campanha ou teste não encontrado (sem corpo).
 
   # ---------------------- CONTACTS ----------------------
   /v1/contacts:
     get:
       tags: [contacts]
       operationId: listContacts
-      summary: Lista contatos da organização
+      summary: Lista contatos
+      description: |
+        Envelope `{ contacts, total, page, size, totalPages }`. Exige plano com
+        contatos (`PLAN_FEATURE_LOCKED`). Permissão: `ADMIN`.
       parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/SizeParam'
         - in: query
           name: q
-          schema: { type: string }
           required: false
+          schema: { type: string }
           description: Busca por nome, telefone ou email.
+        - in: query
+          name: lifecycle
+          required: false
+          schema: { type: string }
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+        - $ref: '#/components/parameters/WabaIdHeader'
       responses:
         '200':
-          description: Lista
+          description: Página de contatos
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContactsListResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /v1/contacts/batch:
     post:
       tags: [contacts]
       operationId: importContactsBatch
-      summary: Importa contatos em lote
+      summary: Cria ou atualiza contatos em lote
+      description: 'Corpo é um array (até 5.000 itens). Permissão: `CONTACTS_WRITE`.'
+      parameters:
+        - $ref: '#/components/parameters/WabaIdHeader'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: array
+              maxItems: 5000
               items:
                 $ref: '#/components/schemas/ContactRequest'
       responses:
         '200':
-          description: Resultado do import
+          description: Resultado da importação
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContactsBatchResponse'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
 
   /v1/contacts/stats:
     get:
       tags: [contacts]
       operationId: getContactsStats
-      summary: Stats agregadas de contatos da organização
+      summary: Contagem de contatos por estágio
+      description: 'Permissão: `ADMIN`.'
       responses:
         '200':
-          description: Mapa de stats
+          description: Contagens
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties:
-                  type: integer
-                  format: int64
+                $ref: '#/components/schemas/ContactsStatsResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /v1/contacts/{phone}:
     get:
       tags: [contacts]
       operationId: getContactByPhone
-      summary: Busca contato por telefone E.164
+      summary: Busca contato por telefone
+      description: |
+        Telefone E.164 com `+`. Contato inexistente responde hoje `422`
+        `UNPROCESSABLE_ENTITY`, não `404`. Permissão: `ADMIN`.
       parameters:
-        - in: path
-          name: phone
-          required: true
-          schema:
-            type: string
-            pattern: '^\+[1-9]\d{6,14}$'
-          description: Telefone E.164 (ex. `+5511999998888`).
+        - $ref: '#/components/parameters/PhonePath'
       responses:
         '200':
           description: Contato
@@ -628,165 +887,230 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContactResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  # ---------------------- API KEYS ----------------------
-  /v1/api-keys:
-    post:
-      tags: [api-keys]
-      operationId: createApiKey
-      summary: Cria uma nova API key
-      description: |
-        Retorna a chave em texto plano **uma única vez**. Modo LIVE exige conta
-        ACTIVE. `ipAllowlist` é feature do plano Business.
-      parameters:
-        - in: query
-          name: mode
-          schema:
-            type: string
-            enum: [LIVE]
-            default: LIVE
-          required: false
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateApiKeyRequest'
-      responses:
-        '201':
-          description: API key criada (chave plain text só aqui)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GeneratedApiKey'
-        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-    get:
-      tags: [api-keys]
-      operationId: listApiKeys
-      summary: Lista API keys ativas do usuário
-      responses:
-        '200':
-          description: Lista (somente metadados, nunca o segredo)
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiKeyListItem'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /v1/api-keys/{id}:
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
     patch:
-      tags: [api-keys]
-      operationId: updateApiKey
-      summary: Atualiza nome, escopo, expiração ou IP allowlist
+      tags: [contacts]
+      operationId: updateContact
+      summary: Atualiza nome, email ou tags
+      description: 'Permissão: `CONTACTS_WRITE`.'
       parameters:
-        - $ref: '#/components/parameters/ApiKeyId'
+        - $ref: '#/components/parameters/PhonePath'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateApiKeyRequest'
+              $ref: '#/components/schemas/ContactPatchRequest'
       responses:
-        '204':
-          description: Atualizado
+        '200':
+          description: Contato atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /v1/contacts/{phone}/messages:
+    get:
+      tags: [contacts]
+      operationId: getContactMessages
+      summary: Últimas mensagens trocadas com o contato
+      description: 'Permissão: `ADMIN`.'
+      parameters:
+        - $ref: '#/components/parameters/PhonePath'
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+      responses:
+        '200':
+          description: Mensagens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactMessagesResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /v1/contacts/{phone}/lgpd/export:
+    get:
+      tags: [contacts]
+      operationId: exportContactLgpd
+      summary: Exporta os dados do titular (LGPD)
+      description: 'Contato, conversa e até 1.000 mensagens. Permissão: `ADMIN`.'
+      parameters:
+        - $ref: '#/components/parameters/PhonePath'
+      responses:
+        '200':
+          description: Dados do titular
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LgpdExport'
+        '400': { $ref: '#/components/responses/InvalidPhone' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/contacts/{phone}/lgpd:
     delete:
-      tags: [api-keys]
-      operationId: revokeApiKey
-      summary: Revoga uma API key
+      tags: [contacts]
+      operationId: deleteContactLgpd
+      summary: Apaga os dados do titular (LGPD)
+      description: |
+        Irreversível. Mascara o conteúdo das mensagens e da conversa, apaga o
+        contato e registra opt-out. Permissão: `CONTACTS_WRITE`.
       parameters:
-        - $ref: '#/components/parameters/ApiKeyId'
+        - $ref: '#/components/parameters/PhonePath'
+        - in: query
+          name: reason
+          required: false
+          schema: { type: string, maxLength: 80 }
+      responses:
+        '200':
+          description: Resultado da remoção
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LgpdDeletionResult'
+        '400': { $ref: '#/components/responses/InvalidPhone' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------- OPT-OUTS ----------------------
+  /v1/opt-outs:
+    get:
+      tags: [opt-outs]
+      operationId: listOptOuts
+      summary: Lista opt-outs da organização
+      description: 'Sem paginação. Permissão: `ADMIN`.'
+      responses:
+        '200':
+          description: Opt-outs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OptOutItem'
+                  total: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [opt-outs]
+      operationId: createOptOut
+      summary: Registra opt-out
+      description: 'Idempotente: telefone já registrado devolve o registro existente. Permissão: `ADMIN`.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  example: '+5511999998888'
+                reason:
+                  type: string
+                  maxLength: 80
+      responses:
+        '201':
+          description: Opt-out registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptOutItem'
+        '400': { $ref: '#/components/responses/InvalidPhone' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/opt-outs/{phone}:
+    get:
+      tags: [opt-outs]
+      operationId: checkOptOut
+      summary: Consulta se o telefone está em opt-out
+      description: 'Permissão: `ADMIN`.'
+      parameters:
+        - $ref: '#/components/parameters/PhonePath'
+      responses:
+        '200':
+          description: Situação
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [phone, channel, optedOut]
+                properties:
+                  phone: { type: string }
+                  channel: { type: string, example: WHATSAPP }
+                  optedOut: { type: boolean }
+        '400': { $ref: '#/components/responses/InvalidPhone' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    delete:
+      tags: [opt-outs]
+      operationId: deleteOptOut
+      summary: Remove o opt-out (opt-in)
+      description: 'Permissão: `ADMIN`.'
+      parameters:
+        - $ref: '#/components/parameters/PhonePath'
       responses:
         '204':
-          description: Revogada
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /v1/api-keys/{id}/rotate:
-    post:
-      tags: [api-keys]
-      operationId: rotateApiKey
-      summary: Rotaciona uma API key (gera nova, marca antiga como rotacionada)
-      parameters:
-        - $ref: '#/components/parameters/ApiKeyId'
-      responses:
-        '200':
-          description: Nova chave em texto plano
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GeneratedApiKey'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /v1/api-keys/{id}/stats:
-    get:
-      tags: [api-keys]
-      operationId: getApiKeyStats
-      summary: Stats de uso da chave (7d / 30d)
-      parameters:
-        - $ref: '#/components/parameters/ApiKeyId'
-      responses:
-        '200':
-          description: Stats
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiKeyStatsResponse'
+          description: Removido
+        '400': { $ref: '#/components/responses/InvalidPhone' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /v1/api-keys/{id}/events:
-    get:
-      tags: [api-keys]
-      operationId: getApiKeyEvents
-      summary: Eventos de auditoria da chave (created, rotated, revoked, etc.)
-      parameters:
-        - $ref: '#/components/parameters/ApiKeyId'
-      responses:
-        '200':
-          description: Lista de eventos
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiKeyEvent'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------------- CONVERSATIONS ----------------------
   /v1/conversations:
     get:
       tags: [conversations]
       operationId: listConversations
-      summary: Lista conversas (inbox)
-      description: Requer plano PRO+ e número dedicado.
+      summary: Lista conversas
+      description: |
+        Exige plano com caixa de entrada e número dedicado. Envelope
+        `{ content, page, size, totalElements, totalPages }`. Permissão: `ADMIN`.
       parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/SizeParam'
         - in: query
           name: status
-          schema: { type: string }
           required: false
+          schema:
+            type: string
+            enum: [OPEN, CLOSED, ARCHIVED]
         - in: query
           name: leadStatus
-          schema: { type: string }
           required: false
+          schema: { type: string }
+        - in: query
+          name: window
+          required: false
+          schema:
+            type: string
+            enum: [OPEN, EXPIRED]
+          description: '`OPEN` só conversas respondíveis; `EXPIRED` só as que exigem template.'
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          required: false
+          schema: { type: integer, minimum: 1, default: 20 }
+        - $ref: '#/components/parameters/WabaIdHeader'
       responses:
         '200':
-          description: Lista paginada de conversas
+          description: Página de conversas
           content:
             application/json:
               schema:
@@ -794,62 +1118,48 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
-  /v1/conversations/lead-stats:
-    get:
-      tags: [conversations]
-      operationId: getConversationLeadStats
-      summary: Contagem de leads por status
-      responses:
-        '200':
-          description: Stats
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  byStatus:
-                    type: object
-                    additionalProperties:
-                      type: integer
-                      format: int64
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
   /v1/conversations/{conversationId}/messages:
     get:
       tags: [conversations]
       operationId: listConversationMessages
-      summary: Lista mensagens de uma conversa
+      summary: Mensagens da conversa
+      description: |
+        `page=0` traz as mais recentes; dentro da página a ordem é cronológica.
+        Permissão: `ADMIN`.
       parameters:
         - in: path
           name: conversationId
           required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/PageParam'
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
         - in: query
           name: size
-          schema:
-            type: integer
-            default: 50
           required: false
+          schema: { type: integer, minimum: 1, default: 50 }
       responses:
         '200':
-          description: Lista paginada de mensagens
+          description: Página de mensagens
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConversationMessagesResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Conversa não encontrada (sem corpo).
 
   /v1/conversations/reply:
     post:
       tags: [conversations]
       operationId: replyToConversation
-      summary: Envia mensagem de texto livre dentro da janela 24h
-      description: Falha com 400 se a janela já expirou — nesse caso envie um template pra reabrir.
+      summary: Responde com texto livre dentro da janela de 24h
+      description: |
+        Janela fechada responde `400` com `{ "error": "..." }`: envie um
+        template para reabrir. Falha de envio aparece em `status`/`reason`.
+        Permissão: `ADMIN`.
       requestBody:
         required: true
         content:
@@ -858,22 +1168,66 @@ paths:
               $ref: '#/components/schemas/ConversationReplyRequest'
       responses:
         '200':
-          description: Mensagem enviada
+          description: Resultado do envio
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConversationReplyResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: 'Janela expirada ou erro de envio. Corpo `{ "error": "mensagem" }`.'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Conversa não encontrada (sem corpo).
+
+  /v1/conversations/{conversationId}/status:
+    patch:
+      tags: [conversations]
+      operationId: updateConversationStatus
+      summary: Abre, fecha ou arquiva uma conversa
+      description: 'Não apaga histórico. Permissão: `ADMIN`.'
+      parameters:
+        - in: path
+          name: conversationId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [OPEN, CLOSED, ARCHIVED]
+      responses:
+        '200':
+          description: Status aplicado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  status: { type: string }
+        '400':
+          description: 'Status inválido. Corpo `{ "error": "mensagem" }`.'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Conversa não encontrada (sem corpo).
 
   /v1/conversations/window-status:
     post:
       tags: [conversations]
       operationId: getWindowStatus
-      summary: Checa status da janela 24h para múltiplos telefones
-      description: 'Limite de 200 telefones por request — extras são truncados (`truncated: true`).'
+      summary: Situação da janela de 24h por telefone
+      description: |
+        Até 200 telefones por chamada; o excedente é ignorado e `truncated`
+        volta `true`. O telefone precisa estar no mesmo formato gravado na
+        conversa. Permissão: `ADMIN`.
       requestBody:
         required: true
         content:
@@ -882,357 +1236,138 @@ paths:
               $ref: '#/components/schemas/WindowStatusRequest'
       responses:
         '200':
-          description: Status por telefone
+          description: Situação por telefone
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/WindowStatusResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
-  # ---------------------- WEBHOOK CONFIG ----------------------
-  /organizations/me/webhook:
-    get:
-      tags: [webhook-config]
-      operationId: getWebhookConfig
-      summary: Configuração do webhook outbound da organização
-      responses:
-        '200':
-          description: Config
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WebhookConfigResponse'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-    patch:
-      tags: [webhook-config]
-      operationId: updateWebhookConfig
-      summary: Atualiza URL e/ou secret do webhook outbound
+  # ---------------------- SMART LINKS ----------------------
+  /v1/smart-links/whatsapp:
+    post:
+      tags: [smart-links]
+      operationId: createSmartLink
+      summary: Cria um smart link de WhatsApp
+      description: 'Permissão: `ADMIN`.'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateWebhookRequest'
+              $ref: '#/components/schemas/CreateSmartLinkRequest'
       responses:
         '200':
-          description: Atualizado
+          description: Smart link criado
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message: { type: string }
-                  url: { type: string }
-                  secret: { type: string }
-        '400': { $ref: '#/components/responses/BadRequest' }
+                $ref: '#/components/schemas/SmartLinkResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
-
-  /organizations/me/webhook/reenable:
-    post:
-      tags: [webhook-config]
-      operationId: reenableWebhook
-      summary: Reativa um webhook desabilitado por falhas consecutivas
-      responses:
-        '200':
-          description: Reativado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message: { type: string }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  # ---------------------- WEBHOOKS (inbound do cliente) ----------------------
-  /webhook/cart:
-    post:
-      tags: [webhooks]
-      operationId: cartAbandonedWebhook
-      summary: Recebe webhook de carrinho abandonado (legado pré-Recovery)
-      description: |
-        Endpoint legado de carrinho abandonado. Para novas integrações use o
-        fluxo de **Recovery** (`/v1/recovery/*`).
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CartAbandonedWebhookRequest'
-      responses:
-        '202':
-          description: Aceito pra processamento
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CartAbandonedWebhookResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  # ---------------------- WALLET ----------------------
-  /v1/wallet/calculate:
+        '403': { $ref: '#/components/responses/Forbidden' }
     get:
-      tags: [wallet]
-      operationId: calculateRecharge
-      summary: Calcula quantas mensagens cada categoria compra para um valor
+      tags: [smart-links]
+      operationId: listSmartLinks
+      summary: Lista smart links
+      description: 'Paginado em `{ data, pagination }`. Permissão: `ADMIN`.'
       parameters:
         - in: query
-          name: amountCents
-          required: true
-          schema:
-            type: integer
-            minimum: 10000
-            maximum: 5000000
+          name: page
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
       responses:
         '200':
-          description: Estimativa
+          description: Página de smart links
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RechargeEstimate'
+                $ref: '#/components/schemas/SmartLinkPage'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
-  /v1/wallet/auto-recharge:
-    get:
-      tags: [wallet]
-      operationId: getAutoRecharge
-      summary: Lê configuração de auto-recharge da wallet
-      responses:
-        '200':
-          description: Config
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AutoRechargeSettings'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-    patch:
-      tags: [wallet]
-      operationId: updateAutoRecharge
-      summary: Atualiza threshold, amount e enabled
-      description: Ativar exige cartão cadastrado (assinatura Stripe).
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateAutoRechargeRequest'
-      responses:
-        '200':
-          description: Config atualizada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AutoRechargeSettings'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /v1/wallet/transactions:
-    get:
-      tags: [wallet]
-      operationId: listWalletTransactions
-      summary: Extrato da wallet
-      parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/SizeParam'
-      responses:
-        '200':
-          description: Página de transações
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WalletTransactionPage'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  # ---------------------- PAYMENTS ----------------------
-  /payments/pix:
-    post:
-      tags: [payments]
-      operationId: createPixPayment
-      summary: Cria cobrança PIX para recarga via AbacatePay
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePaymentRequest'
-      responses:
-        '200':
-          description: PIX criado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AbacatePayPixResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /payments/pix/{id}/status:
-    get:
-      tags: [payments]
-      operationId: getPixStatus
-      summary: Consulta status de uma cobrança PIX
+  /v1/smart-links/whatsapp/{id}:
+    put:
+      tags: [smart-links]
+      operationId: updateSmartLink
+      summary: Atualiza nome, texto ou cor do QR code
+      description: 'O telefone não muda. Permissão: `ADMIN`.'
       parameters:
         - in: path
           name: id
           required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Status
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AbacatePayStatusResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /v1/payments/create-checkout-session:
-    post:
-      tags: [payments]
-      operationId: createStripeCheckoutSession
-      summary: Cria sessão de Stripe Checkout (assinatura ou recarga one-time)
-      description: |
-        - `uiMode = "hosted"` retorna `url`; redirecione o cliente.
-        - `uiMode = "embedded"` retorna `clientSecret`; renderize com `<EmbeddedCheckout>`.
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PaymentRequestDTO'
+              $ref: '#/components/schemas/UpdateSmartLinkRequest'
       responses:
         '200':
-          description: Sessão criada
+          description: Smart link atualizado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CheckoutSessionResponse'
+                $ref: '#/components/schemas/SmartLinkResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/smart-links/whatsapp/{id}/stats:
+    get:
+      tags: [smart-links]
+      operationId: getSmartLinkStats
+      summary: Total de cliques
+      description: 'Permissão: `ADMIN`.'
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Cliques
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [linkId, totalClicks]
+                properties:
+                  linkId: { type: string, format: uuid }
+                  totalClicks: { type: integer, format: int64 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Smart link não encontrado (sem corpo).
 
   # ---------------------- NUMBERS ----------------------
   /v1/organizations/me/numbers:
     get:
       tags: [numbers]
       operationId: listNumbers
-      summary: Lista números da organização com health e slot do plano
+      summary: Números ativos da organização
+      description: 'Inclui qualidade, tier e uso do plano. Permissão: `READ`.'
       responses:
         '200':
-          description: Números + slot
+          description: Números e slot do plano
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NumbersResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /v1/organizations/me/numbers/{id}:
-    patch:
-      tags: [numbers]
-      operationId: updateNumber
-      summary: Atualiza nome, alias, description ou flag default
-      parameters:
-        - $ref: '#/components/parameters/NumberId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateNumberRequest'
-      responses:
-        '200':
-          description: Atualizado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status: { type: string, example: ok }
-        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /v1/organizations/me/numbers/request:
-    post:
-      tags: [numbers]
-      operationId: requestNewNumber
-      summary: Solicita um novo número dedicado (provisionamento manual)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RequestNumberRequest'
-      responses:
-        '202':
-          description: Pedido recebido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestNumberResponse'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '409': { $ref: '#/components/responses/Conflict' }
-
-  /v1/organizations/me/numbers/requests:
-    get:
-      tags: [numbers]
-      operationId: listNumberRequests
-      summary: Lista solicitações de novos números (pending + resolvidas)
-      responses:
-        '200':
-          description: Lista
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/NumberRequestItem'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /v1/organizations/me/numbers/{id}/sync:
-    post:
-      tags: [numbers]
-      operationId: syncNumberFromProvider
-      summary: Força sync com Twilio (quality, tier, status, verifiedAt)
-      parameters:
-        - $ref: '#/components/parameters/NumberId'
-      responses:
-        '200':
-          description: Resultado do sync
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NumberSyncResponse'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /v1/organizations/me/numbers/{id}/warming:
-    get:
-      tags: [numbers]
-      operationId: getNumberWarming
-      summary: Recomendação de warming pra um número
-      parameters:
-        - $ref: '#/components/parameters/NumberId'
-      responses:
-        '200':
-          description: Recomendação
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NumberWarmingResponse'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------------- BUSINESS PROFILE ----------------------
   /v1/organizations/me/business-profile:
     get:
       tags: [business-profile]
       operationId: getBusinessProfile
-      summary: Lê perfil do negócio
+      summary: Lê o perfil comercial
+      description: 'Permissão: `ADMIN`.'
       responses:
         '200':
           description: Perfil
@@ -1241,10 +1376,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/BusinessProfileResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     patch:
       tags: [business-profile]
       operationId: updateBusinessProfile
-      summary: Atualiza campos do perfil; marca metaSyncStatus=PENDING
+      summary: Atualiza o perfil comercial
+      description: |
+        Salva localmente e marca `metaSyncStatus = PENDING`. Para publicar no
+        WhatsApp, chame `/sync`. Permissão: `ADMIN`.
       requestBody:
         required: true
         content:
@@ -1258,222 +1397,158 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BusinessProfileResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: '`INVALID_VERTICAL`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /v1/organizations/me/business-profile/sync:
     post:
       tags: [business-profile]
       operationId: syncBusinessProfile
-      summary: Envia perfil pra Twilio/Meta sincronizar
+      summary: Publica o perfil no provedor
+      description: 'Permissão: `ADMIN`.'
       responses:
         '200':
-          description: Sync executado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BusinessProfileSyncResponse'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-
-  # ---------------------- PROFILE / LGPD ----------------------
-  /v1/profile/me:
-    get:
-      tags: [profile]
-      operationId: getProfile
-      summary: Perfil do usuário autenticado
-      security:
-        - firebaseAuth: []
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Perfil
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProfileResponse'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /v1/profile:
-    patch:
-      tags: [profile]
-      operationId: patchProfile
-      summary: Atualiza campos do perfil pessoal
-      security:
-        - firebaseAuth: []
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ProfilePatch'
-      responses:
-        '204':
-          description: Atualizado
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /v1/profile/export:
-    get:
-      tags: [profile]
-      operationId: exportProfileData
-      summary: Export LGPD dos dados do usuário
-      security:
-        - firebaseAuth: []
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Dump dos dados
+          description: Resultado da publicação
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: true
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Perfil ainda não criado (sem corpo).
 
-  /v1/profile/delete-account:
-    post:
-      tags: [profile]
-      operationId: deleteAccount
-      summary: Apaga conta (LGPD); confirmação textual obrigatória
-      description: |
-        `confirmation` deve ser exatamente `EXCLUIR <email_do_usuario>`.
-      security:
-        - firebaseAuth: []
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeleteAccountRequest'
-      responses:
-        '204':
-          description: Conta apagada
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  # ---------------------- RECOVERY ----------------------
-  /v1/recovery/endpoint:
+  # ---------------------- WALLET ----------------------
+  /dashboard/wallet/balance:
     get:
-      tags: [recovery]
-      operationId: getRecoveryEndpoint
-      summary: Lê (ou cria) o endpoint de Recovery da organização
+      tags: [wallet]
+      operationId: getWalletBalance
+      summary: Saldo da carteira
+      description: 'Valor em reais (decimal). Permissão: `ADMIN`.'
       responses:
         '200':
-          description: Endpoint
+          description: Saldo
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecoveryEndpointResponse'
+                $ref: '#/components/schemas/WalletBalanceResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/wallet/transactions:
+    get:
+      tags: [wallet]
+      operationId: listWalletTransactions
+      summary: Extrato da carteira
+      description: 'Mais recentes primeiro. Permissão: `ADMIN`.'
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Página do extrato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletTransactionPage'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/wallet/auto-recharge:
+    get:
+      tags: [wallet]
+      operationId: getAutoRecharge
+      summary: Configuração da recarga automática
+      description: 'Permissão: `ADMIN`.'
+      responses:
+        '200':
+          description: Configuração
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoRechargeSettings'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Organização sem carteira (sem corpo).
     patch:
-      tags: [recovery]
-      operationId: patchRecoveryEndpoint
-      summary: Ativa ou desativa o endpoint de Recovery
+      tags: [wallet]
+      operationId: updateAutoRecharge
+      summary: Altera a recarga automática
+      description: |
+        Ativar exige cartão cadastrado (`409 CONFLICT` sem ele). Se o saldo já
+        estiver no limite ao ativar, a cobrança acontece na hora.
+        Permissão: `ADMIN`.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RecoveryEndpointPatchRequest'
+              $ref: '#/components/schemas/UpdateAutoRechargeRequest'
       responses:
         '200':
-          description: Endpoint atualizado
+          description: Configuração atualizada
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecoveryEndpointResponse'
+                $ref: '#/components/schemas/AutoRechargeSettings'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
 
-  /v1/recovery/endpoint/regenerate:
-    post:
-      tags: [recovery]
-      operationId: regenerateRecoveryEndpoint
-      summary: Gera novo HMAC secret pro endpoint
-      responses:
-        '200':
-          description: Endpoint regenerado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecoveryEndpointResponse'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /v1/recovery/events:
+  /v1/wallet/calculate:
     get:
-      tags: [recovery]
-      operationId: listRecoveryEvents
-      summary: Lista configurações de eventos do Recovery
-      responses:
-        '200':
-          description: Lista
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecoveryEventsListResponse'
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /v1/recovery/events/{eventType}:
-    put:
-      tags: [recovery]
-      operationId: upsertRecoveryEventConfig
-      summary: Cria ou atualiza configuração de um event type
+      tags: [wallet]
+      operationId: calculateRecharge
+      summary: Quantas mensagens um valor de recarga compra
+      description: |
+        `amountCents` fora de 2.000 a 5.000.000 é ajustado ao limite mais
+        próximo. Permissão: `ADMIN`.
       parameters:
-        - in: path
-          name: eventType
+        - in: query
+          name: amountCents
           required: true
-          schema: { type: string }
-          description: 'Ex: `cart.abandoned`, `pix.created`, `payment.failed`.'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RecoveryEventConfigPatchRequest'
+          schema: { type: integer }
       responses:
         '200':
-          description: Config
+          description: Simulação
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecoveryEventConfigResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
+                $ref: '#/components/schemas/RechargeEstimate'
         '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /v1/recovery/events/{eventType}/test:
-    post:
-      tags: [recovery]
-      operationId: testRecoveryEvent
-      summary: Envia um payload de teste pro evento (dispara mensagem real ao usuário)
-      parameters:
-        - in: path
-          name: eventType
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Resultado da ingestão de teste
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RecoveryIngestResult'
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   # ---------------------- PRICING ----------------------
   /v1/pricing/current:
     get:
       tags: [pricing]
       operationId: getCurrentPricing
-      summary: Preços vigentes da organização (por categoria e por país)
+      summary: Preços vigentes da organização
+      description: |
+        `categories` traz o preço de referência (BRL) no mercado local; o valor
+        cobrado depende do país de destino. `markets` traz o custo Meta em USD.
+        Permissão: `ADMIN`.
       parameters:
         - in: query
-          name: countryPrefix
-          schema: { type: string }
+          name: market
           required: false
-          description: Filtra preços de mensagens por prefixo de país (ex `55`).
+          schema: { type: string }
+          description: Filtra `markets` por um mercado.
       responses:
         '200':
           description: Preços
@@ -1481,15 +1556,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PricingResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   # ---------------------- ORGANIZATION ----------------------
   /v1/organizations/me/plan:
     get:
       tags: [organization]
       operationId: getOrganizationPlan
-      summary: Plano atual da organização e features
+      summary: Plano atual e preços de referência
+      description: 'Valores em centavos. Permissão: `ADMIN`.'
       responses:
         '200':
           description: Plano
@@ -1498,39 +1574,269 @@ paths:
               schema:
                 $ref: '#/components/schemas/PlanInfoResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------- PHONE LOOKUP ----------------------
+  /v1/phone-lookup:
+    post:
+      tags: [phone-lookup]
+      operationId: phoneLookup
+      summary: Consulta tipo de linha e WhatsApp de um número
+      description: 'Cobra R$ 0,05 por consulta na carteira. Permissão: `ADMIN`.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phoneNumber]
+              properties:
+                phoneNumber: { type: string }
+      responses:
+        '200':
+          description: Resultado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LookupResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/phone-lookup/batch:
+    post:
+      tags: [phone-lookup]
+      operationId: phoneLookupBatch
+      summary: Consulta vários números
+      description: |
+        Processa em série. Ao faltar saldo, para de cobrar e marca as linhas
+        restantes com `error = INSUFFICIENT_FUNDS`. Permissão: `ADMIN`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phoneNumbers]
+              properties:
+                phoneNumbers:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Resultados
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results, totalCharged, insufficientFunds]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LookupResult'
+                  totalCharged: { type: number }
+                  insufficientFunds: { type: boolean }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------- RECOVERY ----------------------
+  /v1/recovery/endpoint:
+    get:
+      tags: [recovery]
+      operationId: getRecoveryEndpoint
+      summary: Lê (ou cria) o endpoint de recuperação
+      description: 'Devolve o `hmacSecret`: trate como segredo. Permissão: `ADMIN`.'
+      responses:
+        '200':
+          description: Endpoint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryEndpointResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    patch:
+      tags: [recovery]
+      operationId: patchRecoveryEndpoint
+      summary: Ativa ou desativa o endpoint
+      description: 'Permissão: `ADMIN`.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                active: { type: boolean }
+      responses:
+        '200':
+          description: Endpoint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryEndpointResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/recovery/endpoint/regenerate:
+    post:
+      tags: [recovery]
+      operationId: regenerateRecoveryEndpoint
+      summary: Gera novo segredo HMAC
+      description: 'Permissão: `ADMIN`.'
+      responses:
+        '200':
+          description: Endpoint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryEndpointResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/recovery/events:
+    get:
+      tags: [recovery]
+      operationId: listRecoveryEvents
+      summary: Configurações por tipo de evento
+      description: 'Permissão: `ADMIN`.'
+      responses:
+        '200':
+          description: Configurações
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryEventsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/recovery/events/{eventType}:
+    put:
+      tags: [recovery]
+      operationId: upsertRecoveryEventConfig
+      summary: Cria ou atualiza a configuração de um evento
+      description: |
+        Deixar ativa conta contra o limite de automações do plano
+        (`PLAN_LIMIT_REACHED`). Permissão: `ADMIN`.
+      parameters:
+        - in: path
+          name: eventType
+          required: true
+          schema: { type: string }
+          description: 'Ex.: `cart.abandoned`, `pix.created`, `payment.failed`.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecoveryEventConfigPatchRequest'
+      responses:
+        '200':
+          description: Configuração
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryEventConfigResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/recovery/events/{eventType}/test:
+    post:
+      tags: [recovery]
+      operationId: testRecoveryEvent
+      summary: Dispara um evento de teste
+      description: |
+        Envia mensagem real para o telefone do usuário dono da chave.
+        Permissão: `ADMIN`.
+      parameters:
+        - in: path
+          name: eventType
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Resultado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryIngestResult'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   # ---------------------- DASHBOARD ----------------------
   /dashboard/messages:
     get:
       tags: [dashboard]
       operationId: getDashboardMessages
-      summary: Lista mensagens da organização (filtrada por modo)
+      summary: Histórico de mensagens da organização
+      description: |
+        Envelope `{ messages, total, page, size, totalPages }`. Aqui o `status`
+        sai sem tradução (inclui `SENT_TO_PROVIDER`). Permissão: `ADMIN`.
       parameters:
-        - $ref: '#/components/parameters/ModeParam'
-        - $ref: '#/components/parameters/PageParam'
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [all, delivered, sent, read, failed, pending]
+        - in: query
+          name: q
+          required: false
+          schema: { type: string }
+          description: Busca textual.
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
         - in: query
           name: size
-          schema:
-            type: integer
-            default: 50
           required: false
+          schema: { type: integer, minimum: 1, default: 50 }
       responses:
         '200':
-          description: Mensagens paginadas
+          description: Página de mensagens
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DashboardMessagesResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: 'Filtro inválido. Corpo `{ "error": "mensagem" }`.'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /dashboard/messages/{id}:
+    get:
+      tags: [dashboard]
+      operationId: getDashboardMessageDetail
+      summary: Detalhe de uma mensagem da organização
+      description: |
+        Diferente de `GET /v1/messages/{internalId}`, vale para qualquer
+        mensagem da organização e inclui variáveis e corpo. Permissão: `ADMIN`.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Detalhe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardMessageDetail'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: 'Não encontrada. Corpo `{ "error": "Message not found" }`.'
 
   /dashboard/metrics:
     get:
       tags: [dashboard]
       operationId: getDashboardMetrics
-      summary: Métricas agregadas (count por status, custo, delivery rate)
-      parameters:
-        - $ref: '#/components/parameters/ModeParam'
+      summary: Métricas agregadas de envio
+      description: 'Permissão: `ADMIN`.'
       responses:
         '200':
           description: Métricas
@@ -1538,36 +1844,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DashboardMetricsResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
-  /dashboard/wallet/balance:
-    get:
-      tags: [dashboard]
-      operationId: getWalletBalance
-      summary: Saldo da wallet por modo
-      parameters:
-        - $ref: '#/components/parameters/ModeParam'
+  # ---------------------- LEGACY ----------------------
+  /webhook/cart:
+    post:
+      tags: [legacy]
+      operationId: cartAbandonedWebhook
+      deprecated: true
+      summary: Carrinho abandonado (legado)
+      description: |
+        Rota anterior ao Recovery. Para integrações novas use o endpoint de
+        recuperação (`/v1/recovery/*`). Permissão: `WEBHOOKS_MANAGE`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartAbandonedWebhookRequest'
       responses:
-        '200':
-          description: Saldo
+        '202':
+          description: Aceito
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WalletBalanceResponse'
+                $ref: '#/components/schemas/CartAbandonedWebhookResponse'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   # ---------------------- HEALTH ----------------------
   /health:
     get:
       tags: [health]
       operationId: health
-      summary: Health check do serviço
+      summary: Health check
       security: []
       responses:
         '200':
-          description: UP
+          description: Serviço no ar
           content:
             application/json:
               schema:
@@ -1578,139 +1894,128 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: ara_live_xxx
-      description: API key emitida pelo dashboard (`ara_live_*`, LIVE-only).
-    firebaseAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: Firebase ID Token
-      description: Firebase ID token para endpoints atrelados ao usuário (`/auth/*`, `/v1/profile/*`).
+      bearerFormat: ara_live_...
+      description: API key gerada no painel (`ara_live_...`).
 
   parameters:
-    PageParam:
-      in: query
-      name: page
-      schema:
-        type: integer
-        minimum: 0
-        default: 0
+    IdempotencyKeyOptional:
+      in: header
+      name: Idempotency-Key
       required: false
-    SizeParam:
-      in: query
-      name: size
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 20
+      schema: { type: string, maxLength: 255 }
+      description: Chave de idempotência (1 a 255 caracteres, sem caracteres de controle).
+    WabaIdHeader:
+      in: header
+      name: X-Waba-Id
       required: false
-    ModeParam:
-      in: query
-      name: mode
-      schema:
-        type: string
-        enum: [LIVE]
-        default: LIVE
-      required: false
-    MessageInternalId:
-      in: path
-      name: internalId
-      required: true
-      schema: { type: string }
-      description: ID interno da mensagem (formato `ara_msg_*`).
+      schema: { type: string, format: uuid }
+      description: Restringe o resultado a uma WABA da organização.
     TemplateId:
       in: path
       name: id
       required: true
-      schema:
-        type: string
-        format: uuid
+      schema: { type: string, format: uuid }
     CampaignId:
       in: path
       name: id
       required: true
-      schema:
-        type: string
-        format: uuid
+      schema: { type: string, format: uuid }
     CampaignIdPath:
       in: path
       name: campaignId
       required: true
-      schema:
-        type: string
-        format: uuid
-    ApiKeyId:
+      schema: { type: string, format: uuid }
+    PhonePath:
       in: path
-      name: id
+      name: phone
       required: true
       schema:
         type: string
-        format: uuid
-    NumberId:
-      in: path
-      name: id
-      required: true
+        pattern: '^\+[1-9]\d{6,14}$'
+      description: Telefone E.164 com `+` (ex. `+5511999998888`).
+    AnalyticsPeriod:
+      in: query
+      name: period
+      required: false
       schema:
         type: string
-        format: uuid
+        enum: [7d, 30d, 90d]
+        default: 30d
+      description: Valor fora da lista é tratado como `30d`.
 
   responses:
     BadRequest:
-      description: Payload inválido
+      description: 'Payload inválido (`VALIDATION_ERROR`, `INVALID_JSON`, `INVALID_PATH_PARAM`, `INVALID_IDEMPOTENCY_KEY`).'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InvalidPhone:
+      description: '`INVALID_PHONE`: telefone fora do E.164.'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     Unauthorized:
-      description: Token ausente ou inválido
+      description: Chave inválida, revogada, expirada ou IP fora da allowlist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SpringError'
+    PaymentRequired:
+      description: '`INSUFFICIENT_FUNDS` (saldo) ou `PLAN_REQUIRED`.'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     Forbidden:
-      description: Sem permissão (plano, escopo, status da conta)
+      description: |
+        Sem `Authorization` ou chave fora do escopo: corpo `SpringError`.
+        Regra de negócio: corpo `Error` com `PLAN_FEATURE_LOCKED`,
+        `PLAN_LIMIT_REACHED`, `ACCOUNT_NOT_ACTIVATED`, `NO_DEDICATED_NUMBER`,
+        `ORGANIZATION_SUSPENDED`, `NUMBER_BLOCKED`, `FRAUD_SUSPECTED`,
+        `RESOURCE_FORBIDDEN`, `VIEWER_READ_ONLY`.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            anyOf:
+              - $ref: '#/components/schemas/Error'
+              - $ref: '#/components/schemas/SpringError'
     NotFound:
-      description: Recurso não encontrado
+      description: '`TEMPLATE_NOT_FOUND`, `CAMPAIGN_NOT_FOUND` ou `NOT_FOUND`.'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     Conflict:
-      description: Conflito de estado
+      description: '`CONFLICT`, `PROVIDER_NOT_RESOLVED`, `IDEMPOTENCY_CONFLICT` ou `CONCURRENT_MODIFICATION`.'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     UnprocessableEntity:
-      description: Entidade não processável (validação semântica falhou)
+      description: |
+        Regra de negócio: `RECIPIENT_OPTED_OUT`, `INVALID_RECIPIENT`,
+        `TEMPLATE_PAUSED`, `TEMPLATE_NOT_SENDABLE`, `TEMPLATE_VARIABLES_MISMATCH`,
+        `CONVERSATION_WINDOW_CLOSED`, `SENDER_NOT_ALLOWED`, `UNPROCESSABLE_ENTITY`
+        ou um código de diagnóstico `ararahq-*` com `details.diagnostic`.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     TooManyRequests:
-      description: Rate limit excedido — honre header `Retry-After`
+      description: '`RATE_LIMIT_EXCEEDED`, `SEND_RATE_LIMITED` ou `MARKETING_FREQUENCY_EXCEEDED`.'
       headers:
         Retry-After:
-          schema:
-            type: integer
-          description: Segundos a aguardar antes de retentar.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-    InternalServerError:
-      description: Erro interno do servidor
+          schema: { type: integer }
+          description: Segundos a aguardar (ausente em `MARKETING_FREQUENCY_EXCEEDED`).
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
 
   schemas:
-    # ---------- Error & Pagination ----------
+    # ---------- Erros ----------
     Error:
       type: object
       required: [error]
@@ -1724,73 +2029,52 @@ components:
               example: INSUFFICIENT_FUNDS
             message:
               type: string
-              example: Saldo insuficiente para enviar a mensagem.
+              nullable: true
             details:
               type: object
               additionalProperties: true
 
+    SpringError:
+      type: object
+      description: Corpo padrão do Spring em falhas de autenticação. Não tem `code`.
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer, example: 401 }
+        error: { type: string, example: Unauthorized }
+        path: { type: string, example: /v1/messages }
+
     Pagination:
       type: object
+      required: [page, size, totalElements, totalPages]
       properties:
-        page:
-          type: integer
-          minimum: 0
-        size:
-          type: integer
-          minimum: 1
-        totalElements:
-          type: integer
-          format: int64
-        totalPages:
-          type: integer
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
 
-    # ---------- Auth ----------
-    FirebaseLoginRequest:
-      type: object
-      required: [token]
-      properties:
-        token:
-          type: string
-          description: Firebase ID token.
-
-    UserResponseDTO:
+    # ---------- Account ----------
+    UserResponse:
       type: object
       required: [name, email]
       properties:
         name: { type: string }
-        email: { type: string, format: email }
-        role: { type: string, nullable: true }
-
-    AuthResponse:
-      type: object
-      required: [user, token, isAuthenticated]
-      properties:
-        user:
-          $ref: '#/components/schemas/UserResponseDTO'
-        token: { type: string }
-        userId:
-          type: string
-          format: uuid
-          nullable: true
-        isAuthenticated: { type: boolean }
-        apiKey:
+        email: { type: string }
+        role:
           type: string
           nullable: true
+          description: Hoje sempre `null` nesta rota.
+        emailPending: { type: boolean }
 
     OrganizationItem:
       type: object
       required: [id, name, role, mode]
       properties:
-        id:
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
         slug:
           type: string
           nullable: true
         name: { type: string }
-        role:
-          type: string
-          enum: [OWNER, MEMBER]
+        role: { type: string }
         mode:
           type: string
           enum: [live, test]
@@ -1808,31 +2092,32 @@ components:
     SendMessageRequest:
       type: object
       required: [receiver]
-      description: |
-        Envia exatamente UM tipo de payload: `templateName` OU `body` OU
-        `interactive` OU `location` OU `reaction`.
+      description: Envie exatamente um entre `templateName`, `body`, `interactive`, `location` e `reaction`.
       properties:
         receiver:
           type: string
-          description: Número E.164 do destinatário.
+          description: Telefone E.164. Aceita `+5511999998888`, `5511999998888` ou `whatsapp:+5511999998888`.
           example: '+5511999998888'
         sender:
           type: string
           nullable: true
-          description: Número remetente (opcional; usa default da org).
+          description: Número remetente da organização. Omitido, usa o padrão.
         type:
           type: string
           nullable: true
           enum: [template, text, interactive, location, reaction]
-          description: Tipo explícito. Quando omitido, infere de outros campos.
+          description: Opcional; inferido do conteúdo.
         templateName:
           type: string
           nullable: true
         templateVariables:
           type: array
-          items: { type: string }
           nullable: true
-          description: Lista posicional de variáveis (aceita alias `variables`).
+          items: { type: string }
+          description: |
+            Variáveis posicionais (alias `variables`). Template com mídia no
+            cabeçalho recebe a URL na primeira posição. Não aceita quebra de
+            linha nem tab.
         smartLinkParam:
           type: string
           nullable: true
@@ -1842,7 +2127,7 @@ components:
         body:
           type: string
           nullable: true
-          description: Texto livre (apenas em janela 24h aberta).
+          description: Texto livre. Só com a janela de 24h aberta.
         interactive:
           $ref: '#/components/schemas/InteractivePayload'
         location:
@@ -1852,20 +2137,21 @@ components:
         replyTo:
           type: string
           nullable: true
-          description: internalId da mensagem original sendo respondida.
+          description: ID da mensagem citada.
         scheduled_at:
           type: string
           format: date-time
           nullable: true
+          description: Agendamento. Aceita também `scheduledAt`.
         mode:
           type: string
-          enum: [LIVE]
           nullable: true
+          enum: [LIVE]
         media_url:
           type: string
           nullable: true
           deprecated: true
-          description: 'DEPRECATED — use variables posicionalmente (header na primeira posição).'
+          description: Legado (aceita `mediaUrl`). Use a primeira posição de `templateVariables`.
 
     MessageResponse:
       type: object
@@ -1874,10 +2160,10 @@ components:
         id:
           type: string
           nullable: true
+          description: ID interno da mensagem.
         status:
           type: string
           enum: [PENDING, SCHEDULED, PROCESSING, SENT, DELIVERED, READ, FAILED, CANCELED]
-          example: SENT
         mode:
           type: string
           enum: [LIVE]
@@ -1886,10 +2172,15 @@ components:
         body:
           type: string
           nullable: true
+          description: Conteúdo final enviado.
         cost:
           type: number
-          format: float
           nullable: true
+          description: Custo em reais.
+        reason:
+          type: string
+          nullable: true
+          description: Motivo da falha quando `FAILED`.
 
     InteractivePayload:
       type: object
@@ -1960,7 +2251,7 @@ components:
         emoji: { type: string }
         messageId:
           type: string
-          description: internalId da mensagem a reagir.
+          description: ID interno da mensagem que recebe a reação.
 
     BatchMessageRequest:
       type: object
@@ -1969,6 +2260,7 @@ components:
         templateName: { type: string }
         messages:
           type: array
+          minItems: 1
           maxItems: 1000
           items:
             $ref: '#/components/schemas/BatchMessageItem'
@@ -1980,8 +2272,9 @@ components:
         receiver: { type: string }
         templateVariables:
           type: array
-          items: { type: string }
           nullable: true
+          items: { type: string }
+          description: Aceita alias `variables`.
         smartLinkParam:
           type: string
           nullable: true
@@ -2000,7 +2293,9 @@ components:
         templateName: { type: string }
         total: { type: integer }
         accepted: { type: integer }
-        totalCost: { type: number, format: float }
+        totalCost:
+          type: number
+          description: Custo total em reais.
         messages:
           type: array
           items:
@@ -2017,7 +2312,6 @@ components:
         status: { type: string }
         cost:
           type: number
-          format: float
           nullable: true
 
     # ---------- Templates ----------
@@ -2036,6 +2330,7 @@ components:
         header:
           type: string
           nullable: true
+          description: Texto ou URL de mídia.
         headerType:
           type: string
           nullable: true
@@ -2051,29 +2346,18 @@ components:
         samples:
           type: object
           nullable: true
-          additionalProperties:
-            type: string
+          additionalProperties: { type: string }
+          description: 'Exemplos por número da variável (`{"1": "João"}`).'
         variableExamples:
           type: array
           nullable: true
           items: { type: string }
+          description: Legado. Prefira `samples`.
         carouselCards:
           type: array
           nullable: true
-          minItems: 2
-          maxItems: 10
           items:
             $ref: '#/components/schemas/CarouselCard'
-        otpButtonType:
-          type: string
-          nullable: true
-          enum: [COPY_CODE, ONE_TAP]
-        otpPackageName:
-          type: string
-          nullable: true
-        otpAppSignature:
-          type: string
-          nullable: true
 
     TemplateButton:
       type: object
@@ -2103,27 +2387,14 @@ components:
         buttons:
           type: array
           nullable: true
-          maxItems: 2
           items:
             $ref: '#/components/schemas/TemplateButton'
 
     TemplateResponse:
       type: object
-      required:
-        - id
-        - name
-        - formattedName
-        - category
-        - language
-        - providerName
-        - providerTemplateId
-        - providerStatus
-        - structureJson
-        - createdAt
+      required: [id, name, formattedName, category, language, providerName, providerTemplateId, providerStatus, availableForSending, structureJson, createdAt]
       properties:
-        id:
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
         name: { type: string }
         formattedName: { type: string }
         category: { type: string }
@@ -2131,12 +2402,16 @@ components:
           type: string
           nullable: true
         language: { type: string }
-        providerName: { type: string }
+        providerName: { type: string, example: GUPSHUP }
         providerTemplateId: { type: string }
-        providerStatus:
-          type: string
-          example: APPROVED
+        providerStatus: { type: string, example: APPROVED }
         rejectionReason:
+          type: string
+          nullable: true
+        availableForSending:
+          type: boolean
+          description: '`false` quando o template foi aprovado num número que a organização não usa mais.'
+        unavailableReason:
           type: string
           nullable: true
         bodyPreview:
@@ -2152,15 +2427,23 @@ components:
         variablesSchema:
           type: object
           nullable: true
-          additionalProperties:
-            type: string
-        createdAt:
-          type: string
-          format: date-time
+          additionalProperties: { type: string }
+        createdAt: { type: string, format: date-time }
         updatedAt:
           type: string
           format: date-time
           nullable: true
+
+    TemplatePage:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
 
     TemplateStatusResponse:
       type: object
@@ -2180,26 +2463,75 @@ components:
       properties:
         templateId: { type: string }
         templateName: { type: string }
-        period:
-          type: string
-          enum: [7d, 30d, 90d]
+        period: { type: string }
         sent: { type: integer, format: int64 }
         delivered: { type: integer, format: int64 }
         read: { type: integer, format: int64 }
         failed: { type: integer, format: int64 }
         deliveryRate:
           type: string
-          description: Percentual formatado com 1 casa decimal (ex. "98.7").
-        readRate:
+          description: Percentual com 1 casa decimal (ex. `"98.7"`).
+        readRate: { type: string }
+
+    TemplateAnalyticsBatchItem:
+      type: object
+      properties:
+        templateName: { type: string }
+        period: { type: string }
+        sent: { type: integer, format: int64 }
+        delivered: { type: integer, format: int64 }
+        read: { type: integer, format: int64 }
+        failed: { type: integer, format: int64 }
+        deliveryRate: { type: string }
+        readRate: { type: string }
+
+    LibraryTemplateResponse:
+      type: object
+      required: [elementName, body, languageCode]
+      properties:
+        elementName: { type: string }
+        body: { type: string }
+        sampleText:
           type: string
+          nullable: true
+        header:
+          type: string
+          nullable: true
+        topic:
+          type: string
+          nullable: true
+        usecase:
+          type: string
+          nullable: true
+        languageCode: { type: string }
+        buttons:
+          description: Botões no formato do provedor (pode vir `null`).
+
+    CreateLibraryTemplateRequest:
+      type: object
+      required: [name, libraryTemplateName]
+      properties:
+        name: { type: string }
+        libraryTemplateName:
+          type: string
+          description: '`elementName` do item da biblioteca.'
+        languageCode:
+          type: string
+          default: pt_BR
 
     # ---------- Campaigns ----------
+    CampaignStatus:
+      type: string
+      enum: [SCHEDULED, INGESTING, AB_TESTING, COMPLETED, COMPLETED_WITH_ERRORS, FAILED, CANCELED]
+
     CampaignRequest:
       type: object
       required: [name, templateName, contacts]
       properties:
         name: { type: string }
-        templateName: { type: string }
+        templateName:
+          type: string
+          description: Nome ou ID do template. Com `abTest`, é a variante A.
         sender:
           type: string
           nullable: true
@@ -2208,6 +2540,13 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/CampaignContactRequest'
+        abTest:
+          $ref: '#/components/schemas/CampaignAbConfig'
+        scheduledAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Entre 5 minutos e 30 dias no futuro.
 
     CampaignContactRequest:
       type: object
@@ -2221,19 +2560,52 @@ components:
           default: []
           items: { type: string }
 
+    CampaignAbConfig:
+      type: object
+      required: [variantBTemplateName]
+      properties:
+        variantBTemplateName: { type: string }
+        metric:
+          type: string
+          enum: [DELIVERED, READ, CLICKED, CONVERTED]
+          default: CLICKED
+        samplePct:
+          type: integer
+          default: 20
+          description: Porcentagem dos contatos que entra no teste.
+        splitPct:
+          type: integer
+          minimum: 1
+          maximum: 99
+          default: 50
+        decisionWindowMinutes:
+          type: integer
+          default: 240
+        autopilot:
+          type: boolean
+          default: true
+          description: Dispara o restante pela vencedora automaticamente.
+
     CampaignResponse:
       type: object
       required: [id, name, status, totalMessages, totalCost]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        status: { type: string }
+        status:
+          $ref: '#/components/schemas/CampaignStatus'
         totalMessages: { type: integer }
-        totalCost: { type: number, format: float }
+        totalCost:
+          type: number
+          description: Valor debitado em reais.
+        scheduledAt:
+          type: string
+          format: date-time
+          nullable: true
 
     CampaignListItem:
       type: object
-      required: [id, name, status, templateName, totalMessages, sentCount, totalCost]
+      required: [id, name, status, templateName, totalMessages, sentCount, deliveredCount, readCount, failedCount, totalCost]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -2241,7 +2613,14 @@ components:
         templateName: { type: string }
         totalMessages: { type: integer }
         sentCount: { type: integer }
-        totalCost: { type: number, format: float }
+        deliveredCount: { type: integer }
+        readCount: { type: integer }
+        failedCount: { type: integer }
+        totalCost: { type: number }
+        scheduledAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -2260,19 +2639,7 @@ components:
 
     CampaignDetailResponse:
       type: object
-      required:
-        - id
-        - name
-        - status
-        - templateName
-        - totalMessages
-        - sentCount
-        - deliveredCount
-        - readCount
-        - clickedCount
-        - convertedCount
-        - convertedValue
-        - totalCost
+      required: [id, name, status, templateName, totalMessages, sentCount, deliveredCount, readCount, failedCount, clickedCount, convertedCount, convertedValue, totalCost]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -2285,10 +2652,31 @@ components:
         sentCount: { type: integer }
         deliveredCount: { type: integer }
         readCount: { type: integer }
+        failedCount: { type: integer }
         clickedCount: { type: integer }
         convertedCount: { type: integer }
-        convertedValue: { type: number, format: float }
-        totalCost: { type: number, format: float }
+        convertedValue: { type: number }
+        replyCount:
+          type: integer
+          description: Conversas originadas pela campanha.
+        holdoutCount:
+          type: integer
+          description: Contatos aguardando a vencedora do A/B.
+        blockedCount:
+          type: integer
+          description: Contatos bloqueados no disparo.
+        blockReasons:
+          type: array
+          items:
+            type: object
+            properties:
+              motivo: { type: string }
+              quantidade: { type: integer, format: int64 }
+        refundCount: { type: integer }
+        refundValue:
+          type: number
+          description: Total estornado para a carteira, em reais.
+        totalCost: { type: number }
         scheduledAt:
           type: string
           format: date-time
@@ -2306,18 +2694,46 @@ components:
           format: date-time
           nullable: true
 
+    CampaignEstimateRequest:
+      type: object
+      required: [templateName, phones]
+      properties:
+        templateName: { type: string }
+        phones:
+          type: array
+          minItems: 1
+          items: { type: string }
+
     CampaignEstimateResponse:
       type: object
       required: [templateCategory, recipientCount, templateCost, araraFee, unitPrice, totalCost]
       properties:
-        templateCategory:
-          type: string
-          enum: [MARKETING, UTILITY, AUTHENTICATION]
+        templateCategory: { type: string }
         recipientCount: { type: integer }
-        templateCost: { type: number, format: float }
-        araraFee: { type: number, format: float }
-        unitPrice: { type: number, format: float }
-        totalCost: { type: number, format: float }
+        templateCost:
+          type: number
+          description: Custo Meta total, em reais.
+        araraFee:
+          type: number
+          description: Taxa Arara total, em reais.
+        unitPrice:
+          type: number
+          description: Preço médio por mensagem.
+        totalCost: { type: number }
+        markets:
+          type: array
+          description: Quebra por mercado. Vazio no `GET`.
+          items:
+            $ref: '#/components/schemas/CampaignMarketCost'
+
+    CampaignMarketCost:
+      type: object
+      properties:
+        market: { type: string }
+        count: { type: integer }
+        unitPrice: { type: number }
+        metaCostUnit: { type: number }
+        subtotal: { type: number }
 
     CreateAbTestRequest:
       type: object
@@ -2327,11 +2743,9 @@ components:
         variantBTemplateName: { type: string }
         metric:
           type: string
-          enum: [DELIVERY_RATE, READ_RATE, CLICK_RATE, CONVERSION_RATE]
+          enum: [DELIVERED, READ, CLICKED, CONVERTED]
         samplePct:
           type: integer
-          minimum: 1
-          maximum: 100
           default: 20
         splitPct:
           type: integer
@@ -2385,15 +2799,14 @@ components:
           nullable: true
         pValue:
           type: number
-          format: float
           nullable: true
         relativeLiftPct:
           type: number
-          format: float
           nullable: true
         variantAMetricsJson:
           type: string
           nullable: true
+          description: JSON serializado em string.
         variantBMetricsJson:
           type: string
           nullable: true
@@ -2416,7 +2829,6 @@ components:
           example: '+5511999998888'
         email:
           type: string
-          format: email
           maxLength: 255
           nullable: true
         attributes:
@@ -2424,9 +2836,26 @@ components:
           nullable: true
           additionalProperties: true
 
+    ContactPatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          nullable: true
+        email:
+          type: string
+          maxLength: 255
+          nullable: true
+        tags:
+          type: array
+          nullable: true
+          maxItems: 20
+          items: { type: string }
+
     ContactResponse:
       type: object
-      required: [id, name, phone, createdAt]
+      required: [id, name, phone, tags, createdAt, lifecycle, source, outboundCount, inboundCount]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -2438,7 +2867,32 @@ components:
           type: object
           nullable: true
           additionalProperties: true
+        tags:
+          type: array
+          items: { type: string }
         createdAt: { type: string }
+        lifecycle: { type: string }
+        source: { type: string }
+        outboundCount: { type: integer, format: int64 }
+        inboundCount: { type: integer, format: int64 }
+        firstSeenAt:
+          type: string
+          nullable: true
+        lastOutboundAt:
+          type: string
+          nullable: true
+        lastInboundAt:
+          type: string
+          nullable: true
+        lastMessageAt:
+          type: string
+          nullable: true
+        optOutAt:
+          type: string
+          nullable: true
+        lastTemplateName:
+          type: string
+          nullable: true
 
     ContactsListResponse:
       type: object
@@ -2455,7 +2909,7 @@ components:
 
     ContactsBatchResponse:
       type: object
-      required: [importId, created, updated, skipped]
+      required: [importId, created, updated, skipped, errors]
       properties:
         importId: { type: string, format: uuid }
         created: { type: integer }
@@ -2463,133 +2917,96 @@ components:
         skipped: { type: integer }
         errors:
           type: array
-          default: []
           items:
-            $ref: '#/components/schemas/ContactsBatchError'
+            type: object
+            required: [index, reason]
+            properties:
+              index: { type: integer }
+              phone:
+                type: string
+                nullable: true
+              reason: { type: string }
 
-    ContactsBatchError:
+    ContactsStatsResponse:
       type: object
-      required: [index, reason]
+      required: [total, newCount, engaged, silent, dormant, optedOut]
       properties:
-        index: { type: integer }
-        phone:
-          type: string
-          nullable: true
-        reason: { type: string }
+        total: { type: integer, format: int64 }
+        newCount: { type: integer, format: int64 }
+        engaged: { type: integer, format: int64 }
+        silent: { type: integer, format: int64 }
+        dormant: { type: integer, format: int64 }
+        optedOut: { type: integer, format: int64 }
 
-    # ---------- API Keys ----------
-    CreateApiKeyRequest:
+    ContactMessagesResponse:
       type: object
+      required: [phone, total, messages]
       properties:
-        name:
-          type: string
-          description: Nome legível da chave (ex. "Site WordPress").
-        scope:
-          type: string
-          enum: [ADMIN, SEND_ONLY, READ_ONLY]
-        expiresAt:
-          type: string
-          format: date-time
-          nullable: true
-        ipAllowlist:
-          type: string
-          nullable: true
-          description: Lista de IPs/CIDRs separada por vírgula (feature Business).
+        phone: { type: string }
+        total: { type: integer }
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              direction: { type: string }
+              status: { type: string }
+              templateName:
+                type: string
+                nullable: true
+              body:
+                type: string
+                nullable: true
+              createdAt: { type: string }
 
-    UpdateApiKeyRequest:
+    LgpdExport:
       type: object
+      required: [phoneHash, phone, exportedAt, conversations, messages]
       properties:
-        name:
+        phoneHash:
           type: string
+          description: SHA-256 do telefone.
+        phone: { type: string }
+        exportedAt: { type: string, format: date-time }
+        contact:
+          type: object
           nullable: true
-        scope:
-          type: string
-          nullable: true
-        expiresAt:
-          type: string
-          format: date-time
-          nullable: true
-        ipAllowlist:
-          type: string
-          nullable: true
-        clearExpiration:
-          type: boolean
-          default: false
-        clearIpAllowlist:
-          type: boolean
-          default: false
+          additionalProperties: true
+        conversations:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        messages:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
 
-    GeneratedApiKey:
+    LgpdDeletionResult:
       type: object
-      required: [plainTextKey]
+      required: [phoneHash, deletedAt, contactDeleted, conversationsRedacted, messagesRedacted, optOutRegistered]
       properties:
-        plainTextKey:
-          type: string
-          description: Chave em texto plano. **Só aparece uma vez** — guarde antes de fechar a tela.
+        phoneHash: { type: string }
+        deletedAt: { type: string, format: date-time }
+        contactDeleted: { type: boolean }
+        conversationsRedacted: { type: integer }
+        messagesRedacted: { type: integer }
+        optOutRegistered: { type: boolean }
 
-    ApiKeyListItem:
+    # ---------- Opt-outs ----------
+    OptOutItem:
       type: object
-      required: [id, name, prefix, mode, scope, createdAt]
+      required: [phone, channel]
       properties:
-        id: { type: string, format: uuid }
-        name: { type: string }
-        prefix: { type: string, example: ara_live_ }
-        lastFour:
-          type: string
-          nullable: true
-        mode:
-          type: string
-          enum: [LIVE]
-        scope:
-          type: string
-        createdAt: { type: string, format: date-time }
-        lastUsedAt:
-          type: string
-          format: date-time
-          nullable: true
-        expiresAt:
-          type: string
-          format: date-time
-          nullable: true
-        expired: { type: boolean }
-        ipAllowlist:
-          type: string
-          nullable: true
-        rotatedFromId:
-          type: string
-          format: uuid
-          nullable: true
-
-    ApiKeyStatsResponse:
-      type: object
-      required: [totalLast7d, totalLast30d, successLast30d]
-      properties:
-        totalLast7d: { type: integer, format: int64 }
-        totalLast30d: { type: integer, format: int64 }
-        successLast30d: { type: integer, format: int64 }
-        successRateLast30d:
-          type: number
-          format: float
-          nullable: true
-
-    ApiKeyEvent:
-      type: object
-      required: [id, type]
-      properties:
-        id: { type: string, format: uuid }
-        type:
-          type: string
-          example: API_KEY_CREATED
-        actorUserId:
-          type: string
-          format: uuid
-          nullable: true
-        metadata:
+        phone: { type: string }
+        channel: { type: string, example: WHATSAPP }
+        reason:
           type: string
           nullable: true
         createdAt:
           type: string
-          format: date-time
           nullable: true
 
     # ---------- Conversations ----------
@@ -2626,11 +3043,16 @@ components:
           nullable: true
         originatingCampaignId:
           type: string
-          format: uuid
           nullable: true
         qualifierCompletedAt:
           type: string
           format: date-time
+          nullable: true
+        lastMessagePreview:
+          type: string
+          nullable: true
+        lastMessageDirection:
+          type: string
           nullable: true
 
     ConversationListResponse:
@@ -2649,7 +3071,9 @@ components:
     ConversationMessage:
       type: object
       properties:
-        id: { type: string }
+        id:
+          type: string
+          nullable: true
         direction:
           type: string
           enum: [INBOUND, OUTBOUND]
@@ -2657,6 +3081,9 @@ components:
           type: string
           nullable: true
         status: { type: string }
+        reason:
+          type: string
+          nullable: true
         sender: { type: string }
         receiver: { type: string }
         messageType:
@@ -2667,6 +3094,12 @@ components:
           format: date-time
           nullable: true
         mediaUrl:
+          type: string
+          nullable: true
+        mediaContentType:
+          type: string
+          nullable: true
+        mediaSummary:
           type: string
           nullable: true
 
@@ -2692,15 +3125,16 @@ components:
 
     ConversationReplyResponse:
       type: object
-      required: [status]
+      required: [status, message]
       properties:
         id:
           type: string
           nullable: true
         status: { type: string }
-        message:
+        reason:
           type: string
           nullable: true
+        message: { type: string }
 
     WindowStatusRequest:
       type: object
@@ -2708,7 +3142,6 @@ components:
       properties:
         phones:
           type: array
-          maxItems: 200
           items: { type: string }
 
     WindowStatusItem:
@@ -2723,7 +3156,6 @@ components:
           nullable: true
         hoursRemaining:
           type: number
-          format: double
           nullable: true
         conversationId:
           type: string
@@ -2738,305 +3170,71 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WindowStatusItem'
-        truncated:
-          type: boolean
-          description: True quando a lista excedeu 200 telefones e foi truncada.
+        truncated: { type: boolean }
 
-    # ---------- Webhook config ----------
-    WebhookConfigResponse:
+    # ---------- Smart links ----------
+    CreateSmartLinkRequest:
+      type: object
+      required: [name, phoneNumber]
+      properties:
+        name: { type: string }
+        phoneNumber: { type: string }
+        defaultText:
+          type: string
+          nullable: true
+        qrCodeColor:
+          type: string
+          default: BLACK
+
+    UpdateSmartLinkRequest:
       type: object
       properties:
-        url:
-          type: string
-        secret:
-          type: string
-        isSharedNumber: { type: boolean }
-        consecutiveFailures: { type: integer }
-        lastSuccessAt:
-          type: string
-          format: date-time
-          nullable: true
-        disabledAt:
-          type: string
-          format: date-time
-          nullable: true
-        disabledReason:
-          type: string
-          nullable: true
-
-    UpdateWebhookRequest:
-      type: object
-      properties:
-        url:
-          type: string
-          nullable: true
-        secret:
-          type: string
-          nullable: true
-
-    CartAbandonedWebhookRequest:
-      type: object
-      required: [event, phone, checkout_url]
-      properties:
-        event:
-          type: string
-          enum: [cart.abandoned, payment.failed, pix.created, boleto.due]
         name:
           type: string
           nullable: true
-        phone:
-          type: string
-        total:
-          type: number
-          format: double
-          nullable: true
-        checkout_url:
-          type: string
-        minutes_without_payment:
-          type: integer
-          nullable: true
-        pix_qr_code:
+        defaultText:
           type: string
           nullable: true
-          description: Obrigatório quando event=pix.created.
-
-    CartAbandonedWebhookResponse:
-      type: object
-      required: [status, received_at]
-      properties:
-        status: { type: string }
-        message_id:
-          type: string
-          format: uuid
-          nullable: true
-        received_at:
-          type: string
-          format: date-time
-
-    # ---------- Wallet ----------
-    RechargeEstimateLimits:
-      type: object
-      required: [minCents, maxCents]
-      properties:
-        minCents: { type: integer }
-        maxCents: { type: integer }
-
-    RechargeEstimateBonus:
-      type: object
-      required: [applicable, percent, bonusCents, totalCreditCents]
-      properties:
-        applicable: { type: boolean }
-        percent: { type: integer }
-        bonusCents: { type: integer }
-        totalCreditCents: { type: integer }
-
-    CategoryEstimate:
-      type: object
-      required: [count, unitPriceCents]
-      properties:
-        count: { type: integer }
-        unitPriceCents: { type: integer }
-
-    RechargeEstimate:
-      type: object
-      required: [amountCents, planLabel, limits, firstRechargeBonus, estimates]
-      properties:
-        amountCents: { type: integer }
-        planLabel: { type: string }
-        limits:
-          $ref: '#/components/schemas/RechargeEstimateLimits'
-        firstRechargeBonus:
-          $ref: '#/components/schemas/RechargeEstimateBonus'
-        estimates:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/CategoryEstimate'
-
-    AutoRechargeSettings:
-      type: object
-      required: [enabled, threshold, amount]
-      properties:
-        enabled: { type: boolean }
-        threshold:
-          type: number
-          format: float
-          description: Saldo mínimo (R$) que dispara a recarga.
-        amount:
-          type: number
-          format: float
-          description: Valor da recarga (R$).
-        lastAttemptAt:
-          type: string
-          format: date-time
-          nullable: true
-        lastFailureReason:
+        qrCodeColor:
           type: string
           nullable: true
 
-    UpdateAutoRechargeRequest:
+    SmartLinkResponse:
       type: object
+      required: [id, name, phoneNumber, qrCodeColor, code, shortUrl, clicks]
       properties:
-        enabled:
-          type: boolean
-          nullable: true
-        threshold:
-          type: number
-          format: float
-          nullable: true
-          minimum: 5
-          maximum: 1000
-        amount:
-          type: number
-          format: float
-          nullable: true
-          minimum: 20
-          maximum: 5000
-
-    WalletTransaction:
-      type: object
-      required: [id, amount, type, mode]
-      properties:
-        id: { type: string }
-        amount:
-          type: number
-          format: float
-        type:
-          type: string
-          enum: [RECHARGE, DEBIT, REFUND, BONUS, ADJUSTMENT]
-        description:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        phoneNumber: { type: string }
+        defaultText:
           type: string
           nullable: true
-        referenceId:
+        qrCodeColor: { type: string }
+        code: { type: string }
+        shortUrl:
           type: string
-          nullable: true
-        mode:
-          type: string
-          enum: [LIVE]
+          description: URL pública (`.../l/{code}`).
         createdAt:
           type: string
           format: date-time
           nullable: true
+        clicks: { type: integer, format: int64 }
 
-    WalletTransactionPage:
+    SmartLinkPage:
       type: object
-      required: [content, page, size, totalElements, totalPages]
+      required: [data, pagination]
       properties:
-        content:
+        data:
           type: array
           items:
-            $ref: '#/components/schemas/WalletTransaction'
-        page: { type: integer }
-        size: { type: integer }
-        totalElements: { type: integer, format: int64 }
-        totalPages: { type: integer }
-
-    # ---------- Payments ----------
-    CreatePaymentRequest:
-      type: object
-      properties:
-        planType:
-          type: string
-          enum: [FREE, ESSENTIAL, PRO, ENTERPRISE]
-          nullable: true
-        isRecharge:
-          type: boolean
-          default: false
-        amountCentavos:
-          type: integer
-          nullable: true
-        taxId:
-          type: string
-          nullable: true
-          description: CPF/CNPJ.
-        cellphone:
-          type: string
-          nullable: true
-
-    AbacatePayPixData:
-      type: object
-      required: [id, amount, status, brCode, brCodeBase64, expiresAt]
-      properties:
-        id: { type: string }
-        amount: { type: integer }
-        status: { type: string }
-        brCode:
-          type: string
-          description: Código copia-e-cola do PIX.
-        brCodeBase64:
-          type: string
-          description: QR code (PNG base64).
-        expiresAt: { type: string }
-
-    AbacatePayPixResponse:
-      type: object
-      required: [data]
-      properties:
-        data:
-          $ref: '#/components/schemas/AbacatePayPixData'
-        error:
-          type: string
-          nullable: true
-
-    AbacatePayStatusData:
-      type: object
-      required: [status, expiresAt]
-      properties:
-        status: { type: string }
-        expiresAt: { type: string }
-
-    AbacatePayStatusResponse:
-      type: object
-      required: [data]
-      properties:
-        data:
-          $ref: '#/components/schemas/AbacatePayStatusData'
-        error:
-          type: string
-          nullable: true
-
-    PaymentRequestDTO:
-      type: object
-      required: [planKey]
-      properties:
-        planKey: { type: string }
-        billingCycle:
-          type: string
-          enum: [MONTHLY, YEARLY]
-          default: MONTHLY
-        uiMode:
-          type: string
-          enum: [hosted, embedded]
-          default: hosted
-        rechargeAmountCents:
-          type: integer
-          nullable: true
-          description: Topup one-time cobrado junto com o primeiro invoice da assinatura.
-
-    CheckoutSessionResponse:
-      type: object
-      properties:
-        url:
-          type: string
-          nullable: true
-          description: Populado quando uiMode=hosted.
-        clientSecret:
-          type: string
-          nullable: true
-          description: Populado quando uiMode=embedded.
+            $ref: '#/components/schemas/SmartLinkResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
 
     # ---------- Numbers ----------
     NumberCard:
       type: object
-      required:
-        - id
-        - name
-        - phoneNumber
-        - type
-        - isDefault
-        - status
-        - qualityScore
-        - messagingTier
-        - provider
+      required: [id, name, phoneNumber, type, isDefault, status, qualityScore, messagingTier, provider]
       properties:
         id: { type: string }
         name: { type: string }
@@ -3051,13 +3249,15 @@ components:
           type: string
           enum: [SHARED, DEDICATED]
         isDefault: { type: boolean }
-        status: { type: string }
+        status:
+          type: string
+          enum: [ACTIVE, PENDING_REVIEW, SUSPENDED, DISABLED]
         qualityScore:
           type: string
-          enum: [UNKNOWN, GREEN, YELLOW, RED, LOW, HIGH, FLAGGED]
+          enum: [HIGH, MEDIUM, LOW, FLAGGED, UNKNOWN]
         messagingTier:
           type: string
-          enum: [TIER_50, TIER_250, TIER_1K, TIER_10K, TIER_100K, UNLIMITED]
+          enum: [TIER_50, TIER_250, TIER_1K, TIER_2K, TIER_10K, TIER_100K, UNLIMITED, UNKNOWN]
         verifiedAt:
           type: string
           format: date-time
@@ -3066,27 +3266,21 @@ components:
           type: string
           format: date-time
           nullable: true
-        provider: { type: string, example: TWILIO }
+        provider: { type: string }
         createdAt:
           type: string
           format: date-time
           nullable: true
         messagesLast7d: { type: integer, format: int64 }
         messagesLast30d: { type: integer, format: int64 }
-
-    NumbersSlot:
-      type: object
-      required: [used, max, planLabel, atCap, noEntitlement, monthlyPriceCents, monthlyTotalCents]
-      properties:
-        used: { type: integer }
-        max:
-          type: integer
-          description: -1 = ilimitado.
-        planLabel: { type: string }
-        atCap: { type: boolean }
-        noEntitlement: { type: boolean }
-        monthlyPriceCents: { type: integer }
-        monthlyTotalCents: { type: integer }
+        deliveredLast30d: { type: integer, format: int64 }
+        provisionedByArara: { type: boolean }
+        wabaId:
+          type: string
+          nullable: true
+        isCoexistence:
+          type: boolean
+          nullable: true
 
     NumbersResponse:
       type: object
@@ -3097,174 +3291,42 @@ components:
           items:
             $ref: '#/components/schemas/NumberCard'
         slot:
-          $ref: '#/components/schemas/NumbersSlot'
+          type: object
+          required: [used, max, planLabel, atCap, noEntitlement, monthlyPriceCents, monthlyTotalCents]
+          properties:
+            used: { type: integer }
+            max: { type: integer }
+            planLabel: { type: string }
+            atCap: { type: boolean }
+            noEntitlement: { type: boolean }
+            monthlyPriceCents: { type: integer }
+            monthlyTotalCents: { type: integer }
 
-    UpdateNumberRequest:
-      type: object
-      properties:
-        alias:
-          type: string
-          nullable: true
-        isDefault:
-          type: boolean
-          nullable: true
-        name:
-          type: string
-          nullable: true
-        description:
-          type: string
-          nullable: true
-
-    RequestNumberRequest:
-      type: object
-      properties:
-        reason:
-          type: string
-          nullable: true
-          maxLength: 500
-        expectedVolume:
-          type: string
-          nullable: true
-          maxLength: 500
-        areaCode:
-          type: string
-          nullable: true
-          maxLength: 4
-          description: DDD preferido (ex. "11").
-        displayName:
-          type: string
-          nullable: true
-          maxLength: 80
-        profilePictureUrl:
-          type: string
-          nullable: true
-          maxLength: 500
-
-    RequestNumberResponse:
-      type: object
-      required: [status, requestId]
-      properties:
-        status: { type: string, example: received }
-        requestId: { type: string, format: uuid }
-        message: { type: string }
-
-    NumberRequestItem:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        areaCode:
-          type: string
-          nullable: true
-        displayName:
-          type: string
-          nullable: true
-        profilePictureUrl:
-          type: string
-          nullable: true
-        reason:
-          type: string
-          nullable: true
-        expectedVolume:
-          type: string
-          nullable: true
-        status:
-          type: string
-          enum: [PENDING, IN_PROGRESS, FULFILLED, REJECTED]
-        createdAt:
-          type: string
-          format: date-time
-          nullable: true
-        fulfilledAt:
-          type: string
-          format: date-time
-          nullable: true
-
-    NumberSyncResponse:
-      type: object
-      required: [matched]
-      properties:
-        matched:
-          type: boolean
-          description: True quando o sender foi encontrado na Twilio.
-        qualityScore: { type: string }
-        messagingTier: { type: string }
-        status: { type: string }
-        lastHealthCheckAt:
-          type: string
-          format: date-time
-          nullable: true
-
-    NumberWarmingResponse:
-      type: object
-      properties:
-        numberId: { type: string, format: uuid }
-        qualityScore: { type: string }
-        messagingTier: { type: string }
-        daysSinceVerified: { type: integer, format: int64 }
-        dailyCapByTier:
-          type: integer
-          description: -1 = sem cap (UNLIMITED).
-        recommendedDailySends: { type: integer }
-        recommendedPacePct: { type: integer }
-        currentDailyAverage: { type: integer }
-        recommendation: { type: string }
-
-    # ---------- Business Profile ----------
+    # ---------- Business profile ----------
     BusinessProfilePatch:
       type: object
       properties:
         displayName:
           type: string
-          nullable: true
           maxLength: 120
         vertical:
           type: string
-          nullable: true
-          enum:
-            - AUTO
-            - BEAUTY
-            - APPAREL
-            - EDU
-            - ENTERTAIN
-            - EVENT_PLAN
-            - FINANCE
-            - GROCERY
-            - GOVT
-            - HOTEL
-            - HEALTH
-            - NONPROFIT
-            - PROF_SERVICES
-            - RETAIL
-            - TRAVEL
-            - RESTAURANT
-            - NOT_A_BIZ
-            - OTHER
-        description:
-          type: string
-          nullable: true
+          enum: [AUTO, BEAUTY, APPAREL, EDU, ENTERTAIN, EVENT_PLAN, FINANCE, GROCERY, GOVT, HOTEL, HEALTH, NONPROFIT, PROF_SERVICES, RETAIL, TRAVEL, RESTAURANT, NOT_A_BIZ, OTHER]
+        description: { type: string }
         aboutShort:
           type: string
-          nullable: true
           maxLength: 140
         email:
           type: string
-          format: email
-          nullable: true
           maxLength: 160
         websites:
           type: array
-          nullable: true
           items: { type: string }
         businessHours:
           type: object
-          nullable: true
           additionalProperties: true
-        profilePhotoUrl:
-          type: string
-          nullable: true
-        awayMessage:
-          type: string
-          nullable: true
+        profilePhotoUrl: { type: string }
+        awayMessage: { type: string }
 
     BusinessProfileResponse:
       type: object
@@ -3303,9 +3365,7 @@ components:
         awayMessage:
           type: string
           nullable: true
-        metaSyncStatus:
-          type: string
-          enum: [PENDING, SYNCED, FAILED, PARTIAL, NO_SENDER]
+        metaSyncStatus: { type: string }
         metaSyncedAt:
           type: string
           format: date-time
@@ -3318,122 +3378,189 @@ components:
           format: date-time
           nullable: true
 
-    BusinessProfileSyncResponse:
+    # ---------- Wallet ----------
+    WalletBalanceResponse:
       type: object
+      required: [balance, currency, mode]
       properties:
-        profile:
-          $ref: '#/components/schemas/BusinessProfileResponse'
-        twilioSendersPushed: { type: integer }
-        twilioSendersFailed: { type: integer }
-        totalSenders: { type: integer }
+        balance:
+          type: number
+          description: Saldo em reais.
+        currency: { type: string, example: BRL }
+        mode: { type: string, example: LIVE }
 
-    # ---------- Profile / LGPD ----------
-    ProfileResponse:
+    WalletTransaction:
       type: object
+      required: [id, amount, type, mode, hasReceipt]
       properties:
-        id:
+        id: { type: string }
+        amount:
+          type: number
+          description: Valor em reais.
+        type:
+          type: string
+          enum: [CHARGE, REFUND, TOPUP, BONUS, DEPOSIT, USAGE, SUBSCRIPTION_FEE, ADMIN_DEBIT]
+        description:
           type: string
           nullable: true
-        name:
+        referenceId:
           type: string
           nullable: true
-        email: { type: string, format: email }
-        phoneNumber:
+        mode: { type: string, example: LIVE }
+        createdAt:
           type: string
+          format: date-time
           nullable: true
-        alertPhoneNumber:
-          type: string
-          nullable: true
-        avatarUrl:
-          type: string
-          nullable: true
-        timezone:
-          type: string
-          nullable: true
-        locale:
-          type: string
-          nullable: true
-        companyName:
-          type: string
-          nullable: true
-        documentNumber:
-          type: string
-          nullable: true
-        orgRole: { type: string }
-        canEditCompany: { type: boolean }
-        accountStatus: { type: string }
-        createdAt: { type: string }
-        lastLoginAt:
-          type: string
-          nullable: true
-        mfa:
-          type: object
-          properties:
-            enabled: { type: boolean }
-            enabledAt:
-              type: string
-              nullable: true
-        notifications:
-          type: object
-          properties:
-            marketing: { type: boolean }
-            billing: { type: boolean }
-            product: { type: boolean }
-        emailChange:
-          type: object
-          properties:
-            pendingTo:
-              type: string
-              nullable: true
-            requestedAt:
-              type: string
-              nullable: true
+        hasReceipt: { type: boolean }
 
-    ProfilePatch:
+    WalletTransactionPage:
       type: object
-      description: Campos editáveis pelo próprio usuário. Tudo opcional — só envia o que muda.
+      required: [content, page, size, totalElements, totalPages]
       properties:
-        name:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/WalletTransaction'
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+
+    AutoRechargeSettings:
+      type: object
+      required: [enabled, threshold, amount]
+      properties:
+        enabled: { type: boolean }
+        threshold:
+          type: number
+          description: Saldo (R$) que dispara a recarga.
+        amount:
+          type: number
+          description: Valor da recarga (R$).
+        lastAttemptAt:
           type: string
+          format: date-time
           nullable: true
-        phoneNumber:
+        lastFailureReason:
           type: string
-          nullable: true
-        alertPhoneNumber:
-          type: string
-          nullable: true
-        avatarUrl:
-          type: string
-          nullable: true
-        timezone:
-          type: string
-          nullable: true
-        locale:
-          type: string
-          nullable: true
-        companyName:
-          type: string
-          nullable: true
-        documentNumber:
-          type: string
-          nullable: true
-        notifEmailMarketing:
-          type: boolean
-          nullable: true
-        notifEmailBilling:
-          type: boolean
-          nullable: true
-        notifEmailProduct:
-          type: boolean
           nullable: true
 
-    DeleteAccountRequest:
+    UpdateAutoRechargeRequest:
       type: object
-      required: [confirmation]
       properties:
-        confirmation:
+        enabled:
+          type: boolean
+          nullable: true
+        threshold:
+          type: number
+          nullable: true
+          minimum: 5
+          maximum: 1000
+        amount:
+          type: number
+          nullable: true
+          minimum: 20
+          maximum: 5000
+
+    RechargeEstimate:
+      type: object
+      required: [amountCents, planLabel, limits, firstRechargeBonus, estimates]
+      properties:
+        amountCents: { type: integer }
+        planLabel: { type: string }
+        limits:
+          type: object
+          properties:
+            minCents: { type: integer }
+            maxCents: { type: integer }
+        firstRechargeBonus:
+          type: object
+          properties:
+            applicable: { type: boolean }
+            percent: { type: integer }
+            bonusCents: { type: integer }
+            totalCreditCents: { type: integer }
+        estimates:
+          type: object
+          description: Chaves `marketing`, `utility` e `authentication`.
+          additionalProperties:
+            type: object
+            properties:
+              count: { type: integer }
+              unitPriceCents: { type: integer }
+
+    # ---------- Pricing ----------
+    PricingResponse:
+      type: object
+      required: [currency, model, categories, markets]
+      properties:
+        currency: { type: string, example: BRL }
+        model: { type: string, example: PER_MESSAGE_BY_MARKET }
+        categories:
+          type: array
+          items:
+            type: object
+            required: [category, priceBrl, source]
+            properties:
+              category:
+                type: string
+                enum: [MARKETING, UTILITY, AUTHENTICATION]
+              priceBrl: { type: number }
+              source: { type: string, example: PLAN_REFERENCE }
+        markets:
+          type: array
+          items:
+            type: object
+            required: [market, category, costUsd]
+            properties:
+              market: { type: string }
+              category: { type: string }
+              costUsd: { type: number }
+
+    PlanInfoResponse:
+      type: object
+      required: [current, monthlyPriceCents, marketingPriceCents, utilityPriceCents, authPriceCents, features]
+      properties:
+        current:
           type: string
-          description: Deve ser exatamente `EXCLUIR <email_do_usuario>`.
+          enum: [FREE, POC, DECOLAGEM, ESSENTIAL, VOO_SOLO, VOO, VOO_ASSISTIDO, PRO, ENTERPRISE]
+        monthlyPriceCents: { type: integer }
+        marketingPriceCents: { type: integer }
+        utilityPriceCents: { type: integer }
+        authPriceCents: { type: integer }
+        features:
+          type: array
+          items: { type: string }
+        nextBillingAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    # ---------- Phone lookup ----------
+    LookupResult:
+      type: object
+      required: [phoneNumber]
+      properties:
+        phoneNumber: { type: string }
+        isMobile:
+          type: boolean
+          nullable: true
+        lineType:
+          type: string
+          nullable: true
+        carrier:
+          type: string
+          nullable: true
+        hasWhatsapp:
+          type: boolean
+          nullable: true
+        costCharged:
+          type: number
+          nullable: true
+        error:
+          type: string
+          nullable: true
+          description: '`INSUFFICIENT_FUNDS` ou `FAILED` no lote.'
 
     # ---------- Recovery ----------
     RecoveryEndpointResponse:
@@ -3443,18 +3570,11 @@ components:
         code: { type: string }
         hmacSecret:
           type: string
-          description: Segredo HMAC pra assinatura de webhooks. Tratar como secret.
+          description: Segredo HMAC da ingestão. Trate como senha.
         active: { type: boolean }
         url:
           type: string
-          description: URL pública de ingestão (`/l/{code}`).
-
-    RecoveryEndpointPatchRequest:
-      type: object
-      properties:
-        active:
-          type: boolean
-          nullable: true
+          description: URL pública de ingestão (`.../l/{code}`).
 
     RecoveryEventConfigResponse:
       type: object
@@ -3473,6 +3593,12 @@ components:
           type: string
           format: date-time
           nullable: true
+        templateStatus:
+          type: string
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
 
     RecoveryEventConfigPatchRequest:
       type: object
@@ -3487,8 +3613,7 @@ components:
         variableMapping:
           type: object
           nullable: true
-          additionalProperties:
-            type: string
+          additionalProperties: { type: string }
 
     RecoveryEventsListResponse:
       type: object
@@ -3512,82 +3637,15 @@ components:
           type: string
           nullable: true
 
-    # ---------- Pricing ----------
-    PricingCategoryRow:
-      type: object
-      required: [category, priceBrl, source]
-      properties:
-        category:
-          type: string
-          enum: [MARKETING, UTILITY, AUTHENTICATION]
-        priceBrl:
-          type: number
-          format: float
-        source:
-          type: string
-          enum: [ORG_CUSTOM, GLOBAL_DEFAULT]
-
-    PricingCountryRow:
-      type: object
-      required: [countryPrefix, countryName, category, baseCostUsd]
-      properties:
-        countryPrefix: { type: string }
-        countryName: { type: string }
-        category: { type: string }
-        baseCostUsd:
-          type: number
-          format: float
-
-    PricingResponse:
-      type: object
-      required: [currency, model, categories, countries]
-      properties:
-        currency: { type: string, example: BRL }
-        model: { type: string, example: PER_MESSAGE }
-        categories:
-          type: array
-          items:
-            $ref: '#/components/schemas/PricingCategoryRow'
-        countries:
-          type: array
-          items:
-            $ref: '#/components/schemas/PricingCountryRow'
-
-    # ---------- Organization plan ----------
-    PlanInfoResponse:
-      type: object
-      required:
-        - current
-        - monthlyPriceCents
-        - marketingPriceCents
-        - utilityPriceCents
-        - authPriceCents
-        - features
-      properties:
-        current:
-          type: string
-          enum: [FREE, ESSENTIAL, PRO, ENTERPRISE]
-        monthlyPriceCents: { type: integer }
-        marketingPriceCents: { type: integer }
-        utilityPriceCents: { type: integer }
-        authPriceCents: { type: integer }
-        features:
-          type: array
-          items: { type: string }
-        nextBillingAt:
-          type: string
-          format: date-time
-          nullable: true
-
     # ---------- Dashboard ----------
     DashboardMessageItem:
       type: object
       properties:
         id: { type: string }
-        status: { type: string }
-        mode:
+        status:
           type: string
-          enum: [LIVE]
+          enum: [PENDING, SCHEDULED, PROCESSING, SENT_TO_PROVIDER, SENT, DELIVERED, READ, FAILED, CANCELED]
+        mode: { type: string }
         sender: { type: string }
         receiver: { type: string }
         messageType: { type: string }
@@ -3602,9 +3660,20 @@ components:
         readAt: { type: string }
         createdAt: { type: string }
         updatedAt: { type: string }
-        cost:
-          type: number
-          format: float
+        cost: { type: number }
+
+    DashboardMessageDetail:
+      allOf:
+        - $ref: '#/components/schemas/DashboardMessageItem'
+        - type: object
+          properties:
+            templateVariablesJson: { type: string }
+            body: { type: string }
+            processedContent: { type: string }
+            mediaUrl: { type: string }
+            direction: { type: string }
+            processingStart: { type: string }
+            processingEnd: { type: string }
 
     DashboardMessagesResponse:
       type: object
@@ -3619,9 +3688,8 @@ components:
         size: { type: integer }
         totalPages: { type: integer }
 
-    DashboardMetricsResponse:
+    MetricsWindow:
       type: object
-      required: [total, sent, delivered, read, failed, pending, deliveryRate, mode]
       properties:
         total: { type: integer, format: int64 }
         sent: { type: integer, format: int64 }
@@ -3631,40 +3699,65 @@ components:
         pending: { type: integer, format: int64 }
         deliveryRate:
           type: string
-          description: Percentual com 1 casa decimal (string).
-        totalCost:
-          type: number
-          format: float
-          nullable: true
-        mode:
-          type: string
-          enum: [LIVE]
+          description: Percentual formatado em string.
+        totalCost: { type: number }
 
-    WalletBalanceResponse:
+    DashboardMetricsResponse:
+      allOf:
+        - $ref: '#/components/schemas/MetricsWindow'
+        - type: object
+          properties:
+            since:
+              type: string
+              description: Data da primeira mensagem (vazio sem histórico).
+            window7d:
+              $ref: '#/components/schemas/MetricsWindow'
+            previous7d:
+              $ref: '#/components/schemas/MetricsWindow'
+            mode: { type: string, example: LIVE }
+
+    # ---------- Legacy ----------
+    CartAbandonedWebhookRequest:
       type: object
-      required: [balance, currency, mode]
+      required: [event, phone, checkout_url]
       properties:
-        balance:
+        event:
+          type: string
+          enum: [cart.abandoned, payment.failed, pix.created, boleto.due]
+        name:
+          type: string
+          nullable: true
+        phone: { type: string }
+        total:
           type: number
-          format: double
-        currency:
+          nullable: true
+        checkout_url: { type: string }
+        minutes_without_payment:
+          type: integer
+          nullable: true
+        pix_qr_code:
           type: string
-          example: BRL
-        mode:
+          nullable: true
+          description: Obrigatório quando `event = pix.created`.
+
+    CartAbandonedWebhookResponse:
+      type: object
+      required: [status, received_at]
+      properties:
+        status: { type: string }
+        message_id:
           type: string
-          enum: [LIVE]
+          format: uuid
+          nullable: true
+        received_at:
+          type: string
+          format: date-time
 
     # ---------- Health ----------
     HealthResponse:
       type: object
       required: [status, timestamp, service]
       properties:
-        status:
-          type: string
-          example: UP
-        timestamp:
-          type: string
-          format: date-time
-        service:
-          type: string
-          example: arara-api
+        status: { type: string, example: UP }
+        timestamp: { type: string, format: date-time }
+        service: { type: string, example: arara-api }

@@ -1,27 +1,27 @@
 ---
 title: 'Campanhas'
-description: 'Dispare o mesmo template pra milhares de contatos. A campanha valida saldo antecipado, enfileira em background com rate limit respeitado, e expõe métricas agregadas.'
-keywords: ['campaigns', 'campanhas', 'broadcast', 'disparo em massa']
+description: 'Dispare o mesmo template para milhares de contatos com cobrança antecipada, agendamento, teste A/B, estimativa de custo por país e métricas agregadas.'
+keywords: ['campaigns', 'campanhas', 'broadcast', 'disparo em massa', 'agendamento', 'ab test', 'estimativa']
 ---
 
-Campanhas são o jeito certo de disparar em massa. Diferente de loops em `POST /v1/messages`, a campanha **valida saldo antecipado, enfileira tudo, processa em background com rate limit respeitado, e expõe métricas agregadas**.
+Campanha é o jeito certo de disparar em massa. A Arara valida template e variáveis, reserva a cota do plano, **debita o custo total da carteira na criação** e processa os envios em segundo plano.
 
 **Base URL:** `https://api.ararahq.com`
 
 <Note>
-  Pra **1 mensagem**: [`POST /v1/messages`](/api-reference/endpoint/v2/messages).<br/>
-  Pra **batch de até 1000** com payload simples: [`POST /v1/messages/batch`](/api-reference/endpoint/v2/messages#lote).<br/>
-  Pra **disparo segmentado em massa**: `POST /v1/campaigns`.
+  Para 1 mensagem: [`POST /v1/messages`](/api-reference/endpoint/v2/messages).<br/>
+  Para até 1000 com o mesmo template: [`POST /v1/messages/batch`](/api-reference/endpoint/v2/messages#lote-de-até-1000-mensagens).<br/>
+  Para disparo em massa, agendado ou com A/B: `POST /v1/campaigns`.
 </Note>
 
 ## Criar campanha
 
-`POST /v1/campaigns`
+`POST /v1/campaigns` · permissão `CAMPAIGNS_SEND`
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/campaigns \
   -H "Authorization: Bearer ara_live_xxx" \
-  -H "Idempotency-Key: bf26-main" \
+  -H "Idempotency-Key: 6f9c2a1e-bf26-4d1b-9c55-0a1f3e2d7b10" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Black Friday 2026",
@@ -39,92 +39,190 @@ Resposta (`200 OK`):
 {
   "id": "7b3789fb-4c5d-6789-abcd-ef0123456789",
   "name": "Black Friday 2026",
-  "status": "PROCESSING",
+  "status": "INGESTING",
   "totalMessages": 2,
-  "totalCost": 0.80
+  "totalCost": 0.7670,
+  "scheduledAt": null
 }
 ```
 
-<Note>
-  Resposta é minimal por design — pra detalhes (sent/delivered/timing), consulte `GET /v1/campaigns/{id}` que tem o `CampaignDetailResponse` completo.
-</Note>
+`totalCost` é o valor já debitado, em reais. Contatos que forem bloqueados no disparo (opt-out, número inválido, limite de frequência) são estornados um a um.
 
 ### Parâmetros
 
 | Campo | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
-| `name` | string | sim | Identificador interno (não vai pra Meta) |
-| `templateName` | string | sim | Template aprovado pela Meta |
-| `sender` | string | não | Número específico pra usar (default: round-robin da org) |
-| `contacts` | array | sim | Destinatários. Min 1 |
-| `contacts[].to` | string | sim | E.164 (`+5511999999999`) |
-| `contacts[].variables` | string[] | não | Array posicional pra `{{1}}`, `{{2}}`... do template. Default: array vazio |
+| `name` | string | sim | Nome interno. |
+| `templateName` | string | sim | Nome ou ID do template aprovado. Com `abTest`, é a variante A. |
+| `contacts` | array | sim | Destinatários, mínimo 1. |
+| `contacts[].to` | string | sim | Telefone E.164. |
+| `contacts[].variables` | string[] | não | Variáveis posicionais do template. Default `[]`. |
+| `sender` | string | não | Número remetente. Omitido, usa o padrão da organização. |
+| `scheduledAt` | string (ISO 8601) | não | Agenda o disparo. Ver [Agendamento](#agendamento). |
+| `abTest` | object | não | Teste A/B. Ver [Teste A/B](#teste-a-b). |
 
 <Warning>
-  `contacts[].variables` é **array posicional** (`["João", "30"]`), não objeto. Cliente que enviar `{"name": "João"}` recebe erro de bind.
+  `contacts[].variables` é **array posicional** (`["João", "30"]`), não objeto.
 </Warning>
 
-### Idempotency
+### Idempotência
 
-`Idempotency-Key` é **obrigatório**. Request sem o header retorna 400. Gere UUID único por campanha — se o mesmo header chegar de novo, a Arara devolve a campanha original (sem duplicar custo).
+`Idempotency-Key` é **obrigatório**. Se a chave já foi usada, a Arara devolve a campanha existente sem criar outra nem cobrar de novo. Use um UUID novo por campanha.
+
+<Warning>
+  Hoje, requisição sem o header responde `500` (e não `400`). E a unicidade da chave é global na Arara, não por organização: use sempre UUID aleatório, nunca valores previsíveis como `campanha-1`.
+</Warning>
+
+### Pré-requisitos
+
+- Número dedicado conectado (`403 NO_DEDICATED_NUMBER`).
+- Saldo para o total (`402 INSUFFICIENT_FUNDS`).
+- Cota do plano para o número de contatos (`403 PLAN_LIMIT_REACHED`).
+
+## Agendamento
+
+Envie `scheduledAt` entre **5 minutos** e **30 dias** no futuro:
+
+```json
+{
+  "name": "Lembrete sexta",
+  "templateName": "lembrete_evento",
+  "scheduledAt": "2026-09-19T12:00:00-03:00",
+  "contacts": [{ "to": "+5511999999999", "variables": ["João"] }]
+}
+```
+
+A campanha nasce `SCHEDULED`, já cobrada, e dispara no horário. Fora da janela: `400 CAMPAIGN_SCHEDULE_TOO_SOON` ou `400 CAMPAIGN_SCHEDULE_TOO_FAR`. Para desistir, [cancele](#cancelar-campanha): o valor dos contatos ainda não enviados volta para a carteira.
+
+## Teste A/B
+
+Mande a variante B junto com a criação:
+
+```json
+{
+  "name": "Reativação setembro",
+  "templateName": "reativacao_copy_a",
+  "contacts": [ ... ],
+  "abTest": {
+    "variantBTemplateName": "reativacao_copy_b",
+    "metric": "CLICKED",
+    "samplePct": 20,
+    "splitPct": 50,
+    "decisionWindowMinutes": 240,
+    "autopilot": true
+  }
+}
+```
+
+| Campo | Default | Descrição |
+|---|---|---|
+| `variantBTemplateName` | — | Obrigatório. Template da variante B. |
+| `metric` | `CLICKED` | `DELIVERED`, `READ`, `CLICKED` ou `CONVERTED`. |
+| `samplePct` | `20` | Porcentagem dos contatos que entra no teste. O resto espera a vencedora. |
+| `splitPct` | `50` | Divisão A/B dentro da amostra (1 a 99). |
+| `decisionWindowMinutes` | `240` | Tempo até decidir. |
+| `autopilot` | `true` | Dispara o restante pela vencedora automaticamente. |
+
+Enquanto o teste roda, a campanha fica em `AB_TESTING`.
+
+### Rotas do teste
+
+| Rota | Permissão | Uso |
+|---|---|---|
+| `GET /v1/campaigns/{id}/ab-test` | `READ` | Estado do teste: `winner`, `decidedAt`, `decidedReason`, `pValue`, `relativeLiftPct`, métricas por variante (JSON em string). |
+| `POST /v1/campaigns/{id}/ab-test/winner` | `CAMPAIGNS_SEND` | Força a vencedora com `{ "winner": "A" }` ou `"B"` e libera os contatos em espera. Valor inválido: `400 INVALID_WINNER`. |
+| `POST /v1/campaigns/{id}/ab-test` | `CAMPAIGNS_SEND` | Adiciona teste a uma campanha já criada. Nesta rota o default de `autopilot` é `false` e `variantATemplateName` é obrigatório. Métrica ou split inválido: `400 INVALID_AB_TEST`. |
+
+<Note>
+  Prefira o campo `abTest` na criação. Adicionado depois, parte dos contatos pode já ter sido disparada sem o teste. As rotas de A/B respondem `404` sem corpo quando a campanha ou o teste não existe.
+</Note>
+
+## Estimar custo
+
+### Por quantidade
+
+`GET /v1/campaigns/estimate?templateName=bf_oferta_geral&count=50000` · permissão `READ`
+
+```json
+{
+  "templateCategory": "MARKETING",
+  "recipientCount": 50000,
+  "templateCost": 14750.00,
+  "araraFee": 4425.00,
+  "unitPrice": 0.3835,
+  "totalCost": 19175.00,
+  "markets": []
+}
+```
+
+Usa o preço do mercado local. `count` vai de 1 a 1.000.000.
+
+### Por lista de telefones (exato)
+
+`POST /v1/campaigns/estimate` · permissão `CAMPAIGNS_SEND`
 
 ```bash
--H "Idempotency-Key: $(uuidgen)"
+curl -X POST https://api.ararahq.com/v1/campaigns/estimate \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "templateName": "bf_oferta_geral", "phones": ["+5511999999999", "+14155550100"] }'
 ```
+
+Calcula por país de destino e devolve a quebra em `markets` (`market`, `count`, `unitPrice`, `metaCostUnit`, `subtotal`). Bate com o valor cobrado na criação. Não cria nada.
+
+| Campo | Descrição |
+|---|---|
+| `templateCost` | Custo Meta **total**, em reais. |
+| `araraFee` | Taxa Arara **total**, em reais. |
+| `unitPrice` | Preço médio por mensagem. |
+| `totalCost` | Total a debitar. |
 
 ## Consultar campanha
 
-`GET /v1/campaigns/{id}`
-
-```bash
-curl https://api.ararahq.com/v1/campaigns/7b3789fb-4c5d-6789-abcd-ef0123456789 \
-  -H "Authorization: Bearer ara_live_xxx"
-```
-
-Resposta (`200 OK`):
+`GET /v1/campaigns/{id}` · permissão `READ`
 
 ```json
 {
   "id": "7b3789fb-4c5d-6789-abcd-ef0123456789",
   "name": "Black Friday 2026",
-  "status": "COMPLETED",
+  "status": "COMPLETED_WITH_ERRORS",
   "templateName": "bf_oferta_geral",
-  "templateBody": "Oi {{1}}, oferta {{2}}% off válida hoje!",
+  "templateBody": "Oi {{1}}, oferta de {{2}}% só hoje!",
   "totalMessages": 50000,
   "sentCount": 48500,
   "deliveredCount": 47200,
   "readCount": 38900,
+  "failedCount": 900,
   "clickedCount": 4120,
   "convertedCount": 312,
   "convertedValue": 87650.00,
-  "totalCost": 18647.50,
+  "replyCount": 1840,
+  "holdoutCount": 0,
+  "blockedCount": 600,
+  "blockReasons": [{ "motivo": "Contato pediu para não receber", "quantidade": 600 }],
+  "refundCount": 1500,
+  "refundValue": 575.25,
+  "totalCost": 19175.00,
   "scheduledAt": null,
-  "startedAt": "2026-11-29T18:00:12Z",
-  "finishedAt": "2026-11-29T18:23:14Z",
-  "createdAt": "2026-11-29T18:00:00Z"
+  "startedAt": "2026-11-27T18:00:12Z",
+  "finishedAt": "2026-11-27T18:23:14Z",
+  "createdAt": "2026-11-27T18:00:00Z"
 }
 ```
 
-`clickedCount` e `convertedCount` dependem de integração com [Smart Links](/smart-links).
+`clickedCount` e `convertedCount` dependem de [Smart Links](/smart-links). Campanha inexistente: `404 CAMPAIGN_NOT_FOUND`.
 
 ## Listar campanhas
 
-`GET /v1/campaigns`
+`GET /v1/campaigns` · permissão `READ`
 
-```bash
-curl "https://api.ararahq.com/v1/campaigns?page=0&size=20" \
-  -H "Authorization: Bearer ara_live_xxx"
-```
+| Param | Default | Descrição |
+|---|---|---|
+| `page` | `0` | Página. |
+| `size` | `20` | 1 a 100. |
+| `status` | — | Filtro por status. |
 
-Query params:
-
-| Param | Tipo | Default | Descrição |
-|---|---|---|---|
-| `page` | integer | `0` | Página |
-| `size` | integer | `20` | Itens por página (1-100) |
-| `status` | string | — | Filtra por status (`PROCESSING`, `COMPLETED`, `CANCELLED`, `FAILED`) |
-
-Resposta usa o envelope `content / totalElements / totalPages` do Spring Page:
+Header opcional `X-Waba-Id` restringe a uma WABA.
 
 ```json
 {
@@ -136,8 +234,12 @@ Resposta usa o envelope `content / totalElements / totalPages` do Spring Page:
       "templateName": "bf_oferta_geral",
       "totalMessages": 50000,
       "sentCount": 48500,
-      "totalCost": 18647.50,
-      "createdAt": "2026-11-29T18:00:00Z"
+      "deliveredCount": 47200,
+      "readCount": 38900,
+      "failedCount": 900,
+      "totalCost": 19175.00,
+      "scheduledAt": null,
+      "createdAt": "2026-11-27T18:00:00Z"
     }
   ],
   "totalPages": 1,
@@ -145,80 +247,50 @@ Resposta usa o envelope `content / totalElements / totalPages` do Spring Page:
 }
 ```
 
-## Estimar custo antes
-
-`GET /v1/campaigns/estimate`
-
-Calcula custo sem criar a campanha — bom pra UX "Confirma envio? Total R$ X".
-
-```bash
-curl "https://api.ararahq.com/v1/campaigns/estimate?templateName=bf_oferta_geral&count=50000" \
-  -H "Authorization: Bearer ara_live_xxx"
-```
-
-Resposta:
-
-```json
-{
-  "templateCategory": "MARKETING",
-  "recipientCount": 50000,
-  "templateCost": 0.295,
-  "araraFee": 0.0885,
-  "unitPrice": 0.3835,
-  "totalCost": 19175.00
-}
-```
-
-| Campo | Descrição |
-|---|---|
-| `templateCost` | Custo Meta por mensagem entregue |
-| `araraFee` | Margem Arara por mensagem |
-| `unitPrice` | `templateCost + araraFee` |
-| `totalCost` | `unitPrice × recipientCount` |
-
-Pra verificar saldo antes do disparo, consulte separadamente [Wallet](/concepts/pricing).
+Esta lista usa `{ content, totalPages, totalElements }`, fora do padrão `{ data, pagination }`.
 
 ## Status
 
 | Status | Significado |
 |---|---|
-| `PROCESSING` | Disparando contatos |
-| `COMPLETED` | Todos contatos processados (entregues ou falharam) |
-| `CANCELLED` | Cancelado manualmente |
-| `FAILED` | Falha geral (saldo insuficiente antes de iniciar, etc) |
+| `SCHEDULED` | Agendada, aguardando o horário. |
+| `INGESTING` | Processando contatos e enfileirando envios. |
+| `AB_TESTING` | Teste A/B em andamento. |
+| `COMPLETED` | Todos os contatos processados. |
+| `COMPLETED_WITH_ERRORS` | Processada, com contatos bloqueados. |
+| `FAILED` | Falha geral no processamento. |
+| `CANCELED` | Cancelada. |
 
-Pra acompanhar **mensagem por mensagem em tempo real**, escute o webhook `message.status_updated`. Campanha terminada dispara `campaign.completed`.
+Acompanhe mensagem a mensagem pelo webhook `message.status_updated`. O fim da campanha dispara [`campaign.completed`](/webhooks/events).
 
-## Cancelar campanha em andamento
+## Cancelar campanha
 
-`POST /v1/campaigns/{id}/cancel`
+`POST /v1/campaigns/{id}/cancel` · permissão `CAMPAIGNS_SEND`
 
-```bash
-curl -X POST https://api.ararahq.com/v1/campaigns/7b3789fb-.../cancel \
-  -H "Authorization: Bearer ara_live_xxx"
-```
-
-Marca como `CANCELLED`. Envios já disparados continuam processando no provider — só evita as próximas mensagens da fila.
+Marca `CANCELED` e estorna na carteira os contatos que ainda não viraram mensagem. Mensagens já enfileiradas seguem. Resposta `204`. Campanha já em `COMPLETED`, `COMPLETED_WITH_ERRORS`, `CANCELED` ou `FAILED` responde `422`.
 
 ## Erros
 
-| HTTP | Quando |
-|---|---|
-| `400` | Body inválido (`name`/`templateName`/`contacts` ausente, `contacts` vazio, ou `Idempotency-Key` faltando) |
-| `401` | API key inválida |
-| `402` | Saldo da wallet abaixo do custo estimado |
-| `403` | `PLAN_FEATURE_LOCKED` (plano não inclui campanhas) ou `NO_DEDICATED_NUMBER` |
-| `422` | Template não existe, não aprovado, ou variáveis incompatíveis (vem em formato simplificado `{ error, message, diagnostic }`) |
+| HTTP | `error.code` | Quando |
+|---|---|---|
+| `400` | `VALIDATION_ERROR` | `name`, `templateName` ou `contacts` ausente ou vazio. |
+| `400` | `CAMPAIGN_SCHEDULE_TOO_SOON`, `CAMPAIGN_SCHEDULE_TOO_FAR` | `scheduledAt` fora da janela. |
+| `402` | `INSUFFICIENT_FUNDS` | Saldo menor que o total. |
+| `403` | `NO_DEDICATED_NUMBER`, `PLAN_LIMIT_REACHED` | Sem número dedicado ou sem cota. |
+| `404` | `CAMPAIGN_NOT_FOUND` | Campanha não existe (consulta e cancelamento). |
+| `422` | `UNPROCESSABLE_ENTITY` ou `ararahq-*` | Template não encontrado, variáveis incompatíveis, remetente inválido, estimativa com `count` fora do limite. |
+| `429` | `SEND_RATE_LIMITED` | Limite diário da chave. |
+| `500` | `INTERNAL_SERVER_ERROR` | `Idempotency-Key` ausente (comportamento atual). |
 
-Ver [Erros](/erros) pro formato completo.
+Ver [Erros](/erros).
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Receita: Black Friday" icon="tag" href="/recipes/black-friday">
-    Fluxo completo com triagem.
+    Fluxo completo de disparo sazonal.
   </Card>
-  <Card title="Smart Links pra atribuição" icon="link" href="/smart-links">
-    Rastrear clique e conversão de campanha.
+  <Card title="Smart Links" icon="link" href="/smart-links">
+    Clique e conversão por campanha.
   </Card>
 </CardGroup>

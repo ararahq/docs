@@ -1,10 +1,10 @@
 ---
 title: 'Erros'
-description: 'Formato de erro, códigos emitidos pela API, diagnóstico de erros WhatsApp traduzidos da Meta e retry automático.'
+description: 'Formato de erro, códigos que a API devolve de verdade, diagnósticos de falha de entrega e como tratar cada caso no cliente.'
 keywords: ['erros', 'error codes', 'troubleshooting', 'retry', 'failure']
 ---
 
-A maioria dos erros da Arara segue um envelope JSON com `code` legível por máquina. Rotas mais antigas ainda retornam um envelope simplificado sem `code` — abaixo cada formato e quando esperar cada um.
+A maioria dos erros da Arara sai num envelope com `code` estável. Algumas rotas ainda fogem dele; esta página diz quais e como tratar.
 
 ## Formato canônico
 
@@ -12,146 +12,199 @@ A maioria dos erros da Arara segue um envelope JSON com `code` legível por máq
 {
   "error": {
     "code": "PLAN_FEATURE_LOCKED",
-    "message": "Essa feature está liberada a partir do plano BUSINESS.",
-    "feature": "campaigns",
-    "currentPlan": "STARTER",
-    "upgradeTo": "BUSINESS"
+    "message": "Essa feature está liberada a partir do plano VOO_SOLO.",
+    "details": {
+      "feature": "CONTACTS",
+      "currentPlan": "DECOLAGEM",
+      "upgradeTo": "VOO_SOLO"
+    }
   }
 }
 ```
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `error.code` | string | Código estável (constante). Use em `if`/`switch`. |
-| `error.message` | string | Descrição em português, pra exibir ao usuário. |
-| Campos extras | varia | Cada `code` pode trazer contexto específico (planos, limites, currentStatus, etc). |
+| `error.code` | string | Código estável. Use em `if`/`switch`. |
+| `error.message` | string | Texto em português para exibir ou logar. Pode mudar. |
+| `error.details` | object | Contexto do código (limites, plano, campo). Sempre presente, às vezes vazio. |
 
-## Formato simplificado (sem `code`)
+## Respostas fora do envelope
 
-Algumas rotas — autenticação (filter do Spring), validação de body (`@Valid`), e exceptions genéricas — retornam:
+| Situação | Corpo |
+|---|---|
+| Falha de autenticação (`401`, e `403` sem header ou fora do escopo) | Padrão do Spring: `{ "timestamp", "status", "error", "path" }`, sem `code`. |
+| Alguns `404` (`GET /v1/messages/{id}`, conversas, A/B, smart link) e o `403` de mensagem de outro usuário | Sem corpo. |
+| Algumas validações de conversas, upload de mídia e histórico | `{ "error": "mensagem" }`, com `error` como string. |
+
+Ramifique primeiro pelo status HTTP e só depois por `error.code` quando ele existir.
+
+## Autenticação e permissão
+
+| HTTP | Código | Quando |
+|---|---|---|
+| `401` | sem `code` | Chave inexistente, formato errado, revogada, expirada ou IP fora da allowlist. |
+| `403` | sem `code` | Sem `Authorization`, rota que não aceita API key, ou chave sem permissão. |
+| `403` | `RESOURCE_FORBIDDEN` | Recurso de outra organização, ou operação que só o painel faz (ex.: gerir chaves). |
+| `403` | `FORBIDDEN` | Acesso negado por regra de segurança. |
+| `401` | `API_KEY_REQUIRED` | Rota que só aceita API key foi chamada com sessão de usuário. |
+| `403` | `VIEWER_READ_ONLY` | A chave pertence a um usuário com papel Leitor, que só acessa rotas de acompanhamento. |
+
+## Plano, conta e carteira
+
+| HTTP | Código | `details` | Quando |
+|---|---|---|---|
+| `403` | `PLAN_FEATURE_LOCKED` | `feature`, `currentPlan`, `upgradeTo` | Funcionalidade fora do plano. |
+| `403` | `PLAN_LIMIT_REACHED` | `feature`, `current`, `max`, `currentPlan`, `upgradeTo` | Teto do plano (mensagens no mês, templates, automações). |
+| `402` | `PLAN_REQUIRED` | `feature` | Exige assinatura paga. |
+| `402` | `INSUFFICIENT_FUNDS` | `diagnostic` | Saldo insuficiente. |
+| `403` | `ACCOUNT_NOT_ACTIVATED` | `currentStatus` | Conta ainda não ativada. |
+| `403` | `ACCOUNT_BANNED` | — | Conta banida. |
+| `403` | `ORGANIZATION_SUSPENDED` | — | Organização suspensa (decisão administrativa ou taxa de falha alta). |
+| `403` | `NO_DEDICATED_NUMBER` | — | Operação exige número dedicado. |
+| `403` | `IP_BLOCKED` | — | IP bloqueado. |
+| `502` | `PAYMENT_PROVIDER_UNAVAILABLE` | — | Provedor de pagamento fora do ar. |
+
+## Envio
+
+Recusas antes do envio, em `POST /v1/messages`, `/v1/messages/batch` e campanhas:
+
+| HTTP | Código | `details` | Quando |
+|---|---|---|---|
+| `422` | `RECIPIENT_OPTED_OUT` | `receiver` | Destinatário pediu para não receber. |
+| `422` | `INVALID_RECIPIENT` | `receiver`, `reason` | Telefone fora do E.164. |
+| `422` | `CONVERSATION_WINDOW_CLOSED` | `receiver` | Conteúdo livre com a janela de 24h fechada. |
+| `422` | `TEMPLATE_PAUSED` | `templateName`, `providerStatus` | Template pausado. Pare o disparo. |
+| `422` | `TEMPLATE_NOT_SENDABLE` | `templateName`, `providerStatus` | Template pendente, reprovado ou desativado. |
+| `422` | `TEMPLATE_VARIABLES_MISMATCH` | `templateName`, `expected`, `received` | Quantidade de variáveis diferente do template. |
+| `422` | `SENDER_NOT_ALLOWED` | `requestedSender`, `reason` | `sender` não pertence à organização ou não pode ser usado. |
+| `403` | `NUMBER_BLOCKED` | — | Destinatário falhou repetidamente (inválido ou sem WhatsApp). Remova da base. |
+| `403` | `FRAUD_SUSPECTED` | `reason` | Padrão de envio com cara de abuso. |
+| `409` | `PROVIDER_NOT_RESOLVED` | `sender` | Número remetente não está pronto. Reconecte em Números. |
+| `409` | `CONFLICT` | — | Template não encontrado na organização. |
+| `429` | `SEND_RATE_LIMITED` | `scope`, `limit` | Teto de envio (inclui limite diário da chave). Traz `Retry-After`. |
+| `429` | `MARKETING_FREQUENCY_EXCEEDED` | `receiver`, `limit`, `windowHours` | O contato já recebeu marketing demais na janela. Sem `Retry-After`. |
+| `400` | `CAMPAIGN_SCHEDULE_TOO_SOON`, `CAMPAIGN_SCHEDULE_TOO_FAR` | `scheduledAt` | Agendamento de campanha fora de 5 minutos a 30 dias. |
+
+### Códigos de diagnóstico (`ararahq-*`)
+
+Algumas recusas de regra de negócio saem com um código de diagnóstico no lugar de `UNPROCESSABLE_ENTITY`, e `details.diagnostic` explica o que houve e o que fazer:
 
 ```json
 {
-  "error": "Unauthorized",
-  "message": "Invalid API Key format"
+  "error": {
+    "code": "ararahq-invalid-number",
+    "message": "Números de telefone inválidos no batch (use formato E.164): 5511",
+    "details": {
+      "diagnostic": {
+        "code": "ararahq-invalid-number",
+        "whatHappened": "Número inválido ou sem WhatsApp...",
+        "howToAct": "Verifique se o número está correto no formato +55DDD9XXXXXXXX..."
+      }
+    }
+  }
 }
 ```
 
-Use o `status` HTTP pra ramificar, não `error.code` (pode ser `null` aqui). Padronização está em andamento; eventualmente todas as rotas vão emitir `error.code`.
-
-## Códigos com envelope canônico
-
-### Plano e conta
-
-| Código | HTTP | Quando |
-|---|---|---|
-| `PLAN_FEATURE_LOCKED` | 403 | Feature exige plano superior — payload traz `feature`, `currentPlan`, `upgradeTo`. |
-| `PLAN_LIMIT_REACHED` | 403 | Limite do plano atingido — payload traz `feature`, `current`, `max`. |
-| `ACCOUNT_NOT_ACTIVATED` | 403 | Onboarding incompleto — payload traz `currentStatus`. Bloqueia criação de chave LIVE. |
-| `NO_DEDICATED_NUMBER` | 403 | Operação exige número WhatsApp dedicado. |
-| `ORGANIZATION_SUSPENDED` | 429 | Org suspensa por taxa de falhas alta. |
-| `NUMBER_BLOCKED` | 422 | Destinatário em opt-out ou número bloqueado preventivamente. |
-
-### Recovery
-
-| Código | HTTP | Quando |
-|---|---|---|
-| `RECOVERY_ENDPOINT_NOT_FOUND` | 404 | Endpoint de recovery não encontrado. |
-| `RECOVERY_ENDPOINT_INACTIVE` | 403 | Endpoint existe mas está `active: false`. |
-| `RECOVERY_EVENT_INVALID` | 400 | `eventType` ou `period` fora dos aceitos. |
-| `RECOVERY_HMAC_INVALID` | 401 | Assinatura HMAC do parceiro não confere. |
-| `RECOVERY_RATE_LIMITED` | 429 | Excesso de eventos por minuto — header `Retry-After: 60`. |
-| `RECOVERY_CONFIG_NOT_FOUND` | 404 | Sem config pra esse `eventType`. |
-| `RECOVERY_TEMPLATE_MISSING` | 412 | Config existe mas o template vinculado foi removido. |
-
-### OAuth device flow
-
-| Código | HTTP | Quando |
-|---|---|---|
-| `invalid_grant` | 400 | Device code inválido. |
-| `authorization_pending` | 400 | Usuário ainda não aprovou no browser. |
-| `slow_down` | 400 | Cliente CLI fazendo polling muito rápido. |
-| `access_denied` | 400 | Usuário negou. |
-| `expired_token` | 400 | Device code expirou — refaça `/oauth/device/code`. |
-| `device_code_not_found` | 404 | Code não existe. |
-| `device_code_already_used` | 409 | Code já foi trocado por access token. |
-
-### Genéricos
-
-| Código | HTTP | Quando |
-|---|---|---|
-| `NOT_FOUND` | 404 | Endpoint inexistente (rota sem handler). |
-| `NOTIFICATION_NOT_FOUND` | 404 | Notification in-app não existe. |
-
-## Erros sem `code` estruturado
-
-Esses ainda saem com `{ error: "...", message: "..." }` (sem `code`). Use o status HTTP:
-
-| HTTP | Origem típica |
+| Código | Significado |
 |---|---|
-| `400` | Validação de body (`@Valid` falhou). `message` traz a primeira violação. |
-| `401` | API key ausente, malformada, revogada ou IP fora da allowlist. |
-| `402` | Saldo da wallet insuficiente. Vem com `diagnostic` traduzindo o erro. |
-| `403` | Acesso negado (escopo de chave, IP bloqueado, security exception). |
-| `404` | Recurso não existe (link, mensagem, contato, etc — alguns ainda sem `code`). |
-| `409` | Conflito de estado (`IllegalStateException`). |
-| `422` | Regra de negócio violada (`BusinessException` — fora da janela 24h, template não existe, variáveis incompatíveis). Vem com `diagnostic`. |
-| `500` | Erro interno não tratado. |
+| `ararahq-63016` | Janela de 24h fechada. |
+| `ararahq-invalid-number` | Número inválido ou sem WhatsApp. |
+| `ararahq-template-mismatch` | Variáveis não batem com o template. |
+| `ararahq-invalid-recipient` | Template não encontrado ou destinatário inválido. |
+| `ararahq-insufficient-funds` | Saldo insuficiente (dentro de `INSUFFICIENT_FUNDS`). |
 
-## Diagnóstico WhatsApp (`failureReason`)
+## Recursos
 
-Mensagens com `status: failed` trazem `failureReason` traduzido da Meta:
-
-| `failureReason` | Diagnóstico | Ação |
+| HTTP | Código | Quando |
 |---|---|---|
-| `63016` | Janela de 24h fechada | Use template HSM pra reabrir |
-| `insufficient_funds` | Saldo esgotado | Recarga ou auto-recharge |
-| `21211` | Número inválido ou sem WhatsApp | Confere DDI + DDD + dígito |
-| `63024` | Template não encontrado / não aprovado | Verifica status no dashboard |
-| `invalid_template_params` | Variáveis incompatíveis | Confere número/ordem das vars |
-| `generic` | Erro genérico Meta | Retry em alguns minutos |
+| `404` | `TEMPLATE_NOT_FOUND` | Template não existe. |
+| `404` | `CAMPAIGN_NOT_FOUND` | Campanha não existe. |
+| `404` | `LINK_NOT_FOUND` | Link não existe. |
+| `404` | `NOT_FOUND` | Rota inexistente. |
+| `400` | `INVALID_PHONE` | Telefone inválido em opt-out ou LGPD. |
+| `400` | `INVALID_AB_TEST`, `INVALID_WINNER` | Configuração de A/B inválida. |
+| `400` | `INVALID_VERTICAL` | Vertical do perfil comercial fora da lista da Meta. |
+| `422` | `GUPSHUP_APP_NOT_READY` | Operação de template sem número conectado. |
 
-Consulta detalhe completo:
+## Genéricos
 
-```bash
-curl https://api.ararahq.com/v1/messages/ara_msg_xxx \
-  -H "Authorization: Bearer ara_live_xxx"
-```
+| HTTP | Código | Quando |
+|---|---|---|
+| `400` | `VALIDATION_ERROR` | Campo obrigatório ausente ou regra de validação do corpo. `message` traz a primeira violação. |
+| `400` | `INVALID_JSON` | JSON malformado, encoding errado, campo com tipo divergente ou obrigatório ausente. |
+| `400` | `INVALID_PATH_PARAM` | ID na URL em formato errado (ex.: nome no lugar de UUID). `details.param`. |
+| `400` | `INVALID_IDEMPOTENCY_KEY` | `Idempotency-Key` vazia, acima de 255 caracteres ou com caractere de controle. |
+| `405` | `METHOD_NOT_ALLOWED` | Método HTTP errado na rota. |
+| `409` | `CONFLICT` | Conflito de estado (nome duplicado, conteúdo bloqueado pela moderação). |
+| `409` | `CONCURRENT_MODIFICATION` | Operação simultânea no mesmo recurso. Tente de novo. |
+| `409` | `IDEMPOTENCY_CONFLICT` | Chave reutilizada com outros dados (só nas rotas de disparo por webhook). |
+| `422` | `UNPROCESSABLE_ENTITY` | Regra de negócio sem código próprio. Leia `message`. |
+| `429` | `RATE_LIMIT_EXCEEDED` | Rate limit geral. `Retry-After: 1`. |
+| `500` | `INTERNAL_SERVER_ERROR` | Erro interno. |
+| `500` | `MISSING_RATE_CARD` | Falha ao precificar. Tente de novo. |
 
-## Retry automático
+<Note>
+  Hoje, header ou parâmetro obrigatório ausente (`Idempotency-Key` em campanha, `count` na estimativa, `batchId`) cai no erro genérico e responde `500 INTERNAL_SERVER_ERROR`, não `400`.
+</Note>
 
-A Arara retenta automaticamente:
+### Recuperação
 
-- **5xx upstream Meta**: backoff exponencial, até 5 tentativas em ~1h
-- **429 rate limit Meta**: respeita `Retry-After`
-- **HMAC inválido em recovery**: 401, sem retry — o parceiro precisa corrigir a assinatura
+| HTTP | Código | Quando |
+|---|---|---|
+| `404` | `RECOVERY_ENDPOINT_NOT_FOUND` | Endpoint ou ingestão não encontrado. |
+| `403` | `RECOVERY_ENDPOINT_INACTIVE` | Endpoint desativado. |
+| `400` | `RECOVERY_EVENT_INVALID` | Tipo de evento ou período inválido. |
+| `401` | `RECOVERY_HMAC_INVALID` | Assinatura HMAC não confere. |
+| `429` | `RECOVERY_RATE_LIMITED` | Excesso de eventos. `Retry-After: 60`. |
+| `404` | `RECOVERY_CONFIG_NOT_FOUND` | Sem configuração para o evento. |
+| `412` | `RECOVERY_TEMPLATE_MISSING` | Template vinculado foi removido. |
+| `402` | `RECOVERY_FREE_CAP_REACHED` | Cota gratuita de recuperação atingida. |
 
-Mensagem só fica em `status: failed` depois que todos os retries falharam. Você **não precisa** retentar do seu lado pra esses casos.
+## Falha depois do aceite
 
-Pra **4xx que não 429**, a Arara não retenta — corrigir antes (chave inválida, template ausente, número inválido).
+`202 Accepted` não garante entrega. Quando a Meta recusa depois, a mensagem vira `FAILED` e:
 
-## Estratégia de tratamento no cliente
+- `GET /v1/messages/{id}` traz o motivo em `reason`;
+- o webhook `message.status_updated` traz o motivo em `data.errorDetails`;
+- o valor da mensagem é estornado na carteira.
+
+O catálogo de motivos, com causa e solução, está em [Por que minha mensagem falhou](/erros-de-envio).
+
+## Retry
+
+- A Arara retenta sozinha falhas temporárias do provedor, com backoff exponencial que respeita o `Retry-After` do provedor. Você não precisa reenviar nesses casos.
+- Erro de template, variável, destinatário ou conta **não** é retentado.
+- Do seu lado: retente `429` (após `Retry-After`), `500`, `502` e `503`, sempre com `Idempotency-Key` para não duplicar envio.
+- Não retente `4xx` que não sejam `429`: corrija a causa.
+
+## Tratamento no cliente
 
 ```typescript
-try {
-  await sdk.messages.send({ ... });
-} catch (err) {
-  if (err.statusCode === 429) {
-    await sleep((err.retryAfter ?? 60) * 1000);
-    retry();
-  } else if (err.error?.code === 'PLAN_FEATURE_LOCKED' || err.error?.code === 'PLAN_LIMIT_REACHED') {
-    notifyAdmin(`Upgrade necessário: ${err.error.upgradeTo}`);
-  } else if (err.error?.code === 'ACCOUNT_NOT_ACTIVATED') {
-    openOnboardingWizard();
-  } else if (err.statusCode === 402) {
-    notifyAdmin('Saldo insuficiente — recarregar wallet');
-  } else if (err.statusCode === 422) {
-    queueForRetry();
-  } else if (err.statusCode >= 500) {
-    notifyOps(err);
-  } else {
-    throw err;
-  }
+const res = await fetch('https://api.ararahq.com/v1/messages', { method: 'POST', headers, body });
+
+if (res.ok) return res.json();
+
+const payload = await res.json().catch(() => null);
+const code = typeof payload?.error === 'object' ? payload.error.code : undefined;
+
+switch (true) {
+  case res.status === 401:
+    throw new Error('API key inválida ou revogada');
+  case res.status === 403 && !code:
+    throw new Error('API key sem permissão para esta rota');
+  case res.status === 429:
+    await sleep(Number(res.headers.get('Retry-After') ?? 1) * 1000);
+    return retry();
+  case code === 'RECIPIENT_OPTED_OUT' || code === 'NUMBER_BLOCKED':
+    return removeFromList();
+  case code === 'TEMPLATE_PAUSED':
+    return pauseCampaign();
+  case code === 'INSUFFICIENT_FUNDS':
+    return notifyFinance();
+  case res.status >= 500:
+    return retryWithSameIdempotencyKey();
+  default:
+    throw new Error(payload?.error?.message ?? `HTTP ${res.status}`);
 }
 ```
 
@@ -159,12 +212,9 @@ try {
 
 <CardGroup cols={2}>
   <Card title="Por que minha mensagem falhou" icon="triangle-exclamation" href="/erros-de-envio">
-    Catálogo dos erros de envio reais: causa e como resolver cada um.
+    Motivos de falha de entrega, causa e solução.
   </Card>
-  <Card title="Webhooks de status" icon="bell" href="/webhooks/events">
-    Receber falha de envio em tempo real.
-  </Card>
-  <Card title="Idempotência" icon="rotate-right" href="/api-reference/introduction#idempotência">
-    Evitar duplicata em retry.
+  <Card title="Eventos de webhook" icon="bell" href="/webhooks/events">
+    Falha de envio em tempo real.
   </Card>
 </CardGroup>

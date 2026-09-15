@@ -1,33 +1,32 @@
 ---
 title: 'Smart Links'
-description: 'URLs curtas servidas do domínio da Arara que rastreiam clique, atribuição first-party (sem 3rd party cookies, sem ITP), e atrelam conversão ao número que recebeu a mensagem.'
-keywords: ['smart links', 'short url', 'tracking', 'atribuição', 'first-party', 'utm', 'conversão']
+description: 'Links curtos no domínio ararahq.com que contam cliques: link de WhatsApp com QR Code, botão SMART_LINK em templates e encurtamento automático de URLs nas mensagens.'
+keywords: ['smart links', 'short url', 'tracking', 'clique', 'qr code', 'wa.me', 'template']
 ---
 
-Smart Links são URLs curtas servidas de `https://arr.ai/c/{code}` (ou seu domínio customizado) que **rastreiam o clique** e **atribuem a conversão** ao número de WhatsApp que recebeu a mensagem. First-party tracking, sem cookie de terceiros, imune a ITP do Safari e privacy do Brave.
+Na Arara, links curtos saem em `https://ararahq.com/l/{code}`. Cada acesso registra um clique e redireciona pro destino. Há três formas de gerar esses links:
 
-<Note>
-  Smart Link não é encurtador genérico. Cada link é criado dentro do contexto de uma campanha ou template, sabe quem é o destinatário, e dispara conversão quando o pixel é atingido.
-</Note>
+| Forma | Destino | Como cria |
+|---|---|---|
+| **Smart Link de WhatsApp** | `wa.me` do seu número, com texto inicial opcional | `POST /v1/smart-links/whatsapp` |
+| **Link de mensagem** | Qualquer URL, um link por mensagem enviada | Botão `SMART_LINK` no template ou URL passada como variável |
+| **Link avulso** | Qualquer URL | Dashboard, em **Links** |
 
-## Por que isso importa
+O clique registra IP, user agent, referer e país (quando disponível). Links de mensagem ficam associados à mensagem, e por isso ao destinatário e à campanha. O redirecionamento não adiciona parâmetros na URL de destino.
 
-UTM clássico responde **"de qual canal veio"**. Smart Link responde **"qual cliente específico converteu"** — e quanto custou trazer ele. Diferença critical pra:
+## Smart Link de WhatsApp
 
-- **LTV por cohort**: você vê que o cliente A converteu pela campanha X, lê depois pelo template Y, comprou de novo. Atribuição multi-touch real.
-- **Atribuição em iOS**: o ITP (Intelligent Tracking Prevention) corta cookies 3rd-party em 7 dias. Smart Link é 1st-party — sobrevive.
-- **Anti-fraude**: clique de bot vs clique humano com WhatsApp aberto. A Arara identifica.
-
-## Criando um Smart Link
+Um link fixo que abre conversa com o seu número. Serve pra bio, anúncio, QR Code em material impresso.
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/smart-links/whatsapp \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
-    "destinationUrl": "https://meusite.com.br/produto/camiseta-basica?utm_source=whatsapp",
-    "campaignId": "ara_cmp_abc",
-    "expiresAt": "2026-06-30T23:59:59Z",
-    "title": "Camiseta Black Friday"
+    "name": "Bio do Instagram",
+    "phoneNumber": "+5511999999999",
+    "defaultText": "Oi, vim pelo Instagram",
+    "qrCodeColor": "BLACK"
   }'
 ```
 
@@ -35,101 +34,92 @@ Resposta:
 
 ```json
 {
-  "code": "FtFmja",
-  "shortUrl": "https://arr.ai/c/FtFmja",
-  "destinationUrl": "https://meusite.com.br/produto/camiseta-basica?utm_source=whatsapp",
-  "campaignId": "ara_cmp_abc",
-  "createdAt": "2026-05-18T10:00:00Z",
-  "expiresAt": "2026-06-30T23:59:59Z"
+  "id": "6f8a3c1e-2b4d-4f6a-8c9e-0a1b2c3d4e5f",
+  "name": "Bio do Instagram",
+  "phoneNumber": "+5511999999999",
+  "defaultText": "Oi, vim pelo Instagram",
+  "qrCodeColor": "BLACK",
+  "code": "Ab12Cd",
+  "shortUrl": "https://ararahq.com/l/Ab12Cd",
+  "createdAt": "2026-09-15T10:00:00Z",
+  "clicks": 0
 }
 ```
 
-Cole `shortUrl` no template ou na mensagem. Quando o cliente clicar:
+- `name` e `phoneNumber` são obrigatórios. `qrCodeColor` default `BLACK`.
+- Cada número tem um único Smart Link por organização. Criar outro pro mesmo número falha.
+- Quem acessa `shortUrl` é redirecionado pra `https://wa.me/{numero}?text={defaultText}`.
 
-1. Servidor da Arara registra o clique (com número, campanha, IP region, user agent)
-2. Redireciona pra `destinationUrl` em < 80ms (pode adicionar UTMs por cliente)
-3. Se você setou pixel, dispara conversão quando o cliente atinge a thank-you page
+| Endpoint | Função |
+|---|---|
+| `GET /v1/smart-links/whatsapp?page=0&size=50` | Lista paginada `{ data, pagination }`, com `clicks` por link |
+| `PUT /v1/smart-links/whatsapp/{id}` | Atualiza `name`, `defaultText` e `qrCodeColor` (o número não muda) |
+| `GET /v1/smart-links/whatsapp/{id}/stats` | `{ linkId, totalClicks }` |
 
-## Em template
+## Botão SMART_LINK em templates
 
-Em vez de hardcodar a URL, use placeholder de variável e a Arara substitui no momento do envio:
-
-```
-Olá {{1}}! Confira a camiseta que você curtiu: {{2}}
-```
-
-Onde `{{2}}` recebe o `shortUrl` no payload. Cada cliente recebe um Smart Link diferente, com tracking individual.
-
-Ou use o tipo de botão `SMART_LINK` (ver [Política de templates](/templates/policy)):
+Crie o template com um botão do tipo `SMART_LINK` e a URL de destino:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/templates \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
     "name": "produto_quente",
     "category": "MARKETING",
     "language": "pt_BR",
-    "body": "Oi {{1}}, separei essa camiseta básica pra você. Toque pra ver:",
+    "body": "Oi {{1}}, separei essa camiseta básica pra você. Toque pra ver.",
+    "samples": { "1": "João" },
     "buttons": [
       {
         "type": "SMART_LINK",
         "text": "Ver produto",
-        "url": "https://meusite.com.br/produto/{{2}}"
+        "url": "https://meusite.com.br/produto/camiseta-basica"
       }
     ]
   }'
 ```
 
-A `{{2}}` da URL recebe o slug do produto na hora do envio. Arara faz o wrap em Smart Link automaticamente.
+A Arara registra o botão na Meta como botão de URL `https://ararahq.com/l/{{n}}`. A cada envio, cria um link curto novo pra aquela mensagem e preenche o código no botão.
 
-## Listando
+No envio, dois campos opcionais de `POST /v1/messages` controlam o destino:
+
+| Campo | Efeito |
+|---|---|
+| `smartLinkUrl` | Substitui a URL cadastrada no botão só nesta mensagem |
+| `smartLinkParam` | Adiciona `slp={valor}` na URL de destino (ex.: id do pedido ou do cliente) |
 
 ```bash
-curl https://api.ararahq.com/v1/smart-links/whatsapp \
-  -H "Authorization: Bearer ara_live_xxx"
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5511999999999",
+    "templateName": "produto_quente",
+    "templateVariables": ["João"],
+    "smartLinkUrl": "https://meusite.com.br/produto/camiseta-basica?utm_source=whatsapp",
+    "smartLinkParam": "cliente-8812"
+  }'
 ```
 
-Retorna paginado com estatísticas:
+`POST /v1/messages/batch` aceita `smartLinkUrl` e `smartLinkParam` por item.
 
-```json
-{
-  "data": [
-    {
-      "code": "FtFmja",
-      "shortUrl": "https://arr.ai/c/FtFmja",
-      "destinationUrl": "https://meusite.com.br/produto/...",
-      "title": "Camiseta Black Friday",
-      "createdAt": "2026-05-18T10:00:00Z",
-      "stats": {
-        "totalSends": 2410,
-        "totalClicks": 387,
-        "ctr": 0.1606,
-        "totalConversions": 41,
-        "conversionRate": 0.1059,
-        "revenueCents": 738000
-      }
-    }
-  ],
-  "pagination": { ... }
-}
-```
+## URLs em variáveis e mensagens de sessão
 
-## Domínio customizado
+- Variável de template que começa com `http` é trocada por um link curto `https://ararahq.com/l/{code}` no envio.
+- Em mensagem de sessão (texto livre dentro da janela de 24h), toda URL no `body` é encurtada.
 
-Por default, links saem em `arr.ai/c/{code}`. Pra usar `link.suamarca.com.br`:
+## Onde ver os cliques
 
-1. CNAME do seu DNS pra `customlinks.ararahq.com`
-2. No dashboard, **Configurações → Smart Links → Domínio**, valida
-3. SSL automático via Let's Encrypt
-4. Links novos saem no domínio custom; links antigos seguem com `arr.ai`
+O dashboard, em **Links**, junta links avulsos e links nascidos de campanha com a contagem de cliques. Pela API com chave `ara_live_`, a contagem está disponível pros Smart Links de WhatsApp (`clicks` e `/stats`).
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Atribuição com pixel" icon="bullseye" href="/smart-links/attribution">
-    Como instrumentar o pixel de conversão.
+  <Card title="Atribuição de conversão" icon="bullseye" href="/smart-links/attribution">
+    Reporte vendas e ligue à mensagem que gerou.
   </Card>
-  <Card title="Receita: SmartLinks em marketing" icon="link" href="/cookbooks/marketing-smartlinks">
-    Fluxo completo de campanha com tracking.
+  <Card title="Receita: links em campanhas" icon="link" href="/cookbooks/marketing-smartlinks">
+    Encurtamento e rastreio em disparos.
   </Card>
 </CardGroup>

@@ -1,206 +1,284 @@
 ---
-title: 'Inbox multi-atendente'
-description: 'Operação de suporte com múltiplos atendentes, distribuição por skill, Brain como tier 1, escalonamento contextualizado pra humano. Janela 24h, opt-out automático, anti-duplo-atendimento.'
+title: 'Atendimento com vários atendentes'
+description: 'Operação de suporte no WhatsApp com time na Arara: conversas, janela de 24h, Brain respondendo primeiro e passando para humano, e o que precisa ficar do seu lado (distribuição e trava entre atendentes).'
 keywords: ['inbox', 'suporte', 'sac', 'multi-atendente', 'help desk', 'brain handoff']
 ---
 
-WhatsApp como canal de suporte é diferente de email/ticket. Janela de 24h, conversa contínua, cliente espera resposta em minutos. Esta receita mostra como operar inbox multi-atendente com sanidade.
+WhatsApp como canal de suporte é conversa contínua, com janela de 24h e cliente esperando resposta rápida. Esta receita mostra o que a Arara oferece hoje para isso e o que você implementa do seu lado.
 
-## Arquitetura
+## Como funciona
 
 ```
-[Mensagem do cliente entra]
+[Cliente manda mensagem]
    ↓
-[Brain (tier 1) responde se for resolução simples]
-   ↓ (se Brain não resolveu OU se cliente pediu humano)
-[Distribuição por skill / round-robin]
+[Arara registra na conversa do número e abre a janela de 24h]
    ↓
-[Atendente assume]
-   ↓ (durante atendimento)
-[Lock pra evitar duplo atendimento]
+[Brain em AUTO responde]  ou  [Brain em COPILOT sugere]  ou  [só humano]
+   ↓ (se o Brain passa para humano)
+[Webhook conversation.needs_human + item em /v1/brain/handoffs]
    ↓
-[Resolução]
+[Atendente responde pelo dashboard (Conversas) ou por POST /v1/conversations/reply]
    ↓
-[Conversa fechada, métricas registradas]
+[Conversa fechada: PATCH /v1/conversations/{id}/status]
 ```
+
+A Arara mantém **uma conversa por número de cliente** na organização. Mensagem nova de um cliente antigo continua a mesma conversa, com o histórico inteiro.
 
 ## Pré-requisitos
 
-- Plano com [Conversas inbox](/api-reference/endpoint/v2/contacts) (PRO+)
-- Time multi-membro configurado em **Organização → Membros**
-- (Opcional) [Brain ativo](/brain) pra automação tier 1
+- Número de WhatsApp dedicado conectado na organização.
+- Conversas disponível no seu plano. Sem acesso, `GET /v1/conversations` responde 403 com `PLAN_FEATURE_LOCKED`.
+- Time convidado pelo dashboard ou pela API.
+- (Opcional) [Brain](/brain), que também depende do plano.
 
-## Modos de operação
-
-### Modo 100% humano
-
-Cliente manda mensagem → entra na fila do inbox → primeiro atendente disponível assume **pelo dashboard**.
+### Convidar atendentes
 
 ```bash
-# Listar conversas (a lista filtra por status no client/dashboard)
-curl https://api.ararahq.com/v1/conversations \
-  -H "Authorization: Bearer ara_live_xxx"
+curl -X POST https://api.ararahq.com/v1/team/invitations \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "emails": ["ana@empresa.com", "carlos@empresa.com"], "role": "AGENT" }'
+```
 
-# Responder (atendente envia o reply via dashboard ou API)
+Papéis: `OWNER`, `ADMIN`, `DEVELOPER`, `AGENT`, `BILLING`, `VIEWER`. Só `OWNER` e `ADMIN` convidam. `OWNER` não pode ser atribuído por convite, só por transferência. O número de membros é limitado pelo plano.
+
+## Conversas pela API
+
+Os SDKs publicados (1.8.1) não têm métodos de conversa. Use a API REST.
+
+| Endpoint | Uso |
+|---|---|
+| `GET /v1/conversations?window=OPEN&page=0&size=20` | Lista conversas. `window=OPEN` só as que aceitam texto livre, `EXPIRED` só as que exigem template. Também filtra por `status`. |
+| `GET /v1/conversations/{id}/messages` | Mensagens de uma conversa |
+| `POST /v1/conversations/reply` | Responde com texto livre, dentro da janela |
+| `PATCH /v1/conversations/{id}/status` | `OPEN`, `CLOSED` ou `ARCHIVED` |
+| `POST /v1/conversations/window-status` | Estado da janela para até 200 telefones |
+
+Cada item da lista traz `id`, `customerPhone`, `customerName`, `status`, `isWindowOpen`, `windowExpiresAt`, `lastInteractionAt`, `lastMessagePreview` e `lastMessageDirection`.
+
+```bash
 curl -X POST https://api.ararahq.com/v1/conversations/reply \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
-    "conversationId": "ara_conv_xyz",
-    "text": "Oi João, posso te ajudar! Qual é o número do pedido?"
+    "conversationId": "8a2f1c7e-4b3d-4e9a-9c61-2d5b7f0e1a38",
+    "body": "Oi João, posso te ajudar. Qual é o número do pedido?"
   }'
 ```
 
-<Note>
-  Assignment/lock entre atendentes hoje acontece no **dashboard** (não via API REST). A API expõe lista, mensagens da conversa, reply e check de janela. Atribuição programática está no roadmap.
-</Note>
+A resposta traz `{ id, status, reason, message }`. Com a janela fechada, a API responde 400 pedindo um template.
 
-### Modo Brain + humano (recomendado)
+## Distribuição e trava entre atendentes
 
-Brain atende primeiro. Resolve o que dá pra resolver (FAQ, status de pedido, cancelamento). Escala pra humano quando:
-- Cliente pediu explicitamente
-- Brain não soube responder
-- Detectou tom agressivo / reclamação
-- Tópico fora do escopo do Brain (reembolso > R$ X, problema complexo)
+A Arara **não tem** atribuição de conversa a atendente, distribuição por habilidade nem trava contra dois atendentes respondendo a mesma conversa. Quem usa só o dashboard deve combinar a divisão no time.
+
+Se você tem uma ferramenta de atendimento própria, faça do seu lado:
+
+1. Receba `message.received` por webhook.
+2. Classifique (palavra-chave, número de destino, LLM) e atribua a um atendente no seu banco.
+3. Marque a conversa como "em atendimento por X" antes de liberar a resposta, e só envie `POST /v1/conversations/reply` para quem tem a trava.
+
+## Brain respondendo primeiro
+
+O Brain tem três modos em `assistMode`:
+
+| Modo | Comportamento |
+|---|---|
+| `AUTO` | Responde sozinho e passa para humano quando um gatilho de saída dispara |
+| `COPILOT` | Não responde. O atendente pede uma sugestão com `POST /v1/brain/suggest-reply` |
+| `OFF` | Desligado |
 
 ```bash
-# Brain ativo (regras de saída ficam dentro de exitTriggers ou no dashboard)
 curl -X PATCH https://api.ararahq.com/v1/brain/config \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{
     "active": true,
+    "assistMode": "AUTO",
     "exitTriggers": {
-      "onComplaint": true,
-      "onUrgentTone": true,
-      "afterNAttempts": 3,
-      "onValueAboveCents": 50000
+      "customerAsks": ["atendente", "falar com humano", "reclamação"],
+      "maxMessages": 12,
+      "confidenceThreshold": 0.5
     }
   }'
+```
 
-# Handoffs pendentes (escalações)
-curl "https://api.ararahq.com/v1/brain/handoffs?status=PENDING" \
+| Gatilho | Motivo registrado |
+|---|---|
+| Mensagem contém uma frase de `customerAsks` | `CUSTOMER_REQUEST` |
+| Histórico com o contato chega a `maxMessages` | `MAX_MESSAGES` |
+| Resposta com confiança abaixo de `confidenceThreshold` (0 a 1) | `LOW_CONFIDENCE` |
+| Limite mensal de conversas do Brain atingido | `QUOTA_EXCEEDED` |
+
+Quando passa para humano, o Brain avisa o cliente e cria um handoff:
+
+```bash
+# Pendentes
+curl "https://api.ararahq.com/v1/brain/handoffs?resolved=false" \
+  -H "Authorization: Bearer ara_live_xxx"
+
+# Marcar como resolvido
+curl -X POST https://api.ararahq.com/v1/brain/handoffs/{id}/resolve \
+  -H "Authorization: Bearer ara_live_xxx"
+
+# Devolver a conversa para o Brain
+curl -X POST https://api.ararahq.com/v1/brain/handoffs/{id}/return-to-brain \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Cada handoff vem com:
-- Resumo da conversa anterior (3-5 mensagens)
-- Motivo da escalação (`URGENT`, `COMPLAINT`, `OUT_OF_SCOPE`, `USER_REQUEST`)
-- Sugestão de primeira resposta (humano aceita ou edita)
-- Contexto do cliente (LTV, último pedido, conta verificada)
+Cada handoff traz `id`, `conversationId`, `reason`, `summary`, `briefing` (resumo para o atendente, quando gerado), `createdAt` e `resolvedAt`.
 
-Ver [Brain](/brain).
+No modo `COPILOT`:
 
-## Distribuição por skill
+```bash
+curl -X POST https://api.ararahq.com/v1/brain/suggest-reply \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversationId": "8a2f1c7e-4b3d-4e9a-9c61-2d5b7f0e1a38",
+    "customerMessage": "Meu pedido não chegou"
+  }'
+```
 
-Operação com produtos diversos: atendente A sabe de tênis, atendente B sabe de roupa.
+## Receber os eventos
 
-A distribuição por skill é configurada hoje no dashboard em **Inbox → Regras de distribuição** (filtros por palavra-chave da mensagem inbound, número que recebeu, ou Brain category detection). Suporte a tags/labels customizadas na API REST está no roadmap — por enquanto, use as regras do dashboard.
+Webhooks úteis para atendimento: `message.received` (cliente mandou mensagem), `conversation.needs_human` (Brain passou para humano) e `message.status_updated` (status da resposta enviada, em minúsculas: `sent`, `delivered`, `read`, `failed`).
 
-Pra automação custom, escute o webhook `message.received`, classifica do seu lado (regex, LLM, etc), e use [Brain handoff](/brain) pra escalar quando precisar.
-
-## Lock — evitar duplo atendimento
-
-Atendente A e B abrem a mesma conversa simultaneamente. Resposta dupla. Cliente confuso.
-
-Hoje a Arara resolve isso no **dashboard** (frontend exibe "Carlos está atendendo há 3 min" e bloqueia segundo atendente). API REST de assignment com lock atômico está no roadmap — quando lançar, vai usar optimistic locking via `expectedVersion`.
-
-Se sua operação não usa o dashboard da Arara (você tem inbox próprio), implemente o lock no **seu lado**: marca a conversa como "in_progress por user X" no seu DB ao buscar `/v1/conversations`, e libera ao terminar reply.
-
-## Janela 24h — implicações
-
-Toda conversa de inbox respeita a janela:
-
-- **Cliente respondeu nos últimos 24h**: você pode responder com qualquer coisa.
-- **Janela fechada**: pra reabrir, manda template `retomada_atendimento`. Cliente responde, janela abre, continua.
+Valide a assinatura antes de processar. Exemplo em Next.js (App Router, runtime Node):
 
 ```typescript
-const status = await sdk.conversations.windowStatus([conversation.phone]);
+// app/api/webhooks/arara/route.ts
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
-if (status[conversation.phone].status === 'OPEN') {
-  await sdk.conversations.reply({
-    conversationId: conversation.id,
-    text: 'Já te respondo, só preciso checar uma coisa',
-  });
-} else {
-  // Janela fechada, manda template
-  await sdk.messages.send({
-    receiver: `whatsapp:${conversation.phone}`,
-    templateName: 'retomada_atendimento',
-    templateVariables: ['Olá'],
-  });
+const TOLERANCE_SECONDS = 300;
+
+function isValidSignature(rawBody: string, timestamp: string | null, signature: string | null): boolean {
+  if (!timestamp || !signature) return false;
+  const ts = Number(timestamp);
+  if (!Number.isInteger(ts) || Math.abs(Date.now() / 1000 - ts) > TOLERANCE_SECONDS) return false;
+  const expected = 'sha256=' + createHmac('sha256', process.env.ARARA_WEBHOOK_SECRET!)
+    .update(`${timestamp}.${rawBody}`)
+    .digest('hex');
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signature);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export async function POST(request: Request) {
+  const rawBody = await request.text();
+  const valid = isValidSignature(
+    rawBody,
+    request.headers.get('x-arara-timestamp'),
+    request.headers.get('x-arara-signature'),
+  );
+  if (!valid) return new Response('invalid signature', { status: 401 });
+
+  const deliveryId = request.headers.get('x-arara-delivery-id');
+  // Deduplique por deliveryId antes de processar: a Arara retenta entregas que falham.
+
+  const event = JSON.parse(rawBody) as { event: string; data: Record<string, unknown> };
+
+  switch (event.event) {
+    case 'message.received':
+      // data.from, data.body, data.type, data.media_url
+      break;
+    case 'conversation.needs_human':
+      // data.handoffId, data.conversationId, data.reason, data.summary
+      break;
+  }
+
+  return new Response(null, { status: 200 });
 }
 ```
 
-Ver [Janela de 24h](/concepts/24h-window).
+O secret (`whsec_...`) vem de `GET /organizations/me/webhook`. Detalhes em [Webhooks](/webhooks).
 
-## Métricas de operação
+## Janela de 24h
 
-Dashboard → **Inbox → Métricas**:
+- **Cliente mandou mensagem nas últimas 24h**: responda com texto livre.
+- **Janela fechada**: envie um template aprovado (ex.: `retomada_atendimento`). Quando o cliente responder, a janela abre de novo.
 
-| Métrica | Bom benchmark |
-|---|---|
-| First response time | < 5 minutos |
-| Resolution time médio | < 30 minutos pra casos simples |
-| Conversations resolved per agent / hour | 8-15 (varia por complexidade) |
-| Escalation rate Brain → humano | 15-30% (se Brain ativo) |
-| CSAT pós-atendimento | > 4,3/5 |
+Enviar template **não** abre a janela. Ela só abre com mensagem do cliente.
 
-CSAT é coletado opcional — depois do handoff de resolução, pode disparar template:
+```typescript
+import { NodeSDK } from '@ararahq/sdk';
 
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
+const API = 'https://api.ararahq.com';
+const headers = {
+  Authorization: `Bearer ${process.env.ARARA_API_KEY}`,
+  'Content-Type': 'application/json',
+};
+
+export async function replyOrReopen(phone: string, text: string) {
+  const windowRes = await fetch(`${API}/v1/conversations/window-status`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ phones: [phone] }),
+  });
+  const { results } = (await windowRes.json()) as {
+    results: { phone: string; isWindowOpen: boolean; conversationId: string | null }[];
+  };
+  const item = results[0];
+
+  if (item?.isWindowOpen && item.conversationId) {
+    await fetch(`${API}/v1/conversations/reply`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ conversationId: item.conversationId, body: text }),
+    });
+    return;
+  }
+
+  await sdk.messages.send(
+    {
+      receiver: `whatsapp:${phone}`,
+      templateName: 'retomada_atendimento',
+      templateVariables: ['Olá'],
+    },
+    { idempotencyKey: `reopen-${phone}-${new Date().toISOString().slice(0, 10)}` },
+  );
+}
 ```
-"Te ajudamos hoje? Responde com:
-👍 — Sim, resolvido
-👎 — Não, ainda preciso de ajuda"
-```
 
-## Opt-out e block list
+O telefone em `phones` precisa estar no mesmo formato em que a conversa foi registrada (`customerPhone` da lista de conversas). Ver [Janela de 24h](/concepts/24h-window).
 
-Cliente que pediu "Stop" (ver [Compliance](/concepts/compliance)) **continua podendo responder no inbox** — mas você não pode mandar template MARKETING pra ele. Atendimento iniciado por ele continua válido.
+## Opt-out
 
-A Arara automaticamente bloqueia disparos MARKETING pra contatos em opt-out, mas inbox segue funcionando.
+Quem responde `STOP`, `SAIR`, `PARAR`, `CANCELAR` ou variações recebe uma confirmação automática e é marcado como opt-out. `START` ou `VOLTAR` desfaz. Tire esses contatos das campanhas de marketing. Ver [Compliance](/concepts/compliance).
 
 ## Pegadinhas
 
-### 1. Cliente reabre conversa antiga
+### Vários assuntos no mesmo cliente
 
-Conversa estava fechada há 1 semana. Cliente manda mensagem nova. Inbox abre como conversa nova ou continua a antiga?
+Como há uma conversa por número, pedido, troca e cadastro do mesmo cliente caem no mesmo histórico. Identificar o assunto fica com o time (ou com o Brain, se a base de conhecimento cobrir). Para separar por ticket, espelhe as mensagens na sua ferramenta via webhook.
 
-A Arara faz **continuação automática** — pega a última conversa do mesmo número e adiciona. Histórico contínuo. Atendente vê tudo.
+### Ausência de atendente
 
-### 2. Múltiplos contextos no mesmo cliente
+Sem atribuição na Arara, não há o que reatribuir: a conversa segue visível para o time em **Conversas**. Se você atribui do seu lado, redistribua na sua ferramenta.
 
-Cliente Maria tem 3 conversas em paralelo: pedido #1, dúvida sobre devolução do pedido #2, e cadastro novo. Tudo no mesmo número.
+### Picos de demanda
 
-A Arara mantém o histórico contínuo do número, mas cabe ao seu time (ou ao [Brain](/brain) com knowledge base correta) identificar o assunto na resposta. Pra contextualização externa, espelhe a conversa no seu CRM/helpdesk via webhook.
-
-### 3. Sair de férias
-
-Atendente vai viajar 1 semana, mas tem conversas abertas com ele. Hoje a re-distribuição acontece no dashboard (**Inbox → Membros → Reatribuir conversas de X pra Y**). API REST programática pra bulk reassign está no roadmap.
-
-Cliente nem percebe — o número que recebe a mensagem é o mesmo, só muda quem responde do outro lado.
-
-### 4. Picos de demanda
-
-BF, lançamento, crise. Volume 10x normal. Brain como tier 1 vira essencial — humano só pra casos complexos.
+Em pico, `assistMode: AUTO` com gatilhos de saída bem definidos segura as perguntas repetidas e deixa o time com o que precisa de humano. Acompanhe `GET /v1/brain/usage` para não bater o limite mensal no meio do pico.
 
 ## Checklist de produção
 
-- [ ] Time configurado (mínimo 2 atendentes pra cobertura)
-- [ ] Brain treinado com FAQ se for usar tier 1
-- [ ] Regras de distribuição definidas (skill, round-robin, ou ambos)
-- [ ] Template `retomada_atendimento` aprovado (pra reabrir janela fechada)
-- [ ] Métricas de FRT e CSAT instrumentadas
-- [ ] Lock atômico no frontend (versão do conversation)
-- [ ] Atendentes treinados sobre janela 24h
-- [ ] Política de escalation clara pro Brain (`onValueAbove`, `onComplaint`)
-- [ ] Re-assignment plan pra férias/ausência
-- [ ] Backup: número 2 funcional caso o primário caia de tier
+- [ ] Número dedicado conectado e Conversas disponível no plano
+- [ ] Time convidado com os papéis certos
+- [ ] Modo do Brain definido (`AUTO`, `COPILOT` ou `OFF`) e `exitTriggers` configurados
+- [ ] Webhook com assinatura validada e deduplicação por `X-Arara-Delivery-Id`
+- [ ] `conversation.needs_human` notificando o time
+- [ ] Template `retomada_atendimento` aprovado
+- [ ] Divisão entre atendentes combinada (ou trava implementada na sua ferramenta)
+- [ ] Atendentes sabem que texto livre só vale com a janela aberta
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Brain (IA)" icon="brain" href="/brain">
-    Tier 1 automatizado, 70-80% das conversas resolvidas sozinhas.
+    Configuração, base de conhecimento e ações.
   </Card>
-  <Card title="Janela 24h" icon="clock" href="/concepts/24h-window">
-    Regra mais importante do inbox.
+  <Card title="Janela de 24h" icon="clock" href="/concepts/24h-window">
+    A regra que define quando dá para responder com texto livre.
   </Card>
 </CardGroup>

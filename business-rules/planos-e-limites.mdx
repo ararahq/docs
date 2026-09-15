@@ -1,94 +1,110 @@
 ---
-title: 'Planos e Limites de Uso'
-description: 'Entenda como o plano FREE funciona, os limites de mensagens e o comportamento da API quando a cota é atingida.'
+title: 'Planos e limites'
+description: 'O que cada plano libera (Essencial, Voo, Primeira Classe), os limites de envio e operação, e como a API responde quando um limite é atingido.'
 ---
 
-## Plano FREE
-
-Ao criar uma conta na Arara, você recebe automaticamente o **plano FREE** — sem cartão de crédito, sem configuração manual. A assinatura é ativada no momento do cadastro.
-
-O plano FREE dá acesso ao Console e à API com o seguinte limite:
-
-| Recurso | Limite |
-|---------|--------|
-| Mensagens outbound | **50 por dia** |
-| Renovação da cota | Diária (meia-noite, horário de Brasília) |
+A Arara tem três planos. Todos pagam a mensagem a preço de custo; o que muda entre eles é capacidade de operação: volume mensal, assentos, números e automações. Preços em [Preços](/concepts/pricing).
 
 <Info>
-  Todo envio é real — a Arara não tem modo de teste nem sandbox. Cada mensagem enviada conta na cota diária.
+  Não existe plano gratuito nem modo de teste. Toda mensagem é real e debita da carteira. Contas criadas antes de 10/09/2026 mantêm as condições que contrataram.
 </Info>
 
-## Comportamento da API ao atingir o limite
+## O que cada plano libera
 
-Quando a cota diária é esgotada, a API retorna **HTTP 402** em qualquer chamada de envio de mensagem:
+| Recurso | Essencial | Voo | Primeira Classe |
+|---|---|---|---|
+| Mensagens enviadas por mês | 20.000 | 50.000 | sem teto |
+| Assentos (usuários) | 3 | 10 | 10 |
+| Números WhatsApp | 1 (incluso) | até 2 (1 incluso) | sem teto (3 inclusos) |
+| Contas WhatsApp Business (WABA) | 1 | 1 | sem teto |
+| Automações ativas ao mesmo tempo | 3 | 10 | 10 |
+| Templates | sem limite | sem limite | sem limite |
+| Caixa de entrada, campanhas e contatos | Sim | Sim | Sim |
+| Recuperação de receita | Sim | Sim | Sim |
+| IA que responde quem voltou | Sim | Sim | Sim |
+| Lembretes de agendamento | Não | Sim | Sim |
+| Suporte (primeira resposta humana) | E-mail, 48h úteis | Chat e e-mail, 24h úteis | Chat, e-mail e WhatsApp, 4h úteis |
+
+Números além dos inclusos na mensalidade são cobrados à parte.
+
+## Teto mensal de mensagens
+
+O teto conta **mensagens enviadas** pela Arara no mês: disparos de campanha, envios pela API e respostas de atendentes, tudo no mesmo contador. Mensagens que o cliente manda para você não contam.
+
+Quando o envio passaria do teto, a API recusa com **HTTP 403**:
 
 ```json
 {
   "error": {
-    "code": "QUOTA_EXCEEDED",
-    "message": "Cota diária de mensagens esgotada. Faça upgrade para continuar enviando.",
+    "code": "PLAN_LIMIT_REACHED",
+    "message": "Limite do plano atingido em 'MESSAGES_PER_MONTH': 20000/20000.",
     "details": {
-      "upgrade_url": "https://www.ararahq.com/pricing"
+      "feature": "MESSAGES_PER_MONTH",
+      "current": 20000,
+      "max": 20000,
+      "currentPlan": "ESSENTIAL",
+      "upgradeTo": "..."
     }
   }
 }
 ```
 
-Os envios são **retomados automaticamente** no início do próximo dia — nenhuma ação é necessária da sua parte.
+O contador zera na virada do mês. Campanha cancelada, ou contato barrado por opt-out durante a campanha, devolve a cota que tinha sido reservada. Retentativas com o mesmo `Idempotency-Key` não contam duas vezes.
 
-<Warning>
-  Mensagens que falham por `QUOTA_EXCEEDED` **consomem a cota** antes de retornar o erro. Isso garante atomicidade: a contagem é registrada no momento da tentativa, não da entrega.
-</Warning>
+O mesmo código `PLAN_LIMIT_REACHED` aparece em outros limites numéricos, com `details.feature` indicando qual: `ACTIVE_AUTOMATIONS` (automações ativas) e `TEAM_MEMBERS` (membros da equipe, checado no convite).
 
-## Consultando a cota em tempo real
+Recurso que o plano não inclui responde **HTTP 403** com `PLAN_FEATURE_LOCKED`.
 
-Use o endpoint abaixo para verificar o consumo atual da sua organização:
+<Note>
+  Em `details`, `currentPlan` traz o identificador interno do plano: `ESSENTIAL` (Essencial), `VOO` (Voo), `VOO_ASSISTIDO` (Primeira Classe). Trate `upgradeTo` só como sugestão; para escolher o plano, compare a tabela acima.
+</Note>
+
+## Consultando o plano
+
+Com chave de API:
 
 ```bash
-GET /v1/organizations/me/quota
-Authorization: Bearer ara_live_xxx
+curl https://api.ararahq.com/v1/organizations/me/plan \
+  -H "Authorization: Bearer ara_live_xxx"
 ```
 
-**Resposta:**
+Retorna o plano atual (`current`), o preço de referência por categoria de mensagem e a lista de recursos do plano. O consumo do mês aparece no Dashboard.
 
-```json
-{
-  "plan": "FREE",
-  "outbound_today": 38,
-  "outbound_limit": 50,
-  "percentage_used": 76.0
-}
-```
+## Limites de proteção
 
-| Campo | Descrição |
-|-------|-----------|
-| `plan` | Tipo de plano da organização |
-| `outbound_today` | Mensagens enviadas no dia atual |
-| `outbound_limit` | Limite diário do plano (`null` em planos pagos) |
-| `percentage_used` | Percentual de uso (`null` em planos pagos) |
+Além do plano, alguns limites existem para proteger o seu número e a sua reputação na Meta. Eles valem em qualquer plano.
 
-## Alertas no Console
+| Situação | Resposta |
+|---|---|
+| Destinatário pediu para não receber (opt-out) | `422 RECIPIENT_OPTED_OUT` |
+| Telefone fora do formato aceito | `422 INVALID_RECIPIENT` |
+| Muitas mensagens para o mesmo destinatário em poucos minutos | `403 FRAUD_SUSPECTED` |
+| Frequência alta de MARKETING para o mesmo destinatário (referência: 4 em 24h) | `429 MARKETING_FREQUENCY_EXCEEDED` |
+| Limite diário configurado na própria chave de API (dia em UTC) | `429 SEND_RATE_LIMITED` |
 
-O Console exibe um banner automático com base no `percentage_used`:
+Respostas `429` trazem o header `Retry-After` com os segundos até valer a pena tentar de novo.
 
-- **80–99%** — aviso âmbar: "X% do limite diário usado"
-- **100%** — alerta vermelho: envios pausados até amanhã ou upgrade
+Sem número próprio conectado, o envio sai pelo número compartilhado da Arara, com limites mais baixos: 250 mensagens por dia por organização, 50 por dia por destinatário e 30 mensagens de sessão por destinatário por hora. Com número próprio esses tetos não se aplicam.
 
-## Fazendo upgrade
+A Meta também impõe, por número, um limite diário de destinatários únicos fora da janela de 24h (o tier de mensagens), que sobe conforme a qualidade e o volume do número. Esse limite é da Meta e vale independentemente do plano. Ver [Números](/numbers).
 
-Para remover o limite e desbloquear funcionalidades como Campanhas, Webhooks e API Keys, acesse a página de planos:
+## Antes de assinar
 
-<Card title="Ver planos e preços" icon="arrow-up-right" href="https://www.ararahq.com/pricing">
-  Compare os planos e escolha o que melhor atende ao seu volume.
-</Card>
+Uma conta nova pode testar o envio real com o template de demonstração `hello_world_v2`: até 3 envios gratuitos, pelo número da Arara, sem plano e sem saldo. Ver [Quickstart](/quickstart).
+
+Para enviar os seus próprios templates, é preciso um plano ativo, um número conectado e saldo na carteira.
+
+## Pagamento em atraso
+
+Se a cobrança da mensalidade falhar, o acesso aos recursos do plano continua durante o período de carência enquanto o pagamento é tentado de novo. Passado esse prazo sem pagamento, os recursos do plano são suspensos até a regularização.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Enviar mensagens" icon="paper-plane" href="/api-reference/endpoint/v2/messages">
-    Documentação completa do endpoint de envio.
+  <Card title="Preços" icon="coins" href="/concepts/pricing">
+    Mensalidade e preço por mensagem.
   </Card>
   <Card title="Políticas de uso" icon="shield-check" href="/business-rules/usage-policies">
-    Opt-in, critérios de qualidade e banimento.
+    Opt-in, opt-out, qualidade e suspensão.
   </Card>
 </CardGroup>

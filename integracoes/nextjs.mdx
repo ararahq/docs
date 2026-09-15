@@ -1,12 +1,12 @@
 ---
 title: 'Next.js'
-description: 'Integre a Arara num projeto Next.js (App Router) — Server Actions, route handlers, webhooks com signature verification e streaming de status em tempo real.'
+description: 'Integre a Arara num projeto Next.js (App Router): Server Actions, route handlers, webhook com validação de assinatura e consulta de status de mensagem.'
 ---
 
-A Arara tem SDK Node/TypeScript oficial que roda em **runtime Node** do Next.js (API routes, route handlers, Server Actions). Esta página cobre App Router (Next 14+). Pages Router funciona analogamente.
+O SDK Node/TypeScript da Arara (`@ararahq/sdk`, versão publicada 1.8.1) roda no **runtime Node** do Next.js (route handlers, Server Actions). Esta página cobre App Router (Next 15+). Pages Router funciona de forma análoga.
 
 <Note>
-  **Requisitos:** Node 18+, Next 14+. Para Edge Runtime, use `fetch` direto contra a API REST (o SDK depende do `axios` que não roda em edge).
+  **Requisitos:** Node 18+, Next 15+. Para Edge Runtime, use `fetch` direto contra a API REST (o SDK depende do `axios`, que não roda em edge).
 </Note>
 
 ## Instalação
@@ -21,11 +21,12 @@ npm install @ararahq/sdk
 
 ```ini
 ARARA_API_KEY=ara_live_xxx
-ARARA_BASE_URL=https://api.ararahq.com
-ARARA_WEBHOOK_SECRET=share_a_secret_with_arara_dashboard
+ARARA_WEBHOOK_SECRET=whsec_xxx
 ```
 
-Cria um singleton do SDK (evita reconstruir em hot reload):
+O `ARARA_WEBHOOK_SECRET` é o secret do webhook da sua organização (quando gerado pela Arara, começa com `whsec_`). Você encontra na configuração de webhook do dashboard (https://app.ararahq.com).
+
+Crie um singleton do SDK (evita reconstruir em hot reload):
 
 ```typescript
 // lib/arara.ts
@@ -40,7 +41,6 @@ export const arara =
   globalThis.araraInstance ??
   new NodeSDK({
     apiKey: process.env.ARARA_API_KEY!,
-    baseUrl: process.env.ARARA_BASE_URL!,
   });
 
 if (process.env.NODE_ENV !== 'production') {
@@ -48,7 +48,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 ```
 
-## Server Action — enviar no submit do form
+## Server Action: enviar no submit do form
 
 ```typescript
 // app/checkout/actions.ts
@@ -58,16 +58,21 @@ import { arara } from '@/lib/arara';
 import { revalidatePath } from 'next/cache';
 
 export async function sendOrderConfirmation(orderId: string, phone: string, customerName: string) {
-  const response = await arara.messages.send({
-    receiver: `whatsapp:${phone}`,
-    templateName: 'confirmacao_pedido',
-    templateVariables: [customerName, orderId],
-  });
+  const response = await arara.messages.send(
+    {
+      receiver: `whatsapp:${phone}`,
+      templateName: 'confirmacao_pedido',
+      templateVariables: [customerName, orderId],
+    },
+    { idempotencyKey: `order-confirmation-${orderId}` },
+  );
 
   revalidatePath('/admin/orders');
-  return response;
+  return { id: response.id, status: response.status };
 }
 ```
+
+A resposta é devolvida com status `202` e `status` inicial (`PENDING`, por exemplo). A entrega em si chega depois, pelo webhook.
 
 E no client component:
 
@@ -98,7 +103,12 @@ export default function CheckoutPage() {
 }
 ```
 
-## Route Handler — webhook
+## Route Handler: webhook
+
+A Arara assina cada entrega com dois headers:
+
+- `X-Arara-Timestamp`: epoch em segundos do envio.
+- `X-Arara-Signature`: `sha256=` + hex do HMAC-SHA256 de `{timestamp}.{corpo cru}` com o secret da organização.
 
 ```typescript
 // app/api/webhooks/arara/route.ts
@@ -108,17 +118,23 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 export const runtime = 'nodejs'; // não 'edge'
 export const dynamic = 'force-dynamic';
 
+const TOLERANCE_SECONDS = 300;
+
+function isValidSignature(rawBody: string, timestamp: string, signature: string, secret: string): boolean {
+  const ts = Number(timestamp);
+  if (!Number.isInteger(ts) || Math.abs(Date.now() / 1000 - ts) > TOLERANCE_SECONDS) return false;
+  const expected = 'sha256=' + createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signature);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.text();
+  const timestamp = req.headers.get('x-arara-timestamp') ?? '';
   const signature = req.headers.get('x-arara-signature') ?? '';
-  const secret = process.env.ARARA_WEBHOOK_SECRET!;
 
-  const expected = createHmac('sha256', secret).update(body).digest('hex');
-
-  if (
-    expected.length !== signature.length ||
-    !timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
-  ) {
+  if (!isValidSignature(body, timestamp, signature, process.env.ARARA_WEBHOOK_SECRET!)) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
@@ -126,13 +142,13 @@ export async function POST(req: NextRequest) {
 
   switch (payload.event) {
     case 'message.status_updated':
-      // atualiza status no banco — data.status: queued/sent/delivered/read/failed
+      // payload.data.id = ara_msg_... ; payload.data.status: queued, sent, delivered, read, failed...
       break;
     case 'message.received':
-      // mensagem recebida — push pra inbox
+      // payload.data.from, payload.data.body, payload.data.type (text | media)
       break;
     case 'conversation.needs_human':
-      // Brain pediu humano — assign no inbox
+      // o assistente de IA pediu atendimento humano: payload.data.conversationId, payload.data.reason
       break;
   }
 
@@ -141,82 +157,82 @@ export async function POST(req: NextRequest) {
 ```
 
 <Warning>
-  O Next.js dá parse automático no body em alguns adaptadores. Como o HMAC depende do **bytes exatos**, sempre use `req.text()` (não `req.json()`). Senão o hash não bate.
+  O HMAC depende dos **bytes exatos** do corpo. Sempre use `req.text()` (não `req.json()`) antes de validar, senão o hash não bate.
 </Warning>
+
+Responda 2xx rápido. Se a entrega falhar, a Arara tenta de novo em 30s, 2min, 15min, 1h e 4h, então o handler precisa aguentar o mesmo evento duas vezes. Use o header `X-Arara-Delivery-Id` como chave de dedupe.
 
 ## Tipos do webhook
 
-O SDK exporta os tipos pra evitar `any`:
+O SDK exporta guards de tipo para evitar `any`:
 
 ```typescript
-import type { AraraWebhookEvent } from '@ararahq/sdk';
+import { WebhookUtils } from '@ararahq/sdk';
 
-const payload: AraraWebhookEvent = JSON.parse(body);
+const payload: unknown = JSON.parse(body);
 
-if (payload.event === 'message.status_updated') {
-  // payload.data tipado como MessageStatusData
-  console.log(payload.data.messageId, payload.data.status);
+if (WebhookUtils.isMessageStatusEvent(payload)) {
+  console.log(payload.data.status, payload.data.receiver);
 }
 ```
 
-## Streaming de status com Server-Sent Events
+<Note>
+  No tipo `MessageStatusData` da 1.8.1, `messageId` está comentado como `ara_msg_...`, mas a API envia nesse campo o UUID interno. O id `ara_msg_...` (o mesmo devolvido no envio) está em `data.id`, que o tipo não declara.
+</Note>
 
-Pra mostrar status de entrega ao vivo num dashboard interno:
+## Consultar status de uma mensagem
+
+O SDK 1.8.1 não tem método para buscar uma mensagem. O caminho recomendado é gravar o status que chega pelo webhook `message.status_updated`. Se você precisa consultar sob demanda (tela de suporte, reconciliação), chame a API direto:
 
 ```typescript
-// app/api/messages/[id]/status/route.ts
-import { arara } from '@/lib/arara';
-
+// app/api/messages/[id]/route.ts
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const stream = new ReadableStream({
-    async start(controller) {
-      const encoder = new TextEncoder();
-      let lastStatus = '';
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
 
-      const interval = setInterval(async () => {
-        const msg = await arara.messages.get(params.id);
-        if (msg.status !== lastStatus) {
-          lastStatus = msg.status;
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(msg)}\n\n`));
-          if (['delivered', 'read', 'failed'].includes(msg.status)) {
-            controller.close();
-            clearInterval(interval);
-          }
-        }
-      }, 2000);
-    },
+  const res = await fetch(`https://api.ararahq.com/v1/messages/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${process.env.ARARA_API_KEY}` },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10_000),
   });
 
-  return new Response(stream, {
-    headers: { 'Content-Type': 'text/event-stream' },
-  });
+  if (!res.ok) {
+    return Response.json({ error: 'Mensagem indisponível' }, { status: res.status === 404 ? 404 : 502 });
+  }
+
+  const msg = await res.json();
+  // { id, status, mode, sender, receiver, body, cost, reason }
+  return Response.json({ id: msg.id, status: msg.status, reason: msg.reason });
 }
 ```
 
-## Produção: idempotency
+Aqui `status` vem em maiúsculas (`PENDING`, `SENT`, `DELIVERED`, `READ`, `FAILED`...), diferente do webhook, que usa minúsculas. Quando a mensagem falha, `reason` traz o motivo.
 
-Em rotas que disparam envio (Server Action, webhook handler que faz envio reverso), envie `Idempotency-Key`:
+<Warning>
+  `GET /v1/messages/{id}` só devolve mensagens enviadas pelo mesmo usuário dono da chave. Mensagem enviada por outro membro da organização responde 403. A chave também precisa da permissão `READ` (ou `ADMIN`).
+</Warning>
+
+## Produção: idempotência
+
+Em rotas que disparam envio (Server Action, handler de webhook que responde ao cliente), passe `idempotencyKey`. O SDK envia no header `Idempotency-Key`:
 
 ```typescript
-import { randomUUID } from 'node:crypto';
-
 await arara.messages.send(
-  { receiver: '...', templateName: 'X', templateVariables: ['A'] },
-  { idempotencyKey: randomUUID() }
+  { receiver: 'whatsapp:+5511999999999', templateName: 'confirmacao_pedido', templateVariables: ['João', 'ARA-123'] },
+  { idempotencyKey: `order-confirmation-ARA-123` }
 );
 ```
 
-A Arara dedupa requisições com a mesma chave nas últimas 24h — se o Vercel der retry no Lambda, a mensagem não duplica.
+Derive a chave do seu evento (id do pedido), não de `randomUUID()`: assim um retry da função reaproveita a mesma chave. A mesma chave devolve a mensagem original sem novo envio. Em `POST /v1/messages` isso vale mesmo se o payload mudar (a API não compara destinatário nem variáveis), então nunca reaproveite a chave para outra mensagem.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Receitas práticas" icon="book-open" href="/recipes">
-    Carrinho abandonado no Vercel, OTP, suporte com Brain.
+    Carrinho abandonado, confirmação de pedido, suporte.
   </Card>
   <Card title="SDK Node completo" icon="node" href="/sdks/node">
-    Referência de todas as classes e métodos.
+    Métodos disponíveis na versão publicada.
   </Card>
 </CardGroup>

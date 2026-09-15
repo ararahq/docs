@@ -1,57 +1,54 @@
 ---
 title: 'Integrações'
-description: 'Conecte a Arara ao seu stack: Laravel, Next.js, Shopify, WooCommerce, n8n, Zapier. Cada integração tem snippet pronto, validado contra a API real.'
+description: 'Como conectar a Arara ao seu stack: Laravel, Next.js, Shopify, outras lojas e ferramentas de automação, usando API REST, SDKs e webhooks.'
 keywords: ['integrações', 'laravel', 'nextjs', 'shopify', 'woocommerce', 'n8n', 'zapier', 'stack']
 ---
 
-A Arara foi construída pra encaixar onde você já está. Não tem framework próprio, não tem GUI proprietária. Só API, SDKs e Webhooks — o resto é integração nativa com o que você usa hoje.
+A Arara é API REST, SDKs e webhooks. Não há conectores nativos para plataformas de terceiros: toda integração abaixo usa esses três blocos, com snippets conferidos contra a API atual.
 
 ## Frameworks
 
 <CardGroup cols={2}>
   <Card title="Laravel" icon="php" href="/integracoes/laravel">
-    SDK PHP, queue jobs pra envio assíncrono, broadcasting de webhooks via Pusher/Reverb.
+    SDK PHP, queue jobs com `Idempotency-Key`, webhook com validação de assinatura.
   </Card>
   <Card title="Next.js" icon="js" href="/integracoes/nextjs">
-    SDK Node em route handlers, webhooks com signature verification, Server Actions pra envio direto do form.
+    SDK Node em Server Actions e route handlers, webhook com validação de assinatura, consulta de status.
   </Card>
 </CardGroup>
 
 ## E-commerce
 
 <CardGroup cols={2}>
-  <Card title="Shopify" icon="shop">
-    Carrinho abandonado, confirmação de pedido, rastreio, recuperação Pix via AbacatePay. Em breve.
+  <Card title="Shopify" icon="shop" href="/integracoes/shopify">
+    Sem app nativo. Webhooks do Shopify no seu backend chamando a API, ou o endpoint de recuperação.
   </Card>
-  <Card title="WooCommerce" icon="wordpress">
-    Webhook plugin oficial, suporte ao Subscriptions, integração com Brain pra atendimento. Em breve.
-  </Card>
-</CardGroup>
-
-## Workflow automation
-
-<CardGroup cols={2}>
-  <Card title="n8n" icon="diagram-project">
-    Node oficial pra disparar templates, listar mensagens e receber eventos. Em breve.
-  </Card>
-  <Card title="Zapier / Make" icon="bolt">
-    Webhooks + REST genérico funciona hoje. App nativo no roadmap.
+  <Card title="WooCommerce e outras lojas" icon="wordpress" href="/recovery">
+    Sem plugin nativo. Mesmo padrão: webhook da loja no seu backend, ou chamada HTTP para o endpoint de recuperação.
   </Card>
 </CardGroup>
 
-## Bancos e pagamentos
+## Automação de workflow (n8n, Zapier, Make)
 
-Pra cobrança dentro do chat, use o Brain com Actions nativas:
+Não há node ou app nativo. Funciona hoje com os blocos genéricos:
+
+- **Enviar**: módulo HTTP chamando `POST https://api.ararahq.com/v1/messages` com `Authorization: Bearer ara_live_...`.
+- **Receber eventos**: aponte o webhook da organização para a URL de trigger da ferramenta e valide `X-Arara-Signature`. Veja [Webhooks](/webhooks).
+- **Eventos de recuperação**: HTTP para o endpoint de recuperação com header `X-Arara-Event`. Veja [Revenue Recovery](/recovery).
+
+## Pagamentos dentro da conversa
+
+O assistente de IA (Brain) pode gerar cobranças durante o atendimento usando actions:
 
 <CardGroup cols={2}>
   <Card title="AbacatePay (Pix)" icon="qrcode" href="/brain/actions/abacate-pix">
-    Pix brasileiro com QR Code direto no WhatsApp.
+    Action `ABACATE_PIX`: cobrança Pix pela AbacatePay.
   </Card>
   <Card title="Stripe" icon="credit-card" href="/brain/actions/stripe">
-    Cartão e cobrança internacional.
+    Action `STRIPE_CHECKOUT`: link de pagamento com cartão.
   </Card>
 </CardGroup>
 
-## Sua stack não tá aqui?
+## Sua stack não está aqui?
 
-A API da Arara é REST padrão. Qualquer linguagem com HTTP client funciona. [Veja a referência completa](/api-reference/introduction) ou abra uma issue no [GitHub](https://github.com/ararahq) se quiser uma integração nativa específica.
+Qualquer linguagem com cliente HTTP funciona. Veja a [referência da API](/api-reference/introduction), os [SDKs](/sdks) ou abra uma issue no [GitHub](https://github.com/ararahq).

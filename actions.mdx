@@ -1,79 +1,91 @@
 ---
 title: 'Brain Actions'
-description: 'Permita que a IA da Arara execute ações reais no mundo: cobrar via Pix, agendar reunião, listar produtos, criar checkout. Ações são integrações nativas que o agente chama no meio da conversa.'
-keywords: ['brain actions', 'ia', 'pix', 'cobrança', 'agenda', 'catálogo', 'shopify', 'stripe', 'abacatepay']
+description: 'Ações que o agente de IA da Arara executa no meio da conversa: cobrar via Pix, agendar no Cal.com, gerar link de pagamento Stripe, enviar produto do catálogo Meta e encaminhar pra humano.'
+keywords: ['brain actions', 'ia', 'pix', 'cobrança', 'agenda', 'catálogo', 'stripe', 'abacatepay', 'cal.com']
 ---
 
-O Brain não responde só com texto. Ele **executa**.
-
-Brain Actions são integrações nativas que o agente AI da Arara pode invocar durante uma conversa do WhatsApp — sem você precisar escrever código de orquestração. O cliente pede uma fatura, o agente cria o Pix no AbacatePay e envia o link. Pede um horário, o agente checa o Cal.com e confirma. Pergunta sobre produto, o agente busca no catálogo e responde com a ficha.
+Brain Actions são integrações que o [Brain](/brain) pode invocar durante uma conversa do WhatsApp. O cliente pede pra pagar, o Brain gera o Pix no AbacatePay e manda o link. Pede um horário, o Brain consulta o Cal.com e confirma.
 
 <Note>
-  Brain Actions só rodam dentro de uma sessão ativa do Brain (canUseAi = true). Se o seu plano não inclui Brain, [veja os planos](https://ararahq.com/precos) primeiro.
+  Actions só rodam com o Brain ligado. Configurar uma Action (`POST /v1/brain/actions`) responde `403 PLAN_FEATURE_LOCKED` se o plano não inclui Brain e `403 NO_DEDICATED_NUMBER` se a organização não tem número dedicado.
 </Note>
 
 ## Ações disponíveis
 
+| `actionType` | O que faz | Config |
+|---|---|---|
+| `ABACATE_PIX` | Gera cobrança Pix no AbacatePay e envia link e copia-e-cola | `apiKey` |
+| `CAL_COM_BOOKING` | Lista horários livres e cria agendamento no Cal.com | `apiKey`, `eventTypeId` |
+| `STRIPE_CHECKOUT` | Cria um Payment Link na sua conta Stripe | `secretKey` (ou `apiKey`) |
+| `META_CATALOG_SEND` | Envia o card de um produto do catálogo Meta na conversa | `catalogId`, `phoneNumberId` |
+| `HANDOFF_TO_HUMAN` | Encaminha a conversa pra um atendente | nenhuma (habilitada por padrão) |
+
 <CardGroup cols={2}>
   <Card title="AbacatePay (Pix)" icon="qrcode" href="/brain/actions/abacate-pix">
-    Gera Pix, envia o QR Code e confirma o pagamento. Recupera carrinho abandonado sem você ter de orquestrar nada.
+    Gera a cobrança Pix e envia o link no chat.
   </Card>
   <Card title="Cal.com" icon="calendar-check" href="/brain/actions/cal-com">
-    Lista horários disponíveis, agenda a reunião na agenda certa e envia a confirmação. Bom pra consultoria, clínica, prestador de serviço.
+    Mostra horários do dia e agenda no event type configurado.
   </Card>
-  <Card title="Catálogo" icon="boxes-stacked" href="/brain/actions/catalog">
-    Responde sobre preço, estoque e ficha técnica do produto buscando no seu catálogo (Shopify, WooCommerce ou JSON estático).
+  <Card title="Catálogo Meta" icon="boxes-stacked" href="/brain/actions/catalog">
+    Envia o card oficial do produto a partir do catálogo do WhatsApp.
   </Card>
   <Card title="Stripe" icon="credit-card" href="/brain/actions/stripe">
-    Cria checkout, processa upgrade de plano e envia o link de pagamento internacional. Bom pra SaaS com pricing em USD.
+    Cria link de pagamento com cartão, em BRL, USD ou EUR.
   </Card>
 </CardGroup>
 
 ## Como funciona
 
-Toda Action segue o mesmo ciclo:
-
 <Steps>
   <Step title="Você habilita a Action">
-    No dashboard em **Brain → Actions**, ou via `POST /v1/brain/actions` configurando os segredos (API key do provider, IDs internos).
+    No dashboard em **Brain**, ou via `POST /v1/brain/actions`.
   </Step>
-  <Step title="O agente entende quando chamar">
-    Cada Action declara um schema de quando deve ser invocada (ex: "quando o cliente confirma compra mas não tem método de pagamento"). O modelo decide na conversa.
+  <Step title="O Brain decide quando chamar">
+    Cada Action descreve pro modelo o que faz, quando usar e quais parâmetros precisa. Só Actions habilitadas entram no prompt.
   </Step>
   <Step title="A Arara executa">
-    A Action roda no nosso backend, com os segredos criptografados. O resultado volta como contexto pro modelo.
+    A chamada ao provedor roda no backend da Arara com as credenciais da sua organização. Toda execução fica registrada.
   </Step>
-  <Step title="O agente responde no WhatsApp">
-    Texto + link/botão/mídia gerado pela Action. Tudo passa pelos guarda-rails de envio (bloqueio de PII e opt-outs) antes de sair.
+  <Step title="O Brain responde no WhatsApp">
+    Com o link, o horário ou a confirmação que a Action devolveu.
   </Step>
 </Steps>
 
 ## Configurando via API
 
 ```bash
-curl -X PATCH https://api.ararahq.com/v1/brain/actions/abacate-pix \
+curl -X POST https://api.ararahq.com/v1/brain/actions \
   -H "Authorization: Bearer ara_live_xxx" \
   -H "Content-Type: application/json" \
   -d '{
+    "actionType": "ABACATE_PIX",
     "enabled": true,
     "config": {
-      "apiKey": "abacate_live_xxx",
-      "defaultExpirationMinutes": 60
+      "apiKey": "sua_chave_abacatepay"
     }
   }'
 ```
 
-Os segredos (`apiKey`, tokens OAuth) ficam criptografados — não voltam em nenhum `GET`. Pra rodar trocar você precisa reenviar o valor.
+Responde `204`. O mesmo endpoint cria ou atualiza (uma linha por `actionType`).
 
-## Por que isso importa
+- Pra ligar ou desligar sem reenviar a chave, mande `enabled` com `config` vazio: a config salva é preservada.
+- Valores sensíveis são criptografados antes de gravar.
 
-Sem Actions, um agente AI é um chatbot — responde, mas não resolve. Com Actions, a conversa **vira o contrato**: cliente pediu, agente cobrou, pagou na hora. Esse é o desbloqueio real do Revenue OS — fechar receita dentro do canal onde o cliente já está.
+Listar o estado de todas as Actions:
+
+```bash
+curl https://api.ararahq.com/v1/brain/actions \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Cada item traz `type`, `displayName`, `description`, `parameters`, `enabled`, `configured`, `config` (com segredos mascarados) e `invocations30d`.
 
 <CardGroup cols={2}>
-  <Card title="Habilitar Actions" icon="toggle-on" href="https://ararahq.com/dashboard/brain">
-    Ative as Actions no dashboard.
+  <Card title="Brain" icon="brain" href="/brain">
+    Configuração, conhecimento e handoff.
   </Card>
-  <Card title="Eval suite" icon="vial" href="/brain#eval">
-    Teste as Actions com casos reais antes de soltar em produção.
+  <Card title="Eval suite" icon="vial" href="/brain#eval-suite">
+    Teste as respostas antes de ligar em produção.
   </Card>
 </CardGroup>

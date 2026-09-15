@@ -1,65 +1,96 @@
 ---
-title: "Marketing & Raio-X"
-description: "Como usar o encurtamento automático e rastreamento de cliques da Arara."
+title: "Links rastreados em campanhas"
+description: "Como a Arara encurta e rastreia automaticamente os links das suas mensagens, e como medir clique e conversão."
 ---
 
+URL longa em mensagem de WhatsApp afasta clique e não diz quem clicou. A Arara troca as URLs das suas mensagens por links curtos `https://ararahq.com/l/{codigo}`, um por mensagem, e registra cada clique.
 
-No WhatsApp comum, você envia uma URL longa e "feia" que afasta o clique. Com o recurso **Raio-X da Arara**, você envia o seu link original e nós o transformamos em um **Smart Link** rastreável e encurtado automaticamente.
+## O que é encurtado
 
-## 1. O Que é o Recurso Raio-X?
+| Onde está a URL | O que acontece |
+|---|---|
+| Botão `SMART_LINK` do template | Cada mensagem ganha um link curto pro destino do botão |
+| Variável de template que começa com `http` | A variável é trocada pelo link curto |
+| `body` de mensagem de sessão (janela de 24h) | Toda URL do texto é trocada pelo link curto |
 
-Diferente de encurtadores manuais (como bit.ly), o Raio-X da Arara é integrado ao disparo. 
-- Você envia o link direto da sua loja ou produto.
-- A Arara detecta a URL no payload.
-- O cliente recebe um link curto e confiável: `ararahq.com/l/{codigo}`.
-- Cada clique gera um evento em tempo real para o seu analytics.
+Você não precisa encurtar nada antes de enviar.
 
----
+## Opção 1: botão SMART_LINK (recomendado)
 
-## 2. Como Usar (Exemplo Prático)
+O link fica no botão, fora do texto, e o domínio exibido é sempre o mesmo.
 
-Você não precisa configurar nada no seu código para encurtar. Basta passar a URL completa como uma variável do template.
+Crie o template com o botão:
 
-### Configuração do Template:
-Crie um botão no Dashboard com a URL dinâmica: `{{1}}`.
+```json
+{
+  "name": "oferta_verao",
+  "category": "MARKETING",
+  "language": "pt_BR",
+  "body": "Oi {{1}}, a coleção de verão chegou. Toque pra ver a sua seleção.",
+  "samples": { "1": "João" },
+  "buttons": [
+    { "type": "SMART_LINK", "text": "Ver oferta", "url": "https://sualoja.com/verao" }
+  ]
+}
+```
 
-### Disparo via API:
-Passe o seu link final diretamente no campo `variables`.
+No envio, personalize o destino por mensagem com `smartLinkUrl` e, se quiser, marque o cliente com `smartLinkParam` (vira `slp={valor}` na URL de destino):
 
-```javascript
-// A Arara detecta a URL em {{1}} e aplica o Raio-X
-await arara.messages.send({
-  receiver: 'whatsapp:+5511999999999',
-  templateName: 'oferta_verao',
-  variables: ['https://sualoja.com/produto/camisa-azul?ref=ads']
+```typescript
+await fetch('https://api.ararahq.com/v1/messages', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${process.env.ARARA_API_KEY}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    receiver: 'whatsapp:+5511999999999',
+    templateName: 'oferta_verao',
+    templateVariables: ['João'],
+    smartLinkUrl: 'https://sualoja.com/produto/camisa-azul?utm_source=whatsapp',
+    smartLinkParam: 'cliente-8812',
+  }),
 });
 ```
 
-**Resultado no celular do cliente:**
-> "Confira nossa oferta: **ararahq.com/l/abc123**"
+O tipo `SendMessageRequest` do SDK Node 1.8.1 não declara `smartLinkUrl` nem `smartLinkParam`, por isso o exemplo usa `fetch`.
 
----
+## Opção 2: URL como variável
 
-## 3. Analytics e Conversão
+Se o template tem a URL no corpo (`Confira: {{2}} e aproveite.`), passe a URL completa na variável:
 
-### Rastreamento de Cliques
-Cada vez que um usuário clica no link gerado pelo Raio-X, a Arara registra:
-- **Quem clicou** (Número do destinatário).
-- **Quando clicou** (Timestamp exato).
-- **Taxa de Cliques (CTR)** global da sua campanha.
+```typescript
+import { NodeSDK } from '@ararahq/sdk';
 
-### Webhook de Clique
-Configure um Webhook para o evento `link.clicked` e receba notificações instantâneas para disparar fluxos de retargeting ou CRM.
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
 
----
+await sdk.messages.send({
+  receiver: 'whatsapp:+5511999999999',
+  templateName: 'oferta_verao_texto',
+  templateVariables: ['João', 'https://sualoja.com/produto/camisa-azul?ref=ads'],
+});
+```
 
-## Próximos Passos
+O cliente recebe `https://ararahq.com/l/{codigo}` no lugar da URL.
+
+## Em campanhas
+
+`POST /v1/campaigns` e `POST /v1/messages/batch` aplicam o mesmo encurtamento a cada contato. Numa campanha com A/B test, os cliques nesses links alimentam a métrica `CLICKED`. Ver [Marketing no WhatsApp](/marketing).
+
+## Acompanhando cliques e conversões
+
+- **Cliques**: o dashboard, em **Links**, mostra os links de campanha e avulsos com a contagem de cliques. Cada clique registra IP, user agent, referer e país (quando disponível).
+- **Conversões**: reporte a venda do seu backend com o telefone do cliente pra ligá-la à mensagem. Ver [Atribuição de conversão](/smart-links/attribution).
+
+A Arara não envia webhook por clique.
+
+## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Autenticação" icon="key" href="/cookbooks/auth-2fa">
-    Padrões de segurança OTP.
+  <Card title="Smart Links" icon="link" href="/smart-links">
+    Todas as formas de link curto.
   </Card>
   <Card title="Referência da API" icon="book" href="/api-reference/introduction">
-    Veja todos os endpoints disponíveis.
+    Todos os endpoints disponíveis.
   </Card>
 </CardGroup>

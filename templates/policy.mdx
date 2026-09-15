@@ -1,59 +1,76 @@
 ---
 title: 'Política de templates'
-description: 'Templates aprovados pela Meta seguem regras estritas — sobre conteúdo, formato e categoria. Esta página lista as regras, o que NÃO usar, e o lint local que a Arara roda automaticamente antes de submeter pra Meta.'
+description: 'Templates aprovados pela Meta seguem regras de conteúdo, formato e categoria. Esta página separa o que a API da Arara valida antes de submeter, o que a Meta decide, e o que fazer quando um template é reclassificado ou pausado.'
 ---
 
-Template do WhatsApp Business é um contrato. A Meta aprova **uma vez**, você dispara **N vezes** sem checagem por mensagem — em troca, você concorda em não usar pra spam, fraude ou comunicação fora do escopo aprovado.
+Template do WhatsApp Business é um contrato. A Meta aprova **uma vez** e você envia **N vezes** sem revisão por mensagem. Em troca, o uso precisa ficar dentro da categoria e do conteúdo aprovados.
 
-Esta página é o **guia prático** de o que vai aprovar de primeira, o que vai cair, e como evitar retrabalho.
+Esta página é o guia prático do que aprova, do que cai e de como evitar retrabalho.
 
 ## As 3 categorias e quando usar cada
 
 <CardGroup cols={3}>
   <Card title="UTILITY" icon="bell">
-    Notificação sobre algo que **o cliente esperava**: pedido confirmado, código entregue, lembrete de consulta, OTP, status de pagamento.
-    
-    **Custo: ~R$ 0,12/msg**
+    Notificação sobre algo que **o cliente espera**: pedido confirmado, entrega, lembrete de consulta, status de pagamento.
   </Card>
   <Card title="MARKETING" icon="megaphone">
-    Promoção, oferta, lançamento, recuperação de carrinho. Cliente precisou ter consentido em receber marketing especificamente.
-    
-    **Custo: ~R$ 0,40/msg**
+    Promoção, oferta, lançamento, reengajamento, recuperação de carrinho. O cliente precisa ter consentido em receber marketing.
   </Card>
   <Card title="AUTHENTICATION" icon="key">
-    Apenas códigos de verificação (OTP/2FA). Formato restrito: precisa ter botão "Copiar código". Sem texto adicional.
-    
-    **Custo: ~R$ 0,12/msg**
+    Só códigos de verificação (OTP/2FA), no formato restrito que a Meta define para essa categoria.
   </Card>
 </CardGroup>
 
+A categoria define o preço por mensagem. Valores em [Preços](/concepts/pricing).
+
 <Warning>
-  **Marketing disfarçado de UTILITY é o motivo nº 1 de banimento.** Meta classifica retroativamente. Você manda "Sua oferta especial está esperando!" como UTILITY → Meta detecta → multa, reclassifica e tier do número cai.
+  **Marketing enviado como UTILITY não passa despercebido.** A Meta pode reclassificar o template depois de aprovado. Quando isso acontece, a Arara atualiza a categoria, envia o evento `template.category_changed` (`name`, `old`, `new`) e o preço por mensagem passa a ser o da categoria nova.
 </Warning>
 
-## O que NÃO usar no corpo do template
+## O que a Arara valida antes de submeter
 
-| Padrão | Por que rejeita |
+Em `POST /v1/templates`, a API recusa a criação quando:
+
+| Regra | Detalhe |
 |---|---|
-| ALL CAPS em mais de 30% do texto | Spam-like |
-| Mais de 1 emoji por linha | Spam-like |
-| URLs encurtadas (bit.ly, tinyurl) | Phishing-like |
-| Promessa de retorno garantido / "100% certeza" | Fraude |
-| Termos de saúde sensíveis ("cura", "milagre", "remédio milagroso") | Compliance |
-| Sorteios/loteria sem licença | Compliance |
-| Cobrança ameaçadora ("vai pro SPC", "ação judicial") | Conduta abusiva |
-| Pedido de senha, CPF, cartão | Fraude/phishing |
-| "URGENTE", "ÚLTIMA CHANCE", "AGORA" em maiúsculas | Spam-like |
-| Mais de 3 variáveis numéricas seguidas | Difícil de revisar |
+| Nome já existe na organização | Template com o mesmo nome em `FAILED` ou `REJECTED` é substituído; nos outros estados, a criação é recusada |
+| Corpo vazio | `body` é obrigatório |
+| Categoria inválida | Use `MARKETING`, `UTILITY` ou `AUTHENTICATION` |
+| Corpo começa ou termina com variável | Coloque texto antes do primeiro `{{` e depois do último `}}` |
+| Variável sem exemplo | Cada `{{n}}` precisa de exemplo em `samples` (ex: `{ "1": "João" }`), exigido pela Meta na revisão |
+| Header de texto com caracteres especiais | Header de texto aceita letras, números e pontuação. Para mídia, use uma URL |
+| Botões demais | Até 10 botões no total, até 2 de link (`URL` ou `SMART_LINK`) e até 1 `PHONE_NUMBER` |
+| Texto de botão longo | Até 20 caracteres |
+| Exemplo com espaço em variável de URL | A variável que preenche a URL de um botão não pode ter espaço |
+| Carrossel fora do formato | De 2 a 10 cards, cada um com mídia e texto, até 2 botões por card, e todos os cards com os mesmos tipos de botão |
 
-## Variáveis — o que pode
+Além disso, a Arara faz uma moderação de conteúdo em templates `MARKETING` e `UTILITY` e recusa textos com discurso de ódio, ameaça, conteúdo sexual explícito e frases típicas de golpe (como "lucro garantido" ou "você foi sorteado").
 
-Cada `{{n}}` é uma variável posicional substituída em tempo de envio. Regras:
+<Note>
+  A Arara **não** bloqueia por caixa alta, emoji ou link encurtado. Essas regras são da política de conteúdo da Meta: quem decide é a Meta, e a Arara reflete a decisão no status do template.
+</Note>
 
-- **Apenas variáveis no início ou no fim** geram alerta de "spam likelihood". Distribua no meio também.
-- **Nunca** uma variável adjacente a outra: `{{1}} {{2}}` em sequência é rejeição quase certa.
-- **Tamanho mínimo de texto fixo** entre variáveis: 2-3 palavras.
-- **Variáveis com valores muito curtos** (1-2 caracteres) viram suspeitos. Se você passa `"X"`, o template parece spam.
+## Boas práticas de conteúdo
+
+O que costuma gerar reprovação na Meta ou bloqueio pelos destinatários:
+
+| Evite | Por quê |
+|---|---|
+| Texto todo em maiúsculas, "URGENTE", "ÚLTIMA CHANCE" | Aparência de spam, aumenta bloqueio |
+| Promessa de retorno garantido | Política de conteúdo da Meta |
+| Pedido de senha, dados de cartão ou documentos | Phishing |
+| Cobrança ameaçadora | Conduta abusiva, gera denúncia |
+| Termos de saúde sensíveis ("cura", "milagre") | Política comercial da Meta |
+| Muitas variáveis e pouco texto fixo | Dificulta a revisão da Meta |
+
+## Variáveis
+
+Cada `{{n}}` é uma variável posicional preenchida no envio pelo array `templateVariables`.
+
+- Não comece nem termine o corpo com variável (a API recusa).
+- Evite variáveis coladas: `{{1}} {{2}}` em sequência tende a ser reprovado.
+- Mantenha texto fixo suficiente entre as variáveis para o template fazer sentido sozinho.
+- Mande exemplos realistas em `samples`. É o que o revisor da Meta vê.
 
 Exemplo ruim:
 
@@ -69,68 +86,53 @@ Olá {{1}}, seu pedido {{2}} foi confirmado. Previsão de entrega: {{3}}.
 
 ## Header de mídia
 
-Você pode adicionar imagem/vídeo/PDF como header. Regras:
+O template pode ter imagem, vídeo ou documento como header (`headerType` + `header` com a URL). Formatos e tamanhos aceitos são definidos pela Meta; confira a documentação da Meta antes de subir mídia pesada.
 
-- Imagem: PNG/JPEG, max 5 MB, ratio 1.91:1 ou 1:1
-- Vídeo: MP4 H.264, max 16 MB, max 16s
-- PDF: max 100 MB, max 100 páginas
-
-A mídia vai como **primeiro elemento** do array `templateVariables` no envio (a URL pública), não como campo separado. Ver [Mensagens](/api-reference/endpoint/v2/messages).
+No envio, a URL pública da mídia vai como **primeiro elemento** do array `templateVariables`, não como campo separado. As posições seguintes preenchem `{{1}}`, `{{2}}`... Ver [Mensagens](/api-reference/endpoint/v2/messages).
 
 ## Botões
 
-Templates podem ter até 3 botões:
-
 | Tipo | Descrição |
 |---|---|
-| `QUICK_REPLY` | Resposta rápida pré-definida. Cliente clica e a mensagem volta como texto. Ótimo pra triagem. |
-| `URL` | Abre URL externa. Pode incluir variável (`https://meusite.com/{{1}}`). |
-| `PHONE_NUMBER` | Liga pra número fixo (não pode ser variável). |
-| `SMART_LINK` | Variante Arara: URL curta com tracking first-party. Ver [Smart Links](/smart-links). |
-| `COPY_CODE` | Copia código pra clipboard. Obrigatório em templates AUTHENTICATION. |
+| `QUICK_REPLY` | Resposta rápida. Quando o cliente toca, o texto do botão volta como mensagem. |
+| `URL` | Abre uma URL. Pode ter variável (`https://meusite.com/pedido/{{1}}`), sem espaço no valor. |
+| `PHONE_NUMBER` | Liga para um número fixo. |
+| `SMART_LINK` | Link curto da Arara com rastreamento de clique. Conta no limite de botões de link. Ver [Smart Links](/smart-links). |
+| `COPY_CODE` | Copia um código para a área de transferência. |
 
-## Categoria errada — o que acontece
+## Categoria reclassificada: o que acontece
 
-Você submete como UTILITY um template que a Meta classifica como MARKETING:
+1. A Meta reclassifica o template, por exemplo de UTILITY para MARKETING.
+2. A Arara atualiza a categoria do template, cria um alerta no dashboard e envia `template.category_changed`.
+3. Os envios seguintes são cobrados na categoria nova.
 
-1. Aprovação inicial passa (Meta não pega de cara)
-2. Após 50-200 envios, sistema Meta detecta padrão promocional
-3. Template **reclassificado retroativamente** pra MARKETING
-4. Cobrança recalculada na sua próxima fatura (mais caro)
-5. Quality score do número leva impacto pesado
-
-Pra evitar: **na dúvida, escolha MARKETING**. Custo maior, mas sem surpresa.
+Para evitar: **na dúvida entre UTILITY e MARKETING, escolha MARKETING**.
 
 ## Templates pausados
 
-Mesmo aprovados, templates podem ser **pausados** se:
+Mesmo aprovado, um template pode ser **pausado pela Meta** por baixa qualidade, geralmente por bloqueios e denúncias dos destinatários. Quando um envio falha por template pausado, a Arara marca o template como `PAUSED` e envia `template.updated`. A Meta também informa mudanças de qualidade do template, que chegam como `template.quality_updated` (`name`, `quality`).
 
-- Taxa de bloqueio > 2% nos últimos 7 dias
-- Reclamação direta no WhatsApp
-- Mudança de política Meta
+Para listar os pausados:
 
 ```bash
-curl https://api.ararahq.com/v1/templates?status=PAUSED \
+curl "https://api.ararahq.com/v1/templates?status=PAUSED" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Pra reativar, você precisa modificar o corpo e ressubmeter. Cópia exata vai dar pause de novo.
+Antes de voltar a usar um template pausado, revise o conteúdo e a base para quem ele foi enviado.
 
 ## Idiomas
 
-Cada template é amarrado a **um par categoria + idioma**. Pra disparar pro mesmo cliente em PT e EN, crie dois templates separados.
-
-Idiomas suportados pela Meta para BR: `pt_BR`, `en_US`, `es_ES`.
+Cada template é criado em **um idioma** (campo `language`, padrão `pt_BR`). Para falar com o mesmo cliente em português e inglês, crie dois templates.
 
 ## Tempo de aprovação
 
-| Categoria | Tempo médio |
-|---|---|
-| UTILITY | 1-4h |
-| AUTHENTICATION | 1-2h |
-| MARKETING | 12-72h |
+Quem aprova é a Meta, e o prazo varia. Acompanhe o status de duas formas:
 
-Sextas-feiras à noite e feriados a Meta atrasa. Não submeta template crítico na véspera de campanha.
+- Webhook `template.updated`, com `status` e `rejectionReason`.
+- `GET /v1/templates/{id}/status`, usando o `id` (UUID) do template.
+
+Não submeta template crítico na véspera de uma campanha.
 
 ## Próximos passos
 

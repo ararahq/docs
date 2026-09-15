@@ -1,53 +1,56 @@
 ---
 title: 'Janela de 24h'
-description: 'O mecanismo que define quando você pode mandar texto livre vs quando precisa de template aprovado. Como abrir a janela, como ela fecha, como verificar status, e como operar dentro dela.'
+description: 'Quando você pode mandar texto livre e quando precisa de template aprovado. Como a janela abre e fecha, como verificar o status e como operar dentro dela.'
 keywords: ['janela 24h', 'sessão', 'template', 'service window', 'customer service']
 ---
 
-A **janela de 24h** (service window) é o mecanismo central da WhatsApp Business API. Define quando você pode falar livremente vs quando precisa de template aprovado. Errar isso é o motivo nº 1 de "minha mensagem não saiu".
+A **janela de 24h** (customer service window) é a regra da Meta que define quando a empresa pode mandar mensagem livre e quando precisa de template aprovado. Errar isso é o motivo mais comum de "minha mensagem não saiu".
 
 ## Como funciona
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Fechada: Cliente nunca interagiu
+    [*] --> Fechada: Cliente nunca escreveu
     Fechada --> Aberta: Cliente manda mensagem
-    Aberta --> Aberta: Cliente responde de novo (renova 24h)
-    Aberta --> Fechada: 24h sem cliente responder
+    Aberta --> Aberta: Cliente escreve de novo (renova 24h)
+    Aberta --> Fechada: 24h sem mensagem do cliente
 
     state Aberta {
         [*] --> Livre
-        Livre: Pode mandar texto livre, midia, interativo, location
+        Livre: Texto livre, midia, interativo, localizacao e templates
     }
 
     state Fechada {
         [*] --> SoTemplate
-        SoTemplate: So pode mandar template HSM aprovado
+        SoTemplate: Apenas template aprovado
     }
 ```
 
-A janela **reabre** sempre que o cliente responde. Cada nova mensagem do cliente "renova" os 24h.
+A contagem parte da **última mensagem do cliente**, não da sua. Cada nova mensagem dele renova as 24h.
 
 <Note>
-  É **a partir da última mensagem do cliente**, não da sua. Se você mandou template e ele não respondeu, a janela continua fechada.
+  Mandar template não abre a janela. Ela só abre quando o cliente responde.
 </Note>
+
+**Template aprovado pode ser enviado a qualquer momento**, com a janela aberta ou fechada, em qualquer categoria. O que a janela controla é o envio de conteúdo que não é template: texto livre, mídia, mensagem interativa, localização e reação.
 
 ## Como abrir a janela
 
-Pra abrir uma janela com cliente que nunca falou com você:
+Com um cliente que nunca falou com você, ou que está sem responder há mais de 24h:
 
-1. **Manda template HSM aprovado** (única forma de iniciar conversa)
-2. **Cliente responde** → janela abre
+1. Envie um **template aprovado**.
+2. O cliente **responde**: a janela abre.
 
-Não tem atalho. Você não pode "abrir janela" mandando primeiro texto livre.
+Não existe outro caminho. Texto livre com a janela fechada é recusado.
 
-## Como verificar status
+## Como verificar o status
 
-Antes de mandar texto livre, você pode checar se a janela está aberta:
+Antes de mandar texto livre, consulte a janela de até **200 números por chamada**:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/conversations/window-status \
   -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
   -d '{ "phones": ["+5511999999999", "+5511888888888"] }'
 ```
 
@@ -55,105 +58,104 @@ Resposta:
 
 ```json
 {
-  "+5511999999999": {
-    "status": "OPEN",
-    "openedAt": "2026-05-18T10:00:00Z",
-    "expiresAt": "2026-05-19T10:00:00Z",
-    "minutesRemaining": 1184
-  },
-  "+5511888888888": {
-    "status": "CLOSED",
-    "lastInteractionAt": "2026-05-15T14:00:00Z"
-  }
+  "results": [
+    {
+      "phone": "+5511999999999",
+      "isWindowOpen": true,
+      "windowExpiresAt": "2026-09-16T10:00:00Z",
+      "hoursRemaining": 19.7,
+      "conversationId": "3f0c2a8e-6d1b-4a5e-9c47-1b2e8f9a0d11"
+    },
+    {
+      "phone": "+5511888888888",
+      "isWindowOpen": false,
+      "windowExpiresAt": null,
+      "hoursRemaining": null,
+      "conversationId": null
+    }
+  ],
+  "truncated": false
 }
 ```
 
-Limite: até **200 números por chamada**. Pra mais, batch.
+Se você mandar mais de 200 números, a resposta considera os 200 primeiros e traz `truncated: true`.
 
-## O que acontece se você tentar mandar texto fora da janela
+## Texto livre com a janela fechada
 
-API retorna 422 com:
+A API recusa com **HTTP 422**:
 
 ```json
 {
   "error": {
-    "code": "UNPROCESSABLE_ENTITY",
-    "message": "Cannot send free-form message. Window closed. Use a template instead.",
+    "code": "CONVERSATION_WINDOW_CLOSED",
+    "message": "A janela de 24h com whatsapp:+5511999999999 esta fechada. Use um template aprovado para reabrir.",
     "details": {
-      "diagnostic": "63016"
+      "receiver": "whatsapp:+5511999999999"
     }
   }
 }
 ```
 
-Você ajusta o código pra fallback em template.
+Trate esse código com fallback para template.
 
-## Reply automático com fallback
+## Resposta com fallback
 
-Padrão recomendado no inbox:
+Padrão recomendado para atendimento:
 
 ```typescript
 async function reply(phone: string, text: string) {
   const status = await sdk.conversations.windowStatus([phone]);
-  
-  if (status[phone].status === 'OPEN') {
-    // Texto livre dentro da janela
+  const item = (status.results as Array<{ phone: string; isWindowOpen: boolean }>)
+    .find((r) => r.phone === phone);
+
+  if (item?.isWindowOpen) {
     return sdk.messages.send({
       receiver: `whatsapp:${phone}`,
       body: text,
     });
-  } else {
-    // Janela fechada — manda template "retomada" e armazena texto pra próxima resposta
-    await sdk.messages.send({
-      receiver: `whatsapp:${phone}`,
-      templateName: 'retomada_atendimento',
-      templateVariables: ['Olá'],
-    });
-    pendingReplies.set(phone, text);
   }
+
+  // Janela fechada: envia template de retomada e guarda o texto para quando o cliente responder
+  await sdk.messages.send({
+    receiver: `whatsapp:${phone}`,
+    templateName: 'retomada_atendimento',
+    templateVariables: ['Olá'],
+  });
+  pendingReplies.set(phone, text);
 }
 ```
 
-Quando cliente responder ao template "retomada", a janela abre e você manda o texto que estava pendente.
+Quando o cliente responder ao template, a janela abre e você envia o texto pendente.
 
-## Quando NÃO importa a janela
+## Janela e custo
 
-Templates **categoria AUTHENTICATION** (OTP) podem ser enviados a qualquer momento, independente da janela. Por design — código de verificação não pode esperar.
+- **Template**: paga a tarifa Meta da categoria (MARKETING, UTILITY ou AUTHENTICATION), dentro ou fora da janela.
+- **Texto livre dentro da janela**: a Meta não cobra. A carteira paga só o custo do provedor.
+- **Mensagem recebida do cliente**: a carteira paga só o custo do provedor.
 
-## Conversation pricing (descontinuado)
-
-<Note>
-  **Importante histórico**: até meados de 2025, a Meta cobrava por "conversa" (janela de 24h aberta). Hoje cobra **por mensagem entregue**. Documentação antiga que fala em "conversation pricing" está obsoleta. Ver [Pricing](/concepts/pricing).
-</Note>
-
-Por conta dessa mudança, a estratégia também mudou:
-
-- **Antes**: vale a pena enviar muitos templates pra abrir janelas, depois usar texto livre dentro de cada uma (custo só na abertura)
-- **Agora**: cada mensagem custa, dentro ou fora da janela. Manter janela aberta artificialmente não economiza.
+Valores em [Preços](/concepts/pricing).
 
 ## Casos de borda
 
-### Cliente responde mas a Meta atrasa
+### O cliente respondeu, mas o evento ainda não chegou
 
-Se cliente respondeu há 30s mas o webhook ainda não chegou na Arara, `window-status` pode dizer `CLOSED`. Solução: espere alguns segundos OU faça retry quando receber `UNPROCESSABLE_ENTITY` (422).
+Se o cliente respondeu há poucos segundos e o evento ainda não foi processado, `window-status` pode vir fechado. Espere alguns segundos ou tente de novo ao receber `CONVERSATION_WINDOW_CLOSED`.
 
-### Cliente respondeu durante seu dispatcher
+### O cliente respondeu no meio de uma campanha
 
-Cenário: você está numa campanha disparando templates. Cliente A respondeu no meio. Próximo template pra ele provavelmente vai duplicar (template + texto livre na janela).
+Durante um disparo, um cliente pode responder e abrir a janela. Marque a conversa como aberta ao receber o webhook `message.received` e faça o seu disparador consultar esse estado antes de enviar o próximo template para a mesma pessoa.
 
-Solução: marca como `OPENED` no seu banco quando recebe `message.received`, e seu dispatcher checa antes.
+### Mais de uma equipe no mesmo número
 
-### Janela aberta por outra equipe
-
-Se sua organização tem múltiplas equipes operando o mesmo número, a janela é compartilhada. Atendimento responder libera marketing. Coordene.
+A janela é por número da empresa e cliente. Se atendimento e marketing usam o mesmo número, a resposta do cliente para um libera texto livre para o outro. Coordene.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Templates HSM" icon="file-lines" href="/concepts/templates">
+  <Card title="Templates" icon="file-lines" href="/concepts/templates">
     O que mandar fora da janela.
   </Card>
-  <Card title="Receita: Inbox" icon="users" href="/recipes/inbox-support">
-    Operar atendimento com múltiplos atendentes.
+  <Card title="Receita: caixa de entrada" icon="users" href="/recipes/inbox-support">
+    Atendimento com vários atendentes.
   </Card>
 </CardGroup>
