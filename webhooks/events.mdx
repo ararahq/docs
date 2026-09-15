@@ -1,194 +1,334 @@
 ---
 title: 'Catálogo de eventos'
-description: 'Schema completo de cada evento webhook que a Arara envia hoje: campos, tipos, exemplos JSON.'
-keywords: ['eventos webhook', 'payload', 'message status', 'inbound', 'conversation', 'schema']
+description: 'Payload de cada evento de webhook que a Arara envia hoje: campos, tipos e exemplos.'
+keywords: ['eventos webhook', 'payload', 'message status', 'inbound', 'template', 'campanha', 'número']
 ---
 
-Catálogo dos eventos que a Arara envia pro seu `inboundWebhookUrl`. Todos seguem o mesmo envelope universal — esta página detalha o conteúdo de `data` em cada um.
+Todos os eventos usam o mesmo envelope. Esta página detalha o conteúdo de `data` em cada um.
 
 <Note>
-  Pra como configurar o URL e validar HMAC, ver [Webhooks](/webhooks).
+  Configuração, headers, assinatura e retry estão em [Webhooks](/webhooks).
 </Note>
 
-## Envelope universal
+## Envelope
 
 ```json
 {
   "event": "message.status_updated",
-  "apiVersion": "1",
-  "data": { },
-  "timestamp": "2026-05-18T14:32:15.234Z",
-  "organizationId": "0e4f3c1e-..."
+  "apiVersion": "2026-05-13",
+  "data": {},
+  "timestamp": "2026-09-15T14:32:15.234Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `event` | string | Tipo do evento (lista abaixo). |
-| `apiVersion` | string | Versão do schema dos payloads. |
-| `data` | object | Payload específico do evento. |
-| `timestamp` | string (ISO 8601) | Quando o evento foi emitido pela Arara. |
-| `organizationId` | string (UUID) | Org dona do recurso. |
+| `event` | string | Tipo do evento. |
+| `apiVersion` | string | Versão do contrato. Hoje `2026-05-13`. |
+| `data` | object | Conteúdo do evento. |
+| `timestamp` | string (ISO 8601) | Quando a Arara gerou o evento. |
+| `organizationId` | string (UUID) | Organização dona do evento. |
 
-A Arara assina cada requisição com `X-Arara-Signature: sha256=<hex>` usando seu webhook secret. Ver [Webhooks](/webhooks#hmac).
-
-<Warning>
-  **Número compartilhado não recebe `message.received`.** Mensagens inbound que chegam num número do pool compartilhado da Arara não roteiam pra organização específica e portanto **não disparam webhook**. Os outros eventos (`message.status_updated`, `template.updated`, `campaign.completed`, `conversation.needs_human`) funcionam normalmente — só o inbound depende de número dedicado. Pra liberar inbound completo, [solicite um número dedicado](/numbers#pedir-um-número-dedicado).
-</Warning>
+Cada requisição traz `X-Arara-Signature: sha256=<hex>`, calculado sobre `"{X-Arara-Timestamp}.{corpo}"`. Ver [Webhooks](/webhooks#validar-a-assinatura).
 
 ## Mensagens
 
 ### `message.status_updated`
 
-Toda mudança de estado de uma mensagem outbound dispara este evento — `sent`, `delivered`, `read`, `failed`, etc. Use o campo `status` em `data` pra ramificar.
+Toda mudança de estado de uma mensagem enviada.
 
 ```json
 {
   "event": "message.status_updated",
   "data": {
-    "id": "ara_msg_k9Bf2XqP",
-    "messageId": "0e4f3c1e-...",
-    "internalId": "ara_msg_k9Bf2XqP",
+    "id": "ara_msg_k9Bf2Xq",
+    "messageId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f",
+    "internalId": "ara_msg_k9Bf2Xq",
     "providerSid": "wamid.HBgL...",
     "status": "delivered",
-    "receiver": "+5511999999999",
-    "sender": "+5511888888888",
+    "receiver": "whatsapp:+5511999999999",
+    "sender": "whatsapp:+5511888888888",
     "errorDetails": null
   }
 }
 ```
 
-`status` aceita: `queued`, `scheduled`, `processing`, `sent`, `delivered`, `read`, `failed`, `canceled`.
-
-Quando `status: "failed"`, `errorDetails` traz o objeto bruto da Meta:
-
-```json
-{
-  "status": "failed",
-  "errorDetails": {
-    "code": "131047",
-    "title": "Re-engagement message",
-    "message": "Message failed to send because more than 24 hours have passed."
-  }
-}
-```
-
-Códigos comuns (referência completa em [developers.facebook.com](https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes)):
-
-| `code` | Significado | Ação |
+| Campo | Tipo | Descrição |
 |---|---|---|
-| `131026` | Receptor não recebe | Número sem WhatsApp ou bloqueou seu número. |
-| `131047` | Janela 24h expirada | Use template HSM. |
-| `132000` | Template pausado | Aguarde reativação ou crie outro. |
-| `133010` | Limite de tier excedido | Aguarde reset diário ou suba de tier (warming). |
+| `id` | string | ID da mensagem, o mesmo devolvido no envio. |
+| `messageId` | string (UUID) | ID interno de banco. |
+| `internalId` | string | Igual a `id`. |
+| `providerSid` | string \| null | ID da mensagem no provedor (`wamid`). |
+| `status` | string | `queued`, `scheduled`, `processing`, `sent`, `delivered`, `read`, `failed` ou `canceled`. |
+| `receiver`, `sender` | string | Destinatário e remetente. |
+| `errorDetails` | string \| object \| null | Motivo da falha. Ver abaixo. |
+
+`queued` corresponde ao `PENDING` da API. `sent` cobre também o estado técnico `SENT_TO_PROVIDER`.
+
+Quando `status` é `failed`, `errorDetails` traz o motivo **traduzido pela Arara**, e não o objeto cru da Meta:
+
+- Números no provedor atual (Meta via Gupshup): **string** com o que aconteceu e o que fazer.
+
+  ```json
+  { "status": "failed", "errorDetails": "Passaram-se mais de 24h desde a última mensagem do cliente. A Meta exige um Template Aprovado para reabrir a conversa. Envie um Template Message para reabrir a janela de conversa com este cliente." }
+  ```
+
+- Números legados (Twilio): **objeto** com `code`, `whatHappened` e `howToAct`.
+
+  ```json
+  { "status": "failed", "errorDetails": { "code": "ararahq-invalid-number", "whatHappened": "Número inválido ou sem WhatsApp...", "howToAct": "Verifique se o número está correto..." } }
+  ```
+
+Trate os dois formatos com type guard. O catálogo de motivos está em [Por que minha mensagem falhou](/erros-de-envio).
 
 ### `message.received`
 
-Cliente respondeu ou iniciou conversa.
+O cliente mandou mensagem para um número próprio da organização.
 
 ```json
 {
   "event": "message.received",
   "data": {
     "id": "wamid.HBgL...",
-    "from": "+5511999999999",
-    "to": "+5511888888888",
-    "body": "ok recebi",
+    "from": "5511999999999",
+    "to": "5511888888888",
+    "body": "ok, recebi",
     "type": "text",
     "media_url": "",
+    "media_type": "text",
+    "media_content_type": "",
+    "transcription_summary": "",
     "sender_name": "João Silva",
-    "timestamp": "2026-05-18T14:36:00Z",
-    "provider": "twilio"
+    "timestamp": "2026-09-15T14:36:00Z",
+    "provider": "META"
   }
 }
 ```
 
 | Campo | Descrição |
 |---|---|
-| `id` | ID da mensagem no provider (WhatsApp `wamid`). |
-| `from` | Telefone do cliente (E.164). |
-| `to` | Seu número dedicado que recebeu. |
-| `body` | Texto da mensagem. Vazio quando é só mídia. |
+| `id` | ID da mensagem no provedor. |
+| `from` | Telefone do cliente, só dígitos (sem `+`). |
+| `to` | Seu número, só dígitos. |
+| `body` | Texto. Vazio quando é só mídia. |
 | `type` | `text` ou `media`. |
-| `media_url` | URL pra baixar a mídia. Vazio quando `type: text`. |
-| `sender_name` | Nome de perfil que o cliente tem no WhatsApp. |
-| `provider` | Provider que entregou o inbound (hoje `twilio`). |
+| `media_url` | URL da mídia. Vazio quando não há. |
+| `media_type` | `text`, `audio`, `image`, `video`, `document` ou `media`. |
+| `media_content_type` | MIME da mídia. |
+| `transcription_summary` | Resumo ou transcrição da mídia, quando disponível. |
+| `sender_name` | Nome de perfil do cliente no WhatsApp. |
+| `timestamp` | Quando a Arara processou a mensagem. |
+| `provider` | `META` ou `TWILIO`. |
+
+Não dispara para mensagem recebida no pool compartilhado, para palavras de opt-out ("SAIR", "PARAR", "STOP"...) nem para respostas de confirmação de agendamento.
+
+### `message.echo`
+
+Mensagem que **sua equipe** mandou pelo app do WhatsApp Business num número em coexistência. Permite manter o histórico completo no seu sistema.
+
+```json
+{
+  "event": "message.echo",
+  "data": {
+    "id": "ara_msg_x1Y2z3W",
+    "provider_id": "wamid.HBgL...",
+    "conversation_id": "3f1c9a2b-...",
+    "from": "5511888888888",
+    "to": "5511999999999",
+    "direction": "outbound",
+    "source": "whatsapp_app",
+    "body": "Oi João, já te ligo",
+    "type": "text",
+    "media_url": "",
+    "media_type": "text",
+    "media_content_type": "",
+    "transcription_summary": "",
+    "timestamp": "2026-09-15T14:37:00Z",
+    "provider": "META"
+  }
+}
+```
+
+Mesmos campos de `message.received`, com o sentido invertido (`from` é o seu número) e mais `provider_id`, `conversation_id` (vazio quando não há conversa), `direction` e `source`. `timestamp` é o horário do aparelho.
 
 ## Templates
 
 ### `template.updated`
 
-Qualquer mudança de status de template (aprovação, rejeição, pausa) dispara este evento único — use `status` em `data` pra ramificar.
+Mudança de status de template: aprovação, reprovação, pausa ou desativação, inclusive pausa automática feita pela Arara.
 
 ```json
 {
   "event": "template.updated",
   "data": {
-    "templateId": "0e4f3c1e-...",
+    "templateId": "a7f3c1e2-4b5d-6789-abcd-ef0123456789",
     "name": "blackfriday_v3",
-    "status": "APPROVED",
+    "status": "REJECTED",
     "category": "MARKETING",
-    "rejectionReason": null
+    "rejectionReason": "INVALID_FORMAT"
   }
 }
 ```
 
-`status` aceita os valores do provider: `APPROVED`, `REJECTED`, `PAUSED`, `PENDING`, `IN_APPEAL`, `DISABLED`. Quando `REJECTED`, `rejectionReason` traz o motivo da Meta.
+`status` traz o valor do provedor (`APPROVED`, `REJECTED`, `PAUSED`, `PENDING`, `DISABLED`...). `rejectionReason` vem preenchido em reprovações.
+
+### `template.category_changed`
+
+A Meta reclassificou a categoria. Pode mudar o preço por mensagem.
+
+```json
+{
+  "event": "template.category_changed",
+  "data": { "name": "aviso_pedido", "old": "UTILITY", "new": "MARKETING" }
+}
+```
+
+### `template.quality_updated`
+
+```json
+{
+  "event": "template.quality_updated",
+  "data": { "name": "blackfriday_v3", "quality": "LOW" }
+}
+```
 
 ## Campanhas
 
 ### `campaign.completed`
 
-Campanha terminou de disparar todos os envios (não confunde com todos entregues).
+A campanha terminou de processar todos os contatos. Não significa que todas as mensagens foram entregues.
 
 ```json
 {
   "event": "campaign.completed",
   "data": {
-    "id": "0e4f3c1e-...",
-    "name": "blackfriday-2026",
-    "status": "completed",
+    "id": "7b3789fb-4c5d-6789-abcd-ef0123456789",
+    "name": "Black Friday 2026",
+    "status": "completed_with_errors",
     "totalMessages": 12500,
-    "totalCost": 1486.40
+    "totalCost": 4793.75
   }
 }
 ```
 
-Pra métricas detalhadas (entregues, lidos, conversões), faça `GET /v1/campaigns/{id}` depois de receber o evento.
+| Campo | Descrição |
+|---|---|
+| `status` | `completed`, `completed_with_errors` ou `failed`. Confira sempre: o nome do evento é o mesmo nos três casos. |
+| `totalMessages` | Contatos da campanha. |
+| `totalCost` | Valor debitado, em reais. |
 
-## Conversas (Brain)
+Enquanto a campanha está em `AB_TESTING`, o evento não dispara. Cancelamento também não dispara este evento. Para métricas detalhadas, consulte `GET /v1/campaigns/{id}`.
+
+## Conversas
 
 ### `conversation.needs_human`
 
-Brain decidiu escalar uma conversa pra humano (urgência, reclamação, fora do escopo, guardian bloqueou).
+O Brain passou a conversa para atendimento humano.
 
 ```json
 {
   "event": "conversation.needs_human",
   "data": {
-    "handoffId": "ara_handoff_xyz",
-    "conversationId": "0e4f3c1e-...",
-    "reason": "URGENT",
-    "summary": "Cliente pedindo cancelamento imediato; ameaçou abrir reclamação.",
-    "createdAt": "2026-05-18T14:36:00Z"
+    "handoffId": "ara_hof_Hk3mP9q",
+    "conversationId": "3f1c9a2b-...",
+    "reason": "CUSTOMER_REQUEST",
+    "summary": "Cliente pediu para falar com atendente sobre troca.",
+    "createdAt": "2026-09-15T14:36:00Z"
   }
 }
 ```
 
-`reason` aceita: `URGENT`, `COMPLAINT`, `OUT_OF_SCOPE`, `GUARDIAN_BLOCK`.
+`reason` é texto livre. Valores comuns: `CUSTOMER_REQUEST`, `LOW_CONFIDENCE`, `MAX_MESSAGES`, `QUOTA_EXCEEDED`, `LEAD_QUALIFIED_HOT`, e motivos escritos pelo próprio Brain. `conversationId` pode vir `null`.
 
-Pra fechar o loop, marca o handoff como resolvido:
+Para encerrar o atendimento: `POST /v1/brain/handoffs/{handoffId}/resolve` (chave `ADMIN`).
 
-```bash
-curl -X POST https://api.ararahq.com/v1/brain/handoffs/{handoffId}/resolve \
-  -H "Authorization: Bearer ara_live_xxx"
+## Número e conta WhatsApp
+
+### `number.status`
+
+```json
+{
+  "event": "number.status",
+  "data": { "status": "BANNED", "reason": "Violação de política", "phone": "5511888888888" }
+}
 ```
+
+| `status` | Campos extras | Quando |
+|---|---|---|
+| `BANNED` | `reason`, `phone` | A Meta baniu o número. Envio bloqueado. |
+| `RESTRICTED` | `restriction`, `phone` | A Meta restringiu o número. |
+| `ACTIVE` | `phone` | A Meta reabilitou o número. |
+| `ONBOARDING_ERROR` | `reason` | A conexão do número não foi concluída. |
+
+### `number.tier_updated`
+
+Limite de envio ou sinalização de qualidade mudou.
+
+```json
+{
+  "event": "number.tier_updated",
+  "data": { "event": "upgrade", "tier": "TIER_10K" }
+}
+```
+
+`event` é o evento da Meta em minúsculas (contém `flagged` quando a qualidade caiu, `unflagged` quando voltou). `tier` é `TIER_50`, `TIER_250`, `TIER_1K`, `TIER_2K`, `TIER_10K`, `TIER_100K`, `UNLIMITED` ou vazio.
+
+### `number.name_status`
+
+```json
+{
+  "event": "number.name_status",
+  "data": { "decision": "approved", "reason": "" }
+}
+```
+
+### `account.review`
+
+```json
+{
+  "event": "account.review",
+  "data": { "decision": "APPROVED" }
+}
+```
+
+### `account.capability`
+
+```json
+{
+  "event": "account.capability",
+  "data": { "maxDailyConversationPerPhone": "1000", "maxPhoneNumbersPerBusiness": "2" }
+}
+```
+
+Os valores vêm como string.
+
+## NFS-e
+
+### `nfse.invoice.authorized`, `nfse.invoice.rejected`, `nfse.invoice.cancelled`, `nfse.invoice.error`
+
+Mudança de status de nota fiscal de serviço emitida pela Arara. `data` é o objeto da nota:
+
+| Campo | Descrição |
+|---|---|
+| `id`, `emitterId` | Identificadores da nota e do emissor. |
+| `status` | `AUTHORIZED`, `REJECTED`, `CANCELLED` ou `ERROR`. |
+| `environment` | Ambiente da emissão. |
+| `dpsSeries`, `dpsNumber`, `dpsId` | Identificação da DPS. |
+| `competenceDate` | Competência. |
+| `service` | Código, descrição, valor, retenção de ISS e município. |
+| `taker` | Tomador, quando informado. |
+| `chaveAcesso` | Chave de acesso, quando autorizada. |
+| `errors` | Erros da SEFIN, quando rejeitada. |
+| `authorizedAt`, `cancelledAt`, `cancelReason` | Datas e motivo. |
+| `whatsappMessageId` | ID da mensagem de entrega da nota, quando enviada por WhatsApp. |
+| `createdAt` | Criação. |
 
 ## Diagnóstico
 
 ### `webhook.test`
 
-Evento sintético disparado pelo botão **"Disparar teste"** em **Dashboard → Webhooks**, ou via `POST /v1/webhooks/deliveries/test`. Útil pra validar URL, HMAC e ACK do seu lado antes de habilitar eventos reais. Cria delivery real no histórico mas sem efeito colateral em mensagens, templates ou campanhas.
+Disparado pelo botão de teste na tela de Webhooks do painel. Gera uma entrega real no histórico, sem efeito em mensagens, templates ou campanhas.
 
 ```json
 {
@@ -196,7 +336,7 @@ Evento sintético disparado pelo botão **"Disparar teste"** em **Dashboard → 
   "data": {
     "test": true,
     "message": "Este é um teste disparado pelo dashboard. Se você está vendo isso, sua URL funciona.",
-    "dispatchedAt": "2026-05-25T17:00:00Z"
+    "dispatchedAt": "2026-09-15T17:00:00Z"
   }
 }
 ```
@@ -204,10 +344,10 @@ Evento sintético disparado pelo botão **"Disparar teste"** em **Dashboard → 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Como configurar webhook" icon="gear" href="/webhooks">
-    URL, HMAC, retry, dedupe.
+  <Card title="Configurar webhook" icon="gear" href="/webhooks">
+    Assinatura, retry e dedupe.
   </Card>
-  <Card title="Inspecionar entregas" icon="list" href="/api-reference/endpoint/v2/messages">
-    Pra ver o histórico de entregas, use o dashboard em **Webhooks → Histórico**.
+  <Card title="Por que minha mensagem falhou" icon="triangle-exclamation" href="/erros-de-envio">
+    O que cada motivo de falha significa.
   </Card>
 </CardGroup>

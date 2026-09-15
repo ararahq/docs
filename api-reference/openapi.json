@@ -1,98 +1,3697 @@
 {
-  "openapi": "3.1.0",
+  "openapi": "3.0.3",
   "info": {
-    "title": "Arara API",
-    "description": "API definitiva para comunicação via WhatsApp no Brasil. Simples, robusta e focada no desenvolvedor.",
-    "version": "1.0.0",
+    "title": "AraraHQ API",
+    "description": "API REST da AraraHQ para WhatsApp: envio de mensagens, templates, campanhas,\ncontatos, opt-out, conversas, smart links, carteira e webhooks.\n\nEsta especificação cobre só os endpoints que aceitam **API key**\n(`Authorization: Bearer ara_live_...`). Rotas usadas apenas pelo painel\n(sessão de usuário), como gestão de chaves, configuração do webhook,\npagamentos e perfil pessoal, ficam de fora.\n\n## Autenticação\n\nHeader `Authorization: Bearer ara_live_...`. As chaves são sempre LIVE:\nmensagens são entregues de verdade e o custo sai da carteira.\n\n## Permissões da chave\n\nChave criada sem permissões explícitas tem acesso total (`ADMIN`). Chave\ncom permissões restritas só alcança:\n\n- `READ`: `GET` em `/v1/messages`, `/v1/campaigns`, `/v1/templates` e\n  `/v1/organizations/me/numbers`.\n- `MESSAGES_SEND`: escrita em `/v1/messages/**` e `POST /v1/media/upload`.\n- `TEMPLATES_WRITE`: escrita em `/v1/templates/**`.\n- `CAMPAIGNS_SEND`: escrita em `/v1/campaigns/**`.\n- `CONTACTS_WRITE`: escrita em `/v1/contacts/**`.\n- `WEBHOOKS_MANAGE`: escrita em `/webhook/**`.\n\nQualquer outra rota exige `ADMIN`. Fora do escopo, a resposta é `403`.\n\n## Rate limit\n\nPor usuário da chave, por instância da API: 1.200 leituras (`GET`) por\nminuto e 3.000 escritas por minuto (valor de produção). Toda resposta traz\n`X-RateLimit-Remaining`. Acima do limite: `429` com `Retry-After: 1` e\n`error.code = RATE_LIMIT_EXCEEDED`. Há ainda limites de envio próprios\n(`SEND_RATE_LIMITED`, `MARKETING_FREQUENCY_EXCEEDED`).\n\n## Formato de erro\n\n```json\n{ \"error\": { \"code\": \"ERROR_CODE\", \"message\": \"Descrição\", \"details\": {} } }\n```\n\nExceções conhecidas: falha de autenticação volta no formato padrão do\nSpring (`timestamp`, `status`, `error`, `path`, sem `code`), e alguns `404`\nvoltam sem corpo. Veja a página Erros.\n",
+    "version": "2.1.0",
     "contact": {
-      "email": "suporte@ararahq.com"
+      "name": "AraraHQ",
+      "url": "https://ararahq.com",
+      "email": "oi@ararahq.com"
     }
   },
   "servers": [
     {
       "url": "https://api.ararahq.com",
-      "description": "Servidor de Produção"
+      "description": "Produção"
     }
   ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "account",
+      "description": "Identidade do dono da chave."
+    },
+    {
+      "name": "messages",
+      "description": "Envio e consulta de mensagens WhatsApp."
+    },
+    {
+      "name": "media",
+      "description": "Upload de mídia para usar em templates."
+    },
+    {
+      "name": "templates",
+      "description": "Criação, listagem, status e analytics de templates."
+    },
+    {
+      "name": "campaigns",
+      "description": "Disparo em massa, estimativa, agendamento, cancelamento e teste A/B."
+    },
+    {
+      "name": "contacts",
+      "description": "Base de contatos e direitos LGPD do titular."
+    },
+    {
+      "name": "opt-outs",
+      "description": "Registro e consulta de opt-out por telefone."
+    },
+    {
+      "name": "conversations",
+      "description": "Conversas, mensagens da thread, resposta na janela de 24h."
+    },
+    {
+      "name": "smart-links",
+      "description": "Links wa.me rastreáveis com QR code."
+    },
+    {
+      "name": "numbers",
+      "description": "Números WhatsApp da organização."
+    },
+    {
+      "name": "business-profile",
+      "description": "Perfil comercial exibido no WhatsApp."
+    },
+    {
+      "name": "wallet",
+      "description": "Saldo, extrato, recarga automática e simulação de recarga."
+    },
+    {
+      "name": "pricing",
+      "description": "Preço por categoria e custo Meta por mercado."
+    },
+    {
+      "name": "organization",
+      "description": "Plano atual da organização."
+    },
+    {
+      "name": "phone-lookup",
+      "description": "Consulta de linha e WhatsApp (cobrada)."
+    },
+    {
+      "name": "recovery",
+      "description": "Endpoint de recuperação (carrinho abandonado, PIX, boleto)."
+    },
+    {
+      "name": "dashboard",
+      "description": "Histórico de mensagens e métricas agregadas."
+    },
+    {
+      "name": "legacy",
+      "description": "Rotas antigas mantidas por compatibilidade."
+    },
+    {
+      "name": "health",
+      "description": "Health check."
+    }
+  ],
+  "paths": {
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "getCurrentUser",
+        "summary": "Usuário dono da chave",
+        "description": "Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Usuário",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/auth/me/organizations": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "getMyOrganizations",
+        "summary": "Organizações do dono da chave",
+        "description": "Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Organizações",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/messages": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "sendMessage",
+        "summary": "Envia uma mensagem",
+        "description": "Aceita exatamente **um** conteúdo: `templateName`, `body`,\n`interactive`, `location` ou `reaction`. Responde `202` com o ID\ninterno; o status final chega pelo webhook `message.status_updated`.\n\n`Idempotency-Key` (opcional, até 255 caracteres): a mesma chave, para o\nmesmo usuário, devolve a mensagem já criada, sem novo envio nem nova\ncobrança. A chave não expira e o corpo não é comparado.\n\nPermissão: `MESSAGES_SEND`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyOptional"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Mensagem aceita",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "getBatchMessages",
+        "summary": "Mensagens de um lote",
+        "description": "Devolve as mensagens criadas por `POST /v1/messages/batch`. O parâmetro\n`batchId` é obrigatório nesta rota. Permissão: `READ`.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "batchId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mensagens do lote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MessageResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/messages/batch": {
+      "post": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "sendBatchMessages",
+        "summary": "Envia até 1000 mensagens do mesmo template",
+        "description": "Um template, até 1000 destinatários. Com `Idempotency-Key`, repetir a\nchamada devolve o lote original sem reenviar. Permissão: `MESSAGES_SEND`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyOptional"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Lote aceito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchMessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/v1/messages/{internalId}": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "operationId": "getMessage",
+        "summary": "Consulta uma mensagem",
+        "description": "Só devolve mensagens enviadas pelo mesmo usuário dono da chave. Mensagem\nde outro membro da organização responde `403` sem corpo.\nPermissão: `READ`.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "internalId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID retornado no envio (campo `id`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mensagem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Mensagem de outro usuário (sem corpo) ou chave sem permissão."
+          },
+          "404": {
+            "description": "Mensagem não encontrada (sem corpo)."
+          }
+        }
+      }
+    },
+    "/v1/media/upload": {
+      "post": {
+        "tags": [
+          "media"
+        ],
+        "operationId": "uploadMedia",
+        "summary": "Faz upload de imagem ou PDF",
+        "description": "Imagem até 5 MB ou PDF até 100 MB. Use a `url` devolvida como variável\nde cabeçalho do template. Permissão: `MESSAGES_SEND`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Arquivo salvo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "url",
+                    "directUrl"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "description": "Link curto público do arquivo."
+                    },
+                    "directUrl": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tipo ou tamanho inválido. Corpo `{ \"error\": \"mensagem\" }`."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/templates": {
+      "post": {
+        "tags": [
+          "templates"
+        ],
+        "operationId": "createTemplate",
+        "summary": "Cria e submete um template para aprovação",
+        "description": "Exige conta ativa (`ACCOUNT_NOT_ACTIVATED` caso contrário) e respeita o\nlimite de templates aprovados do plano (`PLAN_LIMIT_REACHED`).\nO status inicial fica em `providerStatus`. Permissão: `TEMPLATES_WRITE`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Template criado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "templates"
+        ],
+        "operationId": "listTemplates",
+        "summary": "Lista templates da organização",
+        "description": "Paginado em `{ data, pagination }`. Permissão: `READ`.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "name",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Nome exato. Devolve no máximo 1 item."
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "APPROVED"
+            },
+            "description": "Filtra por `providerStatus` (sem diferenciar maiúsculas)."
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "$ref": "#/components/parameters/WabaIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplatePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/templates/{id}": {
+      "get": {
+        "tags": [
+          "templates"
+        ],
+        "operationId": "getTemplate",
+        "summary": "Consulta um template",
+        "description": "Permissão: `READ`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "templates"
+        ],
+        "operationId": "deleteTemplate",
+        "summary": "Apaga um template",
+        "description": "Apaga primeiro no provedor (Meta) e depois na Arara. Se o provedor\nrecusar, nada é apagado. Permissão: `TEMPLATES_WRITE`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Apagado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/templates/{id}/status": {
+      "get": {
+        "tags": [
+          "templates"
+        ],
+        "operationId": "getTemplateStatus",
+        "summary": "Status de aprovação",
+        "description": "Para templates Gupshup devolve o status mantido pelo webhook do provedor;\npara templates Twilio consulta o provedor na hora. Permissão: `READ`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/templates/{id}/analytics": {
+      "get": {
+        "tags": [
+          "templates"
+        ],
+        "operationId": "getTemplateAnalytics",
+        "summary": "Métricas de envio de um template",
+        "description": "Permissão: `READ`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          },
+          {
+            "$ref": "#/components/parameters/AnalyticsPeriod"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Métricas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateAnalyticsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/templates/analytics": {
+      "get": {
+        "tags": [
+          "templates"
+        ],
+        "operationId": "getTemplatesAnalytics",
+        "summary": "Métricas de todos os templates",
+        "description": "Uma linha por nome de template enviado no período. Permissão: `READ`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AnalyticsPeriod"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Métricas por template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateAnalyticsBatchItem"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/templates/library": {
+      "get": {
+        "tags": [
+          "templates"
+        ],
+        "operationId": "listLibraryTemplates",
+        "summary": "Templates pré-aprovados da biblioteca da Meta",
+        "description": "Templates `UTILITY` que a Meta já aprovou. Exige número conectado.\nPermissão: `READ`.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "languageCode",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "pt_BR"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Templates da biblioteca",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LibraryTemplateResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "templates"
+        ],
+        "operationId": "createTemplateFromLibrary",
+        "summary": "Cria template a partir da biblioteca",
+        "description": "Nasce aprovado, sem a espera da revisão. Permissão: `TEMPLATES_WRITE`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLibraryTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Template criado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/templates/sync": {
+      "post": {
+        "tags": [
+          "templates"
+        ],
+        "operationId": "syncTemplates",
+        "summary": "Sincroniza templates com o provedor",
+        "description": "Importa templates criados direto no gerenciador da Meta e corrige\nstatus e categoria divergentes. Sem número conectado responde `422`\n`GUPSHUP_APP_NOT_READY`. Permissão: `TEMPLATES_WRITE`.\n",
+        "responses": {
+          "200": {
+            "description": "Resultado da sincronização",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "imported",
+                    "updated",
+                    "unchanged",
+                    "skipped"
+                  ],
+                  "properties": {
+                    "imported": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "updated": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "unchanged": {
+                      "type": "integer"
+                    },
+                    "skipped": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/campaigns": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "operationId": "createCampaign",
+        "summary": "Cria uma campanha",
+        "description": "Valida template e variáveis, reserva a cota do plano e debita o custo\ntotal da carteira antes de enfileirar. Exige número dedicado conectado.\n\n- `Idempotency-Key` é obrigatório. Repetir a chave devolve a campanha\n  já criada.\n- `scheduledAt` agenda o disparo (entre 5 minutos e 30 dias à frente).\n- `abTest` cria o teste A/B junto com a campanha: `templateName` é a\n  variante A.\n\nPermissão: `CAMPAIGNS_SEND`.\n",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "description": "Identificador único da campanha (UUID recomendado)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Campanha criada (ou existente, se a chave já foi usada)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "500": {
+            "description": "`Idempotency-Key` ausente hoje cai no handler genérico e responde 500.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "operationId": "listCampaigns",
+        "summary": "Lista campanhas",
+        "description": "Envelope `{ content, totalPages, totalElements }` (não segue o padrão\n`{ data, pagination }`). Permissão: `READ`.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CampaignStatus"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/WabaIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de campanhas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/campaigns/estimate": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "operationId": "estimateCampaign",
+        "summary": "Estima custo por quantidade de destinatários",
+        "description": "Usa o preço de referência do mercado local. Para campanha com números\nde vários países, use o `POST`. `templateName` aceita nome ou ID.\nPermissão: `READ`.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "templateName",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "count",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estimativa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignEstimateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "operationId": "estimateCampaignByPhones",
+        "summary": "Estima custo exato pela lista de telefones",
+        "description": "Calcula o preço por país de destino e devolve a quebra em `markets`.\nNão cria nada nem debita. Permissão: `CAMPAIGNS_SEND`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignEstimateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Estimativa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignEstimateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/campaigns/{id}": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "operationId": "getCampaign",
+        "summary": "Detalhe da campanha com métricas",
+        "description": "Permissão: `READ`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CampaignId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalhe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignDetailResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/campaigns/{id}/cancel": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "operationId": "cancelCampaign",
+        "summary": "Cancela uma campanha",
+        "description": "Marca `CANCELED` e estorna na carteira os contatos que ainda não viraram\nmensagem. Mensagens já enfileiradas seguem. Campanha em `COMPLETED`,\n`COMPLETED_WITH_ERRORS`, `CANCELED` ou `FAILED` responde `422`.\nPermissão: `CAMPAIGNS_SEND`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CampaignId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelada"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/campaigns/{campaignId}/ab-test": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "operationId": "createCampaignAbTest",
+        "summary": "Adiciona teste A/B a uma campanha existente",
+        "description": "Prefira o campo `abTest` no `POST /v1/campaigns`: lá o teste nasce na\nmesma transação da campanha. Criado depois, a expansão pode já ter\ndisparado contatos sem o teste. Permissão: `CAMPAIGNS_SEND`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CampaignIdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAbTestRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Teste criado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AbTestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`INVALID_AB_TEST` (métrica ou split inválido).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Campanha não encontrada (sem corpo)."
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "operationId": "getCampaignAbTest",
+        "summary": "Consulta o teste A/B da campanha",
+        "description": "Permissão: `READ`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CampaignIdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Teste A/B",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AbTestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Campanha ou teste não encontrado (sem corpo)."
+          }
+        }
+      }
+    },
+    "/v1/campaigns/{campaignId}/ab-test/winner": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "operationId": "forceCampaignAbTestWinner",
+        "summary": "Força a variante vencedora",
+        "description": "Define o vencedor (`decidedReason = FORCED_MANUAL`) e libera os contatos\nque aguardavam o resultado. Permissão: `CAMPAIGNS_SEND`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CampaignIdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForceWinnerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vencedor aplicado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AbTestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`INVALID_WINNER`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Campanha ou teste não encontrado (sem corpo)."
+          }
+        }
+      }
+    },
+    "/v1/contacts": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "listContacts",
+        "summary": "Lista contatos",
+        "description": "Envelope `{ contacts, total, page, size, totalPages }`. Exige plano com\ncontatos (`PLAN_FEATURE_LOCKED`). Permissão: `ADMIN`.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Busca por nome, telefone ou email."
+          },
+          {
+            "in": "query",
+            "name": "lifecycle",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
+            }
+          },
+          {
+            "$ref": "#/components/parameters/WabaIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de contatos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactsListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/contacts/batch": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "importContactsBatch",
+        "summary": "Cria ou atualiza contatos em lote",
+        "description": "Corpo é um array (até 5.000 itens). Permissão: `CONTACTS_WRITE`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WabaIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "maxItems": 5000,
+                "items": {
+                  "$ref": "#/components/schemas/ContactRequest"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultado da importação",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactsBatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/contacts/stats": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "getContactsStats",
+        "summary": "Contagem de contatos por estágio",
+        "description": "Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Contagens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactsStatsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/contacts/{phone}": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "getContactByPhone",
+        "summary": "Busca contato por telefone",
+        "description": "Telefone E.164 com `+`. Contato inexistente responde hoje `422`\n`UNPROCESSABLE_ENTITY`, não `404`. Permissão: `ADMIN`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PhonePath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "updateContact",
+        "summary": "Atualiza nome, email ou tags",
+        "description": "Permissão: `CONTACTS_WRITE`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PhonePath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactPatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contato atualizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/contacts/{phone}/messages": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "getContactMessages",
+        "summary": "Últimas mensagens trocadas com o contato",
+        "description": "Permissão: `ADMIN`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PhonePath"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mensagens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactMessagesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/contacts/{phone}/lgpd/export": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "exportContactLgpd",
+        "summary": "Exporta os dados do titular (LGPD)",
+        "description": "Contato, conversa e até 1.000 mensagens. Permissão: `ADMIN`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PhonePath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dados do titular",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LgpdExport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidPhone"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/contacts/{phone}/lgpd": {
+      "delete": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "deleteContactLgpd",
+        "summary": "Apaga os dados do titular (LGPD)",
+        "description": "Irreversível. Mascara o conteúdo das mensagens e da conversa, apaga o\ncontato e registra opt-out. Permissão: `CONTACTS_WRITE`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PhonePath"
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultado da remoção",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LgpdDeletionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidPhone"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/opt-outs": {
+      "get": {
+        "tags": [
+          "opt-outs"
+        ],
+        "operationId": "listOptOuts",
+        "summary": "Lista opt-outs da organização",
+        "description": "Sem paginação. Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Opt-outs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "total"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OptOutItem"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "opt-outs"
+        ],
+        "operationId": "createOptOut",
+        "summary": "Registra opt-out",
+        "description": "Idempotente: telefone já registrado devolve o registro existente. Permissão: `ADMIN`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+5511999998888"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Opt-out registrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptOutItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidPhone"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/opt-outs/{phone}": {
+      "get": {
+        "tags": [
+          "opt-outs"
+        ],
+        "operationId": "checkOptOut",
+        "summary": "Consulta se o telefone está em opt-out",
+        "description": "Permissão: `ADMIN`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PhonePath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Situação",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "phone",
+                    "channel",
+                    "optedOut"
+                  ],
+                  "properties": {
+                    "phone": {
+                      "type": "string"
+                    },
+                    "channel": {
+                      "type": "string",
+                      "example": "WHATSAPP"
+                    },
+                    "optedOut": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidPhone"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "opt-outs"
+        ],
+        "operationId": "deleteOptOut",
+        "summary": "Remove o opt-out (opt-in)",
+        "description": "Permissão: `ADMIN`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PhonePath"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removido"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidPhone"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/conversations": {
+      "get": {
+        "tags": [
+          "conversations"
+        ],
+        "operationId": "listConversations",
+        "summary": "Lista conversas",
+        "description": "Exige plano com caixa de entrada e número dedicado. Envelope\n`{ content, page, size, totalElements, totalPages }`. Permissão: `ADMIN`.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "CLOSED",
+                "ARCHIVED"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "leadStatus",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "EXPIRED"
+              ]
+            },
+            "description": "`OPEN` só conversas respondíveis; `EXPIRED` só as que exigem template."
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 20
+            }
+          },
+          {
+            "$ref": "#/components/parameters/WabaIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de conversas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/conversations/{conversationId}/messages": {
+      "get": {
+        "tags": [
+          "conversations"
+        ],
+        "operationId": "listConversationMessages",
+        "summary": "Mensagens da conversa",
+        "description": "`page=0` traz as mais recentes; dentro da página a ordem é cronológica.\nPermissão: `ADMIN`.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de mensagens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationMessagesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Conversa não encontrada (sem corpo)."
+          }
+        }
+      }
+    },
+    "/v1/conversations/reply": {
+      "post": {
+        "tags": [
+          "conversations"
+        ],
+        "operationId": "replyToConversation",
+        "summary": "Responde com texto livre dentro da janela de 24h",
+        "description": "Janela fechada responde `400` com `{ \"error\": \"...\" }`: envie um\ntemplate para reabrir. Falha de envio aparece em `status`/`reason`.\nPermissão: `ADMIN`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationReplyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultado do envio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationReplyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Janela expirada ou erro de envio. Corpo `{ \"error\": \"mensagem\" }`."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Conversa não encontrada (sem corpo)."
+          }
+        }
+      }
+    },
+    "/v1/conversations/{conversationId}/status": {
+      "patch": {
+        "tags": [
+          "conversations"
+        ],
+        "operationId": "updateConversationStatus",
+        "summary": "Abre, fecha ou arquiva uma conversa",
+        "description": "Não apaga histórico. Permissão: `ADMIN`.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "OPEN",
+                      "CLOSED",
+                      "ARCHIVED"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status aplicado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Status inválido. Corpo `{ \"error\": \"mensagem\" }`."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Conversa não encontrada (sem corpo)."
+          }
+        }
+      }
+    },
+    "/v1/conversations/window-status": {
+      "post": {
+        "tags": [
+          "conversations"
+        ],
+        "operationId": "getWindowStatus",
+        "summary": "Situação da janela de 24h por telefone",
+        "description": "Até 200 telefones por chamada; o excedente é ignorado e `truncated`\nvolta `true`. O telefone precisa estar no mesmo formato gravado na\nconversa. Permissão: `ADMIN`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WindowStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Situação por telefone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WindowStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/smart-links/whatsapp": {
+      "post": {
+        "tags": [
+          "smart-links"
+        ],
+        "operationId": "createSmartLink",
+        "summary": "Cria um smart link de WhatsApp",
+        "description": "Permissão: `ADMIN`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSmartLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Smart link criado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartLinkResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "smart-links"
+        ],
+        "operationId": "listSmartLinks",
+        "summary": "Lista smart links",
+        "description": "Paginado em `{ data, pagination }`. Permissão: `ADMIN`.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de smart links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartLinkPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/smart-links/whatsapp/{id}": {
+      "put": {
+        "tags": [
+          "smart-links"
+        ],
+        "operationId": "updateSmartLink",
+        "summary": "Atualiza nome, texto ou cor do QR code",
+        "description": "O telefone não muda. Permissão: `ADMIN`.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSmartLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Smart link atualizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartLinkResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/smart-links/whatsapp/{id}/stats": {
+      "get": {
+        "tags": [
+          "smart-links"
+        ],
+        "operationId": "getSmartLinkStats",
+        "summary": "Total de cliques",
+        "description": "Permissão: `ADMIN`.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cliques",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "linkId",
+                    "totalClicks"
+                  ],
+                  "properties": {
+                    "linkId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "totalClicks": {
+                      "type": "integer",
+                      "format": "int64"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Smart link não encontrado (sem corpo)."
+          }
+        }
+      }
+    },
+    "/v1/organizations/me/numbers": {
+      "get": {
+        "tags": [
+          "numbers"
+        ],
+        "operationId": "listNumbers",
+        "summary": "Números ativos da organização",
+        "description": "Inclui qualidade, tier e uso do plano. Permissão: `READ`.",
+        "responses": {
+          "200": {
+            "description": "Números e slot do plano",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NumbersResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/organizations/me/business-profile": {
+      "get": {
+        "tags": [
+          "business-profile"
+        ],
+        "operationId": "getBusinessProfile",
+        "summary": "Lê o perfil comercial",
+        "description": "Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Perfil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "business-profile"
+        ],
+        "operationId": "updateBusinessProfile",
+        "summary": "Atualiza o perfil comercial",
+        "description": "Salva localmente e marca `metaSyncStatus = PENDING`. Para publicar no\nWhatsApp, chame `/sync`. Permissão: `ADMIN`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessProfilePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Perfil atualizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`INVALID_VERTICAL`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/organizations/me/business-profile/sync": {
+      "post": {
+        "tags": [
+          "business-profile"
+        ],
+        "operationId": "syncBusinessProfile",
+        "summary": "Publica o perfil no provedor",
+        "description": "Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Resultado da publicação",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Perfil ainda não criado (sem corpo)."
+          }
+        }
+      }
+    },
+    "/dashboard/wallet/balance": {
+      "get": {
+        "tags": [
+          "wallet"
+        ],
+        "operationId": "getWalletBalance",
+        "summary": "Saldo da carteira",
+        "description": "Valor em reais (decimal). Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Saldo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletBalanceResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/wallet/transactions": {
+      "get": {
+        "tags": [
+          "wallet"
+        ],
+        "operationId": "listWalletTransactions",
+        "summary": "Extrato da carteira",
+        "description": "Mais recentes primeiro. Permissão: `ADMIN`.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página do extrato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletTransactionPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/wallet/auto-recharge": {
+      "get": {
+        "tags": [
+          "wallet"
+        ],
+        "operationId": "getAutoRecharge",
+        "summary": "Configuração da recarga automática",
+        "description": "Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Configuração",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoRechargeSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Organização sem carteira (sem corpo)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "wallet"
+        ],
+        "operationId": "updateAutoRecharge",
+        "summary": "Altera a recarga automática",
+        "description": "Ativar exige cartão cadastrado (`409 CONFLICT` sem ele). Se o saldo já\nestiver no limite ao ativar, a cobrança acontece na hora.\nPermissão: `ADMIN`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAutoRechargeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuração atualizada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoRechargeSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        }
+      }
+    },
+    "/v1/wallet/calculate": {
+      "get": {
+        "tags": [
+          "wallet"
+        ],
+        "operationId": "calculateRecharge",
+        "summary": "Quantas mensagens um valor de recarga compra",
+        "description": "`amountCents` fora de 2.000 a 5.000.000 é ajustado ao limite mais\npróximo. Permissão: `ADMIN`.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "amountCents",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Simulação",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RechargeEstimate"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/pricing/current": {
+      "get": {
+        "tags": [
+          "pricing"
+        ],
+        "operationId": "getCurrentPricing",
+        "summary": "Preços vigentes da organização",
+        "description": "`categories` traz o preço de referência (BRL) no mercado local; o valor\ncobrado depende do país de destino. `markets` traz o custo Meta em USD.\nPermissão: `ADMIN`.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "market",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filtra `markets` por um mercado."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preços",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/organizations/me/plan": {
+      "get": {
+        "tags": [
+          "organization"
+        ],
+        "operationId": "getOrganizationPlan",
+        "summary": "Plano atual e preços de referência",
+        "description": "Valores em centavos. Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Plano",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanInfoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/phone-lookup": {
+      "post": {
+        "tags": [
+          "phone-lookup"
+        ],
+        "operationId": "phoneLookup",
+        "summary": "Consulta tipo de linha e WhatsApp de um número",
+        "description": "Cobra R$ 0,05 por consulta na carteira. Permissão: `ADMIN`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phoneNumber"
+                ],
+                "properties": {
+                  "phoneNumber": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LookupResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/phone-lookup/batch": {
+      "post": {
+        "tags": [
+          "phone-lookup"
+        ],
+        "operationId": "phoneLookupBatch",
+        "summary": "Consulta vários números",
+        "description": "Processa em série. Ao faltar saldo, para de cobrar e marca as linhas\nrestantes com `error = INSUFFICIENT_FUNDS`. Permissão: `ADMIN`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phoneNumbers"
+                ],
+                "properties": {
+                  "phoneNumbers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultados",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "results",
+                    "totalCharged",
+                    "insufficientFunds"
+                  ],
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LookupResult"
+                      }
+                    },
+                    "totalCharged": {
+                      "type": "number"
+                    },
+                    "insufficientFunds": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/recovery/endpoint": {
+      "get": {
+        "tags": [
+          "recovery"
+        ],
+        "operationId": "getRecoveryEndpoint",
+        "summary": "Lê (ou cria) o endpoint de recuperação",
+        "description": "Devolve o `hmacSecret`: trate como segredo. Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Endpoint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryEndpointResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "recovery"
+        ],
+        "operationId": "patchRecoveryEndpoint",
+        "summary": "Ativa ou desativa o endpoint",
+        "description": "Permissão: `ADMIN`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Endpoint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryEndpointResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/recovery/endpoint/regenerate": {
+      "post": {
+        "tags": [
+          "recovery"
+        ],
+        "operationId": "regenerateRecoveryEndpoint",
+        "summary": "Gera novo segredo HMAC",
+        "description": "Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Endpoint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryEndpointResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/recovery/events": {
+      "get": {
+        "tags": [
+          "recovery"
+        ],
+        "operationId": "listRecoveryEvents",
+        "summary": "Configurações por tipo de evento",
+        "description": "Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Configurações",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryEventsListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/recovery/events/{eventType}": {
+      "put": {
+        "tags": [
+          "recovery"
+        ],
+        "operationId": "upsertRecoveryEventConfig",
+        "summary": "Cria ou atualiza a configuração de um evento",
+        "description": "Deixar ativa conta contra o limite de automações do plano\n(`PLAN_LIMIT_REACHED`). Permissão: `ADMIN`.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "eventType",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Ex.: `cart.abandoned`, `pix.created`, `payment.failed`."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryEventConfigPatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuração",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryEventConfigResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/recovery/events/{eventType}/test": {
+      "post": {
+        "tags": [
+          "recovery"
+        ],
+        "operationId": "testRecoveryEvent",
+        "summary": "Dispara um evento de teste",
+        "description": "Envia mensagem real para o telefone do usuário dono da chave.\nPermissão: `ADMIN`.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "eventType",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryIngestResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/dashboard/messages": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "operationId": "getDashboardMessages",
+        "summary": "Histórico de mensagens da organização",
+        "description": "Envelope `{ messages, total, page, size, totalPages }`. Aqui o `status`\nsai sem tradução (inclui `SENT_TO_PROVIDER`). Permissão: `ADMIN`.\n",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "delivered",
+                "sent",
+                "read",
+                "failed",
+                "pending"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Busca textual."
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de mensagens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardMessagesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtro inválido. Corpo `{ \"error\": \"mensagem\" }`."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/dashboard/messages/{id}": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "operationId": "getDashboardMessageDetail",
+        "summary": "Detalhe de uma mensagem da organização",
+        "description": "Diferente de `GET /v1/messages/{internalId}`, vale para qualquer\nmensagem da organização e inclui variáveis e corpo. Permissão: `ADMIN`.\n",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalhe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardMessageDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Não encontrada. Corpo `{ \"error\": \"Message not found\" }`."
+          }
+        }
+      }
+    },
+    "/dashboard/metrics": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "operationId": "getDashboardMetrics",
+        "summary": "Métricas agregadas de envio",
+        "description": "Permissão: `ADMIN`.",
+        "responses": {
+          "200": {
+            "description": "Métricas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardMetricsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/webhook/cart": {
+      "post": {
+        "tags": [
+          "legacy"
+        ],
+        "operationId": "cartAbandonedWebhook",
+        "deprecated": true,
+        "summary": "Carrinho abandonado (legado)",
+        "description": "Rota anterior ao Recovery. Para integrações novas use o endpoint de\nrecuperação (`/v1/recovery/*`). Permissão: `WEBHOOKS_MANAGE`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CartAbandonedWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Aceito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartAbandonedWebhookResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "operationId": "health",
+        "summary": "Health check",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Serviço no ar",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "components": {
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "bearerFormat": "ara_live_...",
+        "description": "API key gerada no painel (`ara_live_...`)."
+      }
+    },
+    "parameters": {
+      "IdempotencyKeyOptional": {
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "description": "Chave de idempotência (1 a 255 caracteres, sem caracteres de controle)."
+      },
+      "WabaIdHeader": {
+        "in": "header",
+        "name": "X-Waba-Id",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Restringe o resultado a uma WABA da organização."
+      },
+      "TemplateId": {
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "CampaignId": {
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "CampaignIdPath": {
+        "in": "path",
+        "name": "campaignId",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "PhonePath": {
+        "in": "path",
+        "name": "phone",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\+[1-9]\\d{6,14}$"
+        },
+        "description": "Telefone E.164 com `+` (ex. `+5511999998888`)."
+      },
+      "AnalyticsPeriod": {
+        "in": "query",
+        "name": "period",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "7d",
+            "30d",
+            "90d"
+          ],
+          "default": "30d"
+        },
+        "description": "Valor fora da lista é tratado como `30d`."
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Payload inválido (`VALIDATION_ERROR`, `INVALID_JSON`, `INVALID_PATH_PARAM`, `INVALID_IDEMPOTENCY_KEY`).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InvalidPhone": {
+        "description": "`INVALID_PHONE`: telefone fora do E.164.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Chave inválida, revogada, expirada ou IP fora da allowlist.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SpringError"
+            }
+          }
+        }
+      },
+      "PaymentRequired": {
+        "description": "`INSUFFICIENT_FUNDS` (saldo) ou `PLAN_REQUIRED`.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Sem `Authorization` ou chave fora do escopo: corpo `SpringError`.\nRegra de negócio: corpo `Error` com `PLAN_FEATURE_LOCKED`,\n`PLAN_LIMIT_REACHED`, `ACCOUNT_NOT_ACTIVATED`, `NO_DEDICATED_NUMBER`,\n`ORGANIZATION_SUSPENDED`, `NUMBER_BLOCKED`, `FRAUD_SUSPECTED`,\n`RESOURCE_FORBIDDEN`, `VIEWER_READ_ONLY`.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "$ref": "#/components/schemas/SpringError"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "`TEMPLATE_NOT_FOUND`, `CAMPAIGN_NOT_FOUND` ou `NOT_FOUND`.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "`CONFLICT`, `PROVIDER_NOT_RESOLVED`, `IDEMPOTENCY_CONFLICT` ou `CONCURRENT_MODIFICATION`.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "UnprocessableEntity": {
+        "description": "Regra de negócio: `RECIPIENT_OPTED_OUT`, `INVALID_RECIPIENT`,\n`TEMPLATE_PAUSED`, `TEMPLATE_NOT_SENDABLE`, `TEMPLATE_VARIABLES_MISMATCH`,\n`CONVERSATION_WINDOW_CLOSED`, `SENDER_NOT_ALLOWED`, `UNPROCESSABLE_ENTITY`\nou um código de diagnóstico `ararahq-*` com `details.diagnostic`.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "`RATE_LIMIT_EXCEEDED`, `SEND_RATE_LIMITED` ou `MARKETING_FREQUENCY_EXCEEDED`.",
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Segundos a aguardar (ausente em `MARKETING_FREQUENCY_EXCEEDED`)."
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
       }
     },
     "schemas": {
-      "MessageRequest": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "INSUFFICIENT_FUNDS"
+              },
+              "message": {
+                "type": "string",
+                "nullable": true
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      },
+      "SpringError": {
+        "type": "object",
+        "description": "Corpo padrão do Spring em falhas de autenticação. Não tem `code`.",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "integer",
+            "example": 401
+          },
+          "error": {
+            "type": "string",
+            "example": "Unauthorized"
+          },
+          "path": {
+            "type": "string",
+            "example": "/v1/messages"
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "required": [
+          "page",
+          "size",
+          "totalElements",
+          "totalPages"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "required": [
+          "name",
+          "email"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "nullable": true,
+            "description": "Hoje sempre `null` nesta rota."
+          },
+          "emailPending": {
+            "type": "boolean"
+          }
+        }
+      },
+      "OrganizationItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role",
+          "mode"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "live",
+              "test"
+            ]
+          }
+        }
+      },
+      "OrganizationListResponse": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrganizationItem"
+            }
+          }
+        }
+      },
+      "SendMessageRequest": {
         "type": "object",
         "required": [
           "receiver"
         ],
+        "description": "Envie exatamente um entre `templateName`, `body`, `interactive`, `location` e `reaction`.",
         "properties": {
           "receiver": {
             "type": "string",
-            "description": "Número do destinatário no formato whatsapp:+55...",
-            "example": "whatsapp:+5511999999999"
+            "description": "Telefone E.164. Aceita `+5511999998888`, `5511999998888` ou `whatsapp:+5511999998888`.",
+            "example": "+5511999998888"
+          },
+          "sender": {
+            "type": "string",
+            "nullable": true,
+            "description": "Número remetente da organização. Omitido, usa o padrão."
+          },
+          "type": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "template",
+              "text",
+              "interactive",
+              "location",
+              "reaction"
+            ],
+            "description": "Opcional; inferido do conteúdo."
           },
           "templateName": {
             "type": "string",
-            "description": "Nome do template cadastrado no dashboard",
-            "example": "template_boas_vindas"
+            "nullable": true
           },
           "templateVariables": {
             "type": "array",
+            "nullable": true,
             "items": {
               "type": "string"
             },
-            "description": "Lista de variáveis para preencher o template (alias aceito: variables). Se o template tiver Header (Imagem/PDF), a URL deve ser enviada na primeira posição (templateVariables[0]).",
-            "example": [
-              "https://ararahq.com/l/FtFmja",
-              "João",
-              "R$ 100,00"
-            ]
+            "description": "Variáveis posicionais (alias `variables`). Template com mídia no\ncabeçalho recebe a URL na primeira posição. Não aceita quebra de\nlinha nem tab.\n"
+          },
+          "smartLinkParam": {
+            "type": "string",
+            "nullable": true
+          },
+          "smartLinkUrl": {
+            "type": "string",
+            "nullable": true
           },
           "body": {
             "type": "string",
-            "description": "Corpo da mensagem (apenas para mensagens de sessão)"
+            "nullable": true,
+            "description": "Texto livre. Só com a janela de 24h aberta."
+          },
+          "interactive": {
+            "$ref": "#/components/schemas/InteractivePayload"
+          },
+          "location": {
+            "$ref": "#/components/schemas/LocationPayload"
+          },
+          "reaction": {
+            "$ref": "#/components/schemas/ReactionPayload"
+          },
+          "replyTo": {
+            "type": "string",
+            "nullable": true,
+            "description": "ID da mensagem citada."
           },
           "scheduled_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Data e hora para agenciamento (ISO 8601)"
+            "nullable": true,
+            "description": "Agendamento. Aceita também `scheduledAt`."
+          },
+          "mode": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "LIVE"
+            ]
+          },
+          "media_url": {
+            "type": "string",
+            "nullable": true,
+            "deprecated": true,
+            "description": "Legado (aceita `mediaUrl`). Use a primeira posição de `templateVariables`."
           }
-        }
-      },
-      "CreateTemplateRequest": {
-        "type": "object",
-        "required": ["name", "category", "body"],
-        "properties": {
-          "name": { "type": "string", "example": "proposta_enviada" },
-          "category": { "type": "string", "enum": ["MARKETING", "UTILITY", "AUTHENTICATION"] },
-          "body": { "type": "string", "example": "Olá {{1}}, sua proposta está pronta." },
-          "header": { "type": "string", "description": "Texto do cabeçalho ou URL de mídia" },
-          "headerType": { "type": "string", "enum": ["text", "media", "document"] },
-          "footer": { "type": "string" },
-          "buttons": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/TemplateButton" }
-          }
-        }
-      },
-      "TemplateButton": {
-        "type": "object",
-        "required": ["type", "text"],
-        "properties": {
-          "type": { "type": "string", "enum": ["QUICK_REPLY", "PHONE_NUMBER", "URL", "SMART_LINK", "COPY_CODE"] },
-          "text": { "type": "string", "example": "Falar no Telefone" },
-          "phone": { "type": "string", "description": "Número no formato E.164", "example": "+5511999999999" },
-          "url": { "type": "string", "example": "https://ararahq.com/docs" }
         }
       },
       "MessageResponse": {
         "type": "object",
+        "required": [
+          "status",
+          "mode",
+          "sender",
+          "receiver"
+        ],
         "properties": {
           "id": {
             "type": "string",
-            "example": "ara_msg_k9Bf2XqP"
+            "nullable": true,
+            "description": "ID interno da mensagem."
           },
           "status": {
             "type": "string",
@@ -107,116 +3706,3080 @@
               "CANCELED"
             ]
           },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "LIVE"
+            ]
+          },
+          "sender": {
+            "type": "string"
+          },
           "receiver": {
             "type": "string"
           },
+          "body": {
+            "type": "string",
+            "nullable": true,
+            "description": "Conteúdo final enviado."
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true,
+            "description": "Custo em reais."
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Motivo da falha quando `FAILED`."
+          }
+        }
+      },
+      "InteractivePayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "body"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "list",
+              "button"
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "buttonText": {
+            "type": "string",
+            "nullable": true
+          },
+          "sections": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/InteractiveSection"
+            }
+          },
+          "buttons": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/InteractiveButton"
+            }
+          }
+        }
+      },
+      "InteractiveSection": {
+        "type": "object",
+        "required": [
+          "title",
+          "rows"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InteractiveRow"
+            }
+          }
+        }
+      },
+      "InteractiveRow": {
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "InteractiveButton": {
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "LocationPayload": {
+        "type": "object",
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ReactionPayload": {
+        "type": "object",
+        "required": [
+          "emoji",
+          "messageId"
+        ],
+        "properties": {
+          "emoji": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string",
+            "description": "ID interno da mensagem que recebe a reação."
+          }
+        }
+      },
+      "BatchMessageRequest": {
+        "type": "object",
+        "required": [
+          "templateName",
+          "messages"
+        ],
+        "properties": {
+          "templateName": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/BatchMessageItem"
+            }
+          }
+        }
+      },
+      "BatchMessageItem": {
+        "type": "object",
+        "required": [
+          "receiver"
+        ],
+        "properties": {
+          "receiver": {
+            "type": "string"
+          },
+          "templateVariables": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Aceita alias `variables`."
+          },
+          "smartLinkParam": {
+            "type": "string",
+            "nullable": true
+          },
+          "smartLinkUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "mediaUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "BatchMessageResponse": {
+        "type": "object",
+        "required": [
+          "batchId",
+          "templateName",
+          "total",
+          "accepted",
+          "totalCost",
+          "messages"
+        ],
+        "properties": {
+          "batchId": {
+            "type": "string"
+          },
+          "templateName": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "accepted": {
+            "type": "integer"
+          },
+          "totalCost": {
+            "type": "number",
+            "description": "Custo total em reais."
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchMessageItemResponse"
+            }
+          }
+        }
+      },
+      "BatchMessageItemResponse": {
+        "type": "object",
+        "required": [
+          "receiver",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "receiver": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "CreateTemplateRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "body"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "MARKETING",
+              "UTILITY",
+              "AUTHENTICATION"
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string",
+            "default": "pt_BR"
+          },
+          "header": {
+            "type": "string",
+            "nullable": true,
+            "description": "Texto ou URL de mídia."
+          },
+          "headerType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "text",
+              "media",
+              "document"
+            ]
+          },
+          "footer": {
+            "type": "string",
+            "nullable": true
+          },
+          "buttons": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/TemplateButton"
+            }
+          },
+          "samples": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Exemplos por número da variável (`{\"1\": \"João\"}`)."
+          },
+          "variableExamples": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Legado. Prefira `samples`."
+          },
+          "carouselCards": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/CarouselCard"
+            }
+          }
+        }
+      },
+      "TemplateButton": {
+        "type": "object",
+        "required": [
+          "type",
+          "text"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "QUICK_REPLY",
+              "PHONE_NUMBER",
+              "URL",
+              "SMART_LINK",
+              "COPY_CODE"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "extraConfig": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          }
+        }
+      },
+      "CarouselCard": {
+        "type": "object",
+        "required": [
+          "mediaUrl",
+          "body"
+        ],
+        "properties": {
+          "mediaUrl": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "buttons": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/TemplateButton"
+            }
+          }
+        }
+      },
+      "TemplateResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "formattedName",
+          "category",
+          "language",
+          "providerName",
+          "providerTemplateId",
+          "providerStatus",
+          "availableForSending",
+          "structureJson",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "formattedName": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "originalCategory": {
+            "type": "string",
+            "nullable": true
+          },
+          "language": {
+            "type": "string"
+          },
+          "providerName": {
+            "type": "string",
+            "example": "GUPSHUP"
+          },
+          "providerTemplateId": {
+            "type": "string"
+          },
+          "providerStatus": {
+            "type": "string",
+            "example": "APPROVED"
+          },
+          "rejectionReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "availableForSending": {
+            "type": "boolean",
+            "description": "`false` quando o template foi aprovado num número que a organização não usa mais."
+          },
+          "unavailableReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "bodyPreview": {
+            "type": "string",
+            "nullable": true
+          },
+          "structureJson": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "usageGuide": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "variablesSchema": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
           "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "TemplatePage": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateResponse"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "TemplateStatusResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "rejectionReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "TemplateAnalyticsResponse": {
+        "type": "object",
+        "required": [
+          "templateId",
+          "templateName",
+          "period",
+          "sent",
+          "delivered",
+          "read",
+          "failed",
+          "deliveryRate",
+          "readRate"
+        ],
+        "properties": {
+          "templateId": {
+            "type": "string"
+          },
+          "templateName": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "sent": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "delivered": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "read": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "deliveryRate": {
+            "type": "string",
+            "description": "Percentual com 1 casa decimal (ex. `\"98.7\"`)."
+          },
+          "readRate": {
+            "type": "string"
+          }
+        }
+      },
+      "TemplateAnalyticsBatchItem": {
+        "type": "object",
+        "properties": {
+          "templateName": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "sent": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "delivered": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "read": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "deliveryRate": {
+            "type": "string"
+          },
+          "readRate": {
+            "type": "string"
+          }
+        }
+      },
+      "LibraryTemplateResponse": {
+        "type": "object",
+        "required": [
+          "elementName",
+          "body",
+          "languageCode"
+        ],
+        "properties": {
+          "elementName": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "sampleText": {
+            "type": "string",
+            "nullable": true
+          },
+          "header": {
+            "type": "string",
+            "nullable": true
+          },
+          "topic": {
+            "type": "string",
+            "nullable": true
+          },
+          "usecase": {
+            "type": "string",
+            "nullable": true
+          },
+          "languageCode": {
+            "type": "string"
+          },
+          "buttons": {
+            "description": "Botões no formato do provedor (pode vir `null`)."
+          }
+        }
+      },
+      "CreateLibraryTemplateRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "libraryTemplateName"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "libraryTemplateName": {
+            "type": "string",
+            "description": "`elementName` do item da biblioteca."
+          },
+          "languageCode": {
+            "type": "string",
+            "default": "pt_BR"
+          }
+        }
+      },
+      "CampaignStatus": {
+        "type": "string",
+        "enum": [
+          "SCHEDULED",
+          "INGESTING",
+          "AB_TESTING",
+          "COMPLETED",
+          "COMPLETED_WITH_ERRORS",
+          "FAILED",
+          "CANCELED"
+        ]
+      },
+      "CampaignRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "templateName",
+          "contacts"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "templateName": {
+            "type": "string",
+            "description": "Nome ou ID do template. Com `abTest`, é a variante A."
+          },
+          "sender": {
+            "type": "string",
+            "nullable": true
+          },
+          "contacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/CampaignContactRequest"
+            }
+          },
+          "abTest": {
+            "$ref": "#/components/schemas/CampaignAbConfig"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Entre 5 minutos e 30 dias no futuro."
+          }
+        }
+      },
+      "CampaignContactRequest": {
+        "type": "object",
+        "required": [
+          "to"
+        ],
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Telefone E.164."
+          },
+          "variables": {
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CampaignAbConfig": {
+        "type": "object",
+        "required": [
+          "variantBTemplateName"
+        ],
+        "properties": {
+          "variantBTemplateName": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "DELIVERED",
+              "READ",
+              "CLICKED",
+              "CONVERTED"
+            ],
+            "default": "CLICKED"
+          },
+          "samplePct": {
+            "type": "integer",
+            "default": 20,
+            "description": "Porcentagem dos contatos que entra no teste."
+          },
+          "splitPct": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99,
+            "default": 50
+          },
+          "decisionWindowMinutes": {
+            "type": "integer",
+            "default": 240
+          },
+          "autopilot": {
+            "type": "boolean",
+            "default": true,
+            "description": "Dispara o restante pela vencedora automaticamente."
+          }
+        }
+      },
+      "CampaignResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "totalMessages",
+          "totalCost"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CampaignStatus"
+          },
+          "totalMessages": {
+            "type": "integer"
+          },
+          "totalCost": {
+            "type": "number",
+            "description": "Valor debitado em reais."
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "CampaignListItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "templateName",
+          "totalMessages",
+          "sentCount",
+          "deliveredCount",
+          "readCount",
+          "failedCount",
+          "totalCost"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "templateName": {
+            "type": "string"
+          },
+          "totalMessages": {
+            "type": "integer"
+          },
+          "sentCount": {
+            "type": "integer"
+          },
+          "deliveredCount": {
+            "type": "integer"
+          },
+          "readCount": {
+            "type": "integer"
+          },
+          "failedCount": {
+            "type": "integer"
+          },
+          "totalCost": {
+            "type": "number"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "CampaignListResponse": {
+        "type": "object",
+        "required": [
+          "content",
+          "totalPages",
+          "totalElements"
+        ],
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CampaignListItem"
+            }
+          },
+          "totalPages": {
+            "type": "integer"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CampaignDetailResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "templateName",
+          "totalMessages",
+          "sentCount",
+          "deliveredCount",
+          "readCount",
+          "failedCount",
+          "clickedCount",
+          "convertedCount",
+          "convertedValue",
+          "totalCost"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "templateName": {
+            "type": "string"
+          },
+          "templateBody": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalMessages": {
+            "type": "integer"
+          },
+          "sentCount": {
+            "type": "integer"
+          },
+          "deliveredCount": {
+            "type": "integer"
+          },
+          "readCount": {
+            "type": "integer"
+          },
+          "failedCount": {
+            "type": "integer"
+          },
+          "clickedCount": {
+            "type": "integer"
+          },
+          "convertedCount": {
+            "type": "integer"
+          },
+          "convertedValue": {
+            "type": "number"
+          },
+          "replyCount": {
+            "type": "integer",
+            "description": "Conversas originadas pela campanha."
+          },
+          "holdoutCount": {
+            "type": "integer",
+            "description": "Contatos aguardando a vencedora do A/B."
+          },
+          "blockedCount": {
+            "type": "integer",
+            "description": "Contatos bloqueados no disparo."
+          },
+          "blockReasons": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "motivo": {
+                  "type": "string"
+                },
+                "quantidade": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "refundCount": {
+            "type": "integer"
+          },
+          "refundValue": {
+            "type": "number",
+            "description": "Total estornado para a carteira, em reais."
+          },
+          "totalCost": {
+            "type": "number"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "CampaignEstimateRequest": {
+        "type": "object",
+        "required": [
+          "templateName",
+          "phones"
+        ],
+        "properties": {
+          "templateName": {
+            "type": "string"
+          },
+          "phones": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CampaignEstimateResponse": {
+        "type": "object",
+        "required": [
+          "templateCategory",
+          "recipientCount",
+          "templateCost",
+          "araraFee",
+          "unitPrice",
+          "totalCost"
+        ],
+        "properties": {
+          "templateCategory": {
+            "type": "string"
+          },
+          "recipientCount": {
+            "type": "integer"
+          },
+          "templateCost": {
+            "type": "number",
+            "description": "Custo Meta total, em reais."
+          },
+          "araraFee": {
+            "type": "number",
+            "description": "Taxa Arara total, em reais."
+          },
+          "unitPrice": {
+            "type": "number",
+            "description": "Preço médio por mensagem."
+          },
+          "totalCost": {
+            "type": "number"
+          },
+          "markets": {
+            "type": "array",
+            "description": "Quebra por mercado. Vazio no `GET`.",
+            "items": {
+              "$ref": "#/components/schemas/CampaignMarketCost"
+            }
+          }
+        }
+      },
+      "CampaignMarketCost": {
+        "type": "object",
+        "properties": {
+          "market": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "unitPrice": {
+            "type": "number"
+          },
+          "metaCostUnit": {
+            "type": "number"
+          },
+          "subtotal": {
+            "type": "number"
+          }
+        }
+      },
+      "CreateAbTestRequest": {
+        "type": "object",
+        "required": [
+          "variantATemplateName",
+          "variantBTemplateName",
+          "metric"
+        ],
+        "properties": {
+          "variantATemplateName": {
+            "type": "string"
+          },
+          "variantBTemplateName": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "DELIVERED",
+              "READ",
+              "CLICKED",
+              "CONVERTED"
+            ]
+          },
+          "samplePct": {
+            "type": "integer",
+            "default": 20
+          },
+          "splitPct": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99,
+            "default": 50
+          },
+          "decisionWindowMinutes": {
+            "type": "integer",
+            "default": 240
+          },
+          "autopilot": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ForceWinnerRequest": {
+        "type": "object",
+        "required": [
+          "winner"
+        ],
+        "properties": {
+          "winner": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B"
+            ]
+          }
+        }
+      },
+      "AbTestResponse": {
+        "type": "object",
+        "required": [
+          "variantATemplateName",
+          "variantBTemplateName",
+          "metric",
+          "samplePct",
+          "splitPct",
+          "decisionWindowMinutes",
+          "autopilot"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "campaignId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "variantATemplateName": {
+            "type": "string"
+          },
+          "variantBTemplateName": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "samplePct": {
+            "type": "integer"
+          },
+          "splitPct": {
+            "type": "integer"
+          },
+          "decisionWindowMinutes": {
+            "type": "integer"
+          },
+          "autopilot": {
+            "type": "boolean"
+          },
+          "winner": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "A",
+              "B"
+            ]
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "decidedReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "pValue": {
+            "type": "number",
+            "nullable": true
+          },
+          "relativeLiftPct": {
+            "type": "number",
+            "nullable": true
+          },
+          "variantAMetricsJson": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON serializado em string."
+          },
+          "variantBMetricsJson": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "ContactRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "phone"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "example": "+5511999998888"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          },
+          "attributes": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          }
+        }
+      },
+      "ContactPatchRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "nullable": true,
+            "maxItems": 20,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ContactResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "phone",
+          "tags",
+          "createdAt",
+          "lifecycle",
+          "source",
+          "outboundCount",
+          "inboundCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "attributes": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "outboundCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "inboundCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "firstSeenAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastOutboundAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastInboundAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastMessageAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "optOutAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastTemplateName": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ContactsListResponse": {
+        "type": "object",
+        "required": [
+          "contacts",
+          "total",
+          "page",
+          "size",
+          "totalPages"
+        ],
+        "properties": {
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "ContactsBatchResponse": {
+        "type": "object",
+        "required": [
+          "importId",
+          "created",
+          "updated",
+          "skipped",
+          "errors"
+        ],
+        "properties": {
+          "importId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created": {
+            "type": "integer"
+          },
+          "updated": {
+            "type": "integer"
+          },
+          "skipped": {
+            "type": "integer"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "index",
+                "reason"
+              ],
+              "properties": {
+                "index": {
+                  "type": "integer"
+                },
+                "phone": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ContactsStatsResponse": {
+        "type": "object",
+        "required": [
+          "total",
+          "newCount",
+          "engaged",
+          "silent",
+          "dormant",
+          "optedOut"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "newCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "engaged": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "silent": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dormant": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "optedOut": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ContactMessagesResponse": {
+        "type": "object",
+        "required": [
+          "phone",
+          "total",
+          "messages"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "direction": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "templateName": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "body": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "createdAt": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "LgpdExport": {
+        "type": "object",
+        "required": [
+          "phoneHash",
+          "phone",
+          "exportedAt",
+          "conversations",
+          "messages"
+        ],
+        "properties": {
+          "phoneHash": {
+            "type": "string",
+            "description": "SHA-256 do telefone."
+          },
+          "phone": {
+            "type": "string"
+          },
+          "exportedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "contact": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "conversations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "LgpdDeletionResult": {
+        "type": "object",
+        "required": [
+          "phoneHash",
+          "deletedAt",
+          "contactDeleted",
+          "conversationsRedacted",
+          "messagesRedacted",
+          "optOutRegistered"
+        ],
+        "properties": {
+          "phoneHash": {
+            "type": "string"
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "contactDeleted": {
+            "type": "boolean"
+          },
+          "conversationsRedacted": {
+            "type": "integer"
+          },
+          "messagesRedacted": {
+            "type": "integer"
+          },
+          "optOutRegistered": {
+            "type": "boolean"
+          }
+        }
+      },
+      "OptOutItem": {
+        "type": "object",
+        "required": [
+          "phone",
+          "channel"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "example": "WHATSAPP"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConversationListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerPhone": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "lastInteractionAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "windowExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isWindowOpen": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "leadStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "leadScore": {
+            "type": "integer",
+            "nullable": true
+          },
+          "leadSummary": {
+            "type": "string",
+            "nullable": true
+          },
+          "originatingCampaignId": {
+            "type": "string",
+            "nullable": true
+          },
+          "qualifierCompletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastMessagePreview": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastMessageDirection": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConversationListResponse": {
+        "type": "object",
+        "required": [
+          "content",
+          "page",
+          "size",
+          "totalElements",
+          "totalPages"
+        ],
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationListItem"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConversationMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "INBOUND",
+              "OUTBOUND"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "sender": {
+            "type": "string"
+          },
+          "receiver": {
+            "type": "string"
+          },
+          "messageType": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "mediaUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "mediaContentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "mediaSummary": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConversationMessagesResponse": {
+        "type": "object",
+        "required": [
+          "content",
+          "page",
+          "size",
+          "totalElements",
+          "totalPages"
+        ],
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationMessage"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConversationReplyRequest": {
+        "type": "object",
+        "required": [
+          "conversationId",
+          "body"
+        ],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string"
+          }
+        }
+      },
+      "ConversationReplyResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "WindowStatusRequest": {
+        "type": "object",
+        "required": [
+          "phones"
+        ],
+        "properties": {
+          "phones": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WindowStatusItem": {
+        "type": "object",
+        "required": [
+          "phone",
+          "isWindowOpen"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string"
+          },
+          "isWindowOpen": {
+            "type": "boolean"
+          },
+          "windowExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "hoursRemaining": {
+            "type": "number",
+            "nullable": true
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "WindowStatusResponse": {
+        "type": "object",
+        "required": [
+          "results",
+          "truncated"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WindowStatusItem"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreateSmartLinkRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "phoneNumber"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "defaultText": {
+            "type": "string",
+            "nullable": true
+          },
+          "qrCodeColor": {
+            "type": "string",
+            "default": "BLACK"
+          }
+        }
+      },
+      "UpdateSmartLinkRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "defaultText": {
+            "type": "string",
+            "nullable": true
+          },
+          "qrCodeColor": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SmartLinkResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "phoneNumber",
+          "qrCodeColor",
+          "code",
+          "shortUrl",
+          "clicks"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "defaultText": {
+            "type": "string",
+            "nullable": true
+          },
+          "qrCodeColor": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "shortUrl": {
+            "type": "string",
+            "description": "URL pública (`.../l/{code}`)."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "clicks": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SmartLinkPage": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmartLinkResponse"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "NumberCard": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "phoneNumber",
+          "type",
+          "isDefault",
+          "status",
+          "qualityScore",
+          "messagingTier",
+          "provider"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "alias": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "SHARED",
+              "DEDICATED"
+            ]
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PENDING_REVIEW",
+              "SUSPENDED",
+              "DISABLED"
+            ]
+          },
+          "qualityScore": {
+            "type": "string",
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW",
+              "FLAGGED",
+              "UNKNOWN"
+            ]
+          },
+          "messagingTier": {
+            "type": "string",
+            "enum": [
+              "TIER_50",
+              "TIER_250",
+              "TIER_1K",
+              "TIER_2K",
+              "TIER_10K",
+              "TIER_100K",
+              "UNLIMITED",
+              "UNKNOWN"
+            ]
+          },
+          "verifiedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastHealthCheckAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "provider": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "messagesLast7d": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "messagesLast30d": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "deliveredLast30d": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "provisionedByArara": {
+            "type": "boolean"
+          },
+          "wabaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "isCoexistence": {
+            "type": "boolean",
+            "nullable": true
+          }
+        }
+      },
+      "NumbersResponse": {
+        "type": "object",
+        "required": [
+          "numbers",
+          "slot"
+        ],
+        "properties": {
+          "numbers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NumberCard"
+            }
+          },
+          "slot": {
+            "type": "object",
+            "required": [
+              "used",
+              "max",
+              "planLabel",
+              "atCap",
+              "noEntitlement",
+              "monthlyPriceCents",
+              "monthlyTotalCents"
+            ],
+            "properties": {
+              "used": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              },
+              "planLabel": {
+                "type": "string"
+              },
+              "atCap": {
+                "type": "boolean"
+              },
+              "noEntitlement": {
+                "type": "boolean"
+              },
+              "monthlyPriceCents": {
+                "type": "integer"
+              },
+              "monthlyTotalCents": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "BusinessProfilePatch": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "BEAUTY",
+              "APPAREL",
+              "EDU",
+              "ENTERTAIN",
+              "EVENT_PLAN",
+              "FINANCE",
+              "GROCERY",
+              "GOVT",
+              "HOTEL",
+              "HEALTH",
+              "NONPROFIT",
+              "PROF_SERVICES",
+              "RETAIL",
+              "TRAVEL",
+              "RESTAURANT",
+              "NOT_A_BIZ",
+              "OTHER"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "aboutShort": {
+            "type": "string",
+            "maxLength": 140
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "websites": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "businessHours": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "profilePhotoUrl": {
+            "type": "string"
+          },
+          "awayMessage": {
+            "type": "string"
+          }
+        }
+      },
+      "BusinessProfileResponse": {
+        "type": "object",
+        "required": [
+          "metaSyncStatus"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "vertical": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "aboutShort": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "websites": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "businessHours": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "profilePhotoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "awayMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "metaSyncStatus": {
+            "type": "string"
+          },
+          "metaSyncedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "metaSyncError": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "WalletBalanceResponse": {
+        "type": "object",
+        "required": [
+          "balance",
+          "currency",
+          "mode"
+        ],
+        "properties": {
+          "balance": {
+            "type": "number",
+            "description": "Saldo em reais."
+          },
+          "currency": {
+            "type": "string",
+            "example": "BRL"
+          },
+          "mode": {
+            "type": "string",
+            "example": "LIVE"
+          }
+        }
+      },
+      "WalletTransaction": {
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "type",
+          "mode",
+          "hasReceipt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Valor em reais."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "CHARGE",
+              "REFUND",
+              "TOPUP",
+              "BONUS",
+              "DEPOSIT",
+              "USAGE",
+              "SUBSCRIPTION_FEE",
+              "ADMIN_DEBIT"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "referenceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "mode": {
+            "type": "string",
+            "example": "LIVE"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "hasReceipt": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WalletTransactionPage": {
+        "type": "object",
+        "required": [
+          "content",
+          "page",
+          "size",
+          "totalElements",
+          "totalPages"
+        ],
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WalletTransaction"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "AutoRechargeSettings": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "threshold",
+          "amount"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "threshold": {
+            "type": "number",
+            "description": "Saldo (R$) que dispara a recarga."
+          },
+          "amount": {
+            "type": "number",
+            "description": "Valor da recarga (R$)."
+          },
+          "lastAttemptAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastFailureReason": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpdateAutoRechargeRequest": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "threshold": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 5,
+            "maximum": 1000
+          },
+          "amount": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 20,
+            "maximum": 5000
+          }
+        }
+      },
+      "RechargeEstimate": {
+        "type": "object",
+        "required": [
+          "amountCents",
+          "planLabel",
+          "limits",
+          "firstRechargeBonus",
+          "estimates"
+        ],
+        "properties": {
+          "amountCents": {
+            "type": "integer"
+          },
+          "planLabel": {
+            "type": "string"
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "minCents": {
+                "type": "integer"
+              },
+              "maxCents": {
+                "type": "integer"
+              }
+            }
+          },
+          "firstRechargeBonus": {
+            "type": "object",
+            "properties": {
+              "applicable": {
+                "type": "boolean"
+              },
+              "percent": {
+                "type": "integer"
+              },
+              "bonusCents": {
+                "type": "integer"
+              },
+              "totalCreditCents": {
+                "type": "integer"
+              }
+            }
+          },
+          "estimates": {
+            "type": "object",
+            "description": "Chaves `marketing`, `utility` e `authentication`.",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "count": {
+                  "type": "integer"
+                },
+                "unitPriceCents": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PricingResponse": {
+        "type": "object",
+        "required": [
+          "currency",
+          "model",
+          "categories",
+          "markets"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string",
+            "example": "BRL"
+          },
+          "model": {
+            "type": "string",
+            "example": "PER_MESSAGE_BY_MARKET"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "category",
+                "priceBrl",
+                "source"
+              ],
+              "properties": {
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "MARKETING",
+                    "UTILITY",
+                    "AUTHENTICATION"
+                  ]
+                },
+                "priceBrl": {
+                  "type": "number"
+                },
+                "source": {
+                  "type": "string",
+                  "example": "PLAN_REFERENCE"
+                }
+              }
+            }
+          },
+          "markets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "market",
+                "category",
+                "costUsd"
+              ],
+              "properties": {
+                "market": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "costUsd": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PlanInfoResponse": {
+        "type": "object",
+        "required": [
+          "current",
+          "monthlyPriceCents",
+          "marketingPriceCents",
+          "utilityPriceCents",
+          "authPriceCents",
+          "features"
+        ],
+        "properties": {
+          "current": {
+            "type": "string",
+            "enum": [
+              "FREE",
+              "POC",
+              "DECOLAGEM",
+              "ESSENTIAL",
+              "VOO_SOLO",
+              "VOO",
+              "VOO_ASSISTIDO",
+              "PRO",
+              "ENTERPRISE"
+            ]
+          },
+          "monthlyPriceCents": {
+            "type": "integer"
+          },
+          "marketingPriceCents": {
+            "type": "integer"
+          },
+          "utilityPriceCents": {
+            "type": "integer"
+          },
+          "authPriceCents": {
+            "type": "integer"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nextBillingAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "LookupResult": {
+        "type": "object",
+        "required": [
+          "phoneNumber"
+        ],
+        "properties": {
+          "phoneNumber": {
+            "type": "string"
+          },
+          "isMobile": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "lineType": {
+            "type": "string",
+            "nullable": true
+          },
+          "carrier": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasWhatsapp": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "costCharged": {
+            "type": "number",
+            "nullable": true
+          },
+          "error": {
+            "type": "string",
+            "nullable": true,
+            "description": "`INSUFFICIENT_FUNDS` ou `FAILED` no lote."
+          }
+        }
+      },
+      "RecoveryEndpointResponse": {
+        "type": "object",
+        "required": [
+          "code",
+          "hmacSecret",
+          "active",
+          "url"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "hmacSecret": {
+            "type": "string",
+            "description": "Segredo HMAC da ingestão. Trate como senha."
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL pública de ingestão (`.../l/{code}`)."
+          }
+        }
+      },
+      "RecoveryEventConfigResponse": {
+        "type": "object",
+        "required": [
+          "eventType",
+          "active"
+        ],
+        "properties": {
+          "eventType": {
+            "type": "string"
+          },
+          "templateId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "templateName": {
+            "type": "string",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "lastTriggeredAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "templateStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "rejectionReason": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "RecoveryEventConfigPatchRequest": {
+        "type": "object",
+        "properties": {
+          "templateId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "variableMapping": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RecoveryEventsListResponse": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoveryEventConfigResponse"
+            }
+          }
+        }
+      },
+      "RecoveryIngestResult": {
+        "type": "object",
+        "required": [
+          "ingestId",
+          "status"
+        ],
+        "properties": {
+          "ingestId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "messageId": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DashboardMessageItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SCHEDULED",
+              "PROCESSING",
+              "SENT_TO_PROVIDER",
+              "SENT",
+              "DELIVERED",
+              "READ",
+              "FAILED",
+              "CANCELED"
+            ]
+          },
+          "mode": {
+            "type": "string"
+          },
+          "sender": {
+            "type": "string"
+          },
+          "receiver": {
+            "type": "string"
+          },
+          "messageType": {
+            "type": "string"
+          },
+          "templateName": {
+            "type": "string"
+          },
+          "templateSid": {
+            "type": "string"
+          },
+          "templateLanguage": {
+            "type": "string"
+          },
+          "providerSid": {
+            "type": "string"
+          },
+          "errorDetails": {
+            "type": "string"
+          },
+          "scheduledAt": {
+            "type": "string"
+          },
+          "externalReference": {
+            "type": "string"
+          },
+          "deliveredAt": {
+            "type": "string"
+          },
+          "readAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "number"
+          }
+        }
+      },
+      "DashboardMessageDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DashboardMessageItem"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "templateVariablesJson": {
+                "type": "string"
+              },
+              "body": {
+                "type": "string"
+              },
+              "processedContent": {
+                "type": "string"
+              },
+              "mediaUrl": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string"
+              },
+              "processingStart": {
+                "type": "string"
+              },
+              "processingEnd": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "DashboardMessagesResponse": {
+        "type": "object",
+        "required": [
+          "messages",
+          "total",
+          "page",
+          "size",
+          "totalPages"
+        ],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardMessageItem"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "MetricsWindow": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sent": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "delivered": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "read": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pending": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "deliveryRate": {
+            "type": "string",
+            "description": "Percentual formatado em string."
+          },
+          "totalCost": {
+            "type": "number"
+          }
+        }
+      },
+      "DashboardMetricsResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MetricsWindow"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "since": {
+                "type": "string",
+                "description": "Data da primeira mensagem (vazio sem histórico)."
+              },
+              "window7d": {
+                "$ref": "#/components/schemas/MetricsWindow"
+              },
+              "previous7d": {
+                "$ref": "#/components/schemas/MetricsWindow"
+              },
+              "mode": {
+                "type": "string",
+                "example": "LIVE"
+              }
+            }
+          }
+        ]
+      },
+      "CartAbandonedWebhookRequest": {
+        "type": "object",
+        "required": [
+          "event",
+          "phone",
+          "checkout_url"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "cart.abandoned",
+              "payment.failed",
+              "pix.created",
+              "boleto.due"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "total": {
+            "type": "number",
+            "nullable": true
+          },
+          "checkout_url": {
+            "type": "string"
+          },
+          "minutes_without_payment": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pix_qr_code": {
+            "type": "string",
+            "nullable": true,
+            "description": "Obrigatório quando `event = pix.created`."
+          }
+        }
+      },
+      "CartAbandonedWebhookResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "received_at"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "message_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "received_at": {
             "type": "string",
             "format": "date-time"
           }
         }
       },
-      "ErrorResponse": {
+      "HealthResponse": {
         "type": "object",
+        "required": [
+          "status",
+          "timestamp",
+          "service"
+        ],
         "properties": {
-          "error": {
-            "type": "string"
+          "status": {
+            "type": "string",
+            "example": "UP"
           },
-          "message": {
-            "type": "string"
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
           },
-          "diagnostic": {
-            "type": "object",
-            "properties": {
-              "code": {
-                "type": "string"
-              },
-              "whatHappened": {
-                "type": "string"
-              },
-              "howToAct": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "security": [
-    {
-      "bearerAuth": []
-    }
-  ],
-  "paths": {
-    "/v1/messages": {
-      "post": {
-        "summary": "Enviar Mensagem",
-        "description": "Envia uma mensagem de template ou texto livre.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MessageRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "Mensagem aceita para processamento",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Não autorizado"
-          },
-          "422": {
-            "description": "Erro de validação (Escudo de Erros)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/templates": {
-      "get": {
-        "summary": "Listar Templates",
-        "description": "Retorna uma lista de todos os templates aprovados e pendentes da organização.",
-        "responses": {
-          "200": {
-            "description": "Lista de templates carregada com sucesso."
-          }
-        }
-      },
-      "post": {
-        "summary": "Criar Template",
-        "description": "Submete um novo template para aprovação da Meta. Inclui suporte a Smart Links.",
-        "responses": {
-          "201": {
-            "description": "Template criado e enviado para análise."
-          }
-        }
-      }
-    },
-    "/v1/webhooks": {
-      "post": {
-        "summary": "Configurar Webhook",
-        "description": "Define a URL para recebimento de eventos (status_updated, received).",
-        "responses": {
-          "200": {
-            "description": "Webhook configurado com sucesso."
+          "service": {
+            "type": "string",
+            "example": "arara-api"
           }
         }
       }

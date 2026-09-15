@@ -1,187 +1,236 @@
 ---
 title: 'Webhooks'
-description: 'Como a Arara avisa seu backend em tempo real — quando uma mensagem é entregue, lida, falha, ou quando o cliente responde. Payload, validação HMAC, retry com backoff exponencial e dedupe.'
+description: 'Como a Arara avisa seu backend em tempo real: configuração, envelope, headers, assinatura HMAC com timestamp, retry, desativação automática e dedupe.'
 keywords: ['webhooks', 'eventos', 'hmac', 'retry', 'dedupe', 'real time', 'callbacks', 'message status']
 ---
 
-A Arara não tem "polling". Você configura uma URL no nosso dashboard, e a gente avisa seu backend assim que algo acontece — mensagem entregue, lida, cliente respondeu, pagamento confirmado. Tudo via webhook, com HMAC pra você validar que veio mesmo da gente.
+A Arara faz um `POST` na URL do seu backend sempre que algo acontece: mensagem entregue, lida ou com falha, cliente respondeu, template aprovado, campanha concluída. Cada requisição é assinada com HMAC para você confirmar que veio da Arara.
 
 <CardGroup cols={2}>
   <Card title="Eventos disponíveis" icon="list" href="/webhooks/events">
-    Catálogo completo dos eventos que a Arara envia, com payload de cada um.
+    Catálogo dos eventos, com o payload de cada um.
   </Card>
-  <Card title="Receitas em Laravel/Next" icon="code">
+  <Card title="Receitas" icon="code">
     [Laravel](/integracoes/laravel#webhook) · [Next.js](/integracoes/nextjs#webhook)
   </Card>
 </CardGroup>
 
-## Como configurar
+## Configurar
 
-Dashboard → **Configurações → Webhooks → URL** + secret.
+A URL é **uma por organização** e se configura no painel, na tela de **Webhooks**:
 
-Ou via API:
+- **URL:** endereço `https` do seu endpoint.
+- **Secret:** gere pelo painel ou informe o seu. Se nenhum for definido, a Arara gera um (`whsec_...`) na primeira entrega. O painel mostra o secret atual.
 
-```bash
-curl -X PATCH https://api.ararahq.com/organizations/me/webhook \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -d '{
-    "url": "https://meusite.com.br/api/webhooks/arara",
-    "secret": "share_a_random_secret_with_us"
-  }'
-```
+<Note>
+  A configuração do webhook não aceita API key: é feita só pelo painel. Pelo painel também dá para disparar um evento de teste, ver o histórico de entregas com payload, headers e resposta, reenviar qualquer entrega e reativar um webhook desativado.
+</Note>
 
-O `secret` é compartilhado: você guarda do seu lado, a gente assina com ele. Mínimo 32 caracteres recomendado.
+Enquanto um `arara listen --capture` do [CLI](/cli) estiver ativo para a organização, os eventos vão para o CLI **em vez** da URL configurada.
 
-## Envelope universal
+## Envelope
 
-Todo evento da Arara vem no mesmo formato:
+Todo evento tem o mesmo formato:
 
 ```json
 {
   "event": "message.status_updated",
-  "apiVersion": "1",
-  "timestamp": "2026-05-18T14:32:11.123Z",
-  "organizationId": "0e4f3c1e-...",
+  "apiVersion": "2026-05-13",
   "data": {
-    "id": "ara_msg_k9Bf2XqP",
-    "status": "delivered",
-    "receiver": "+5511999999999",
-    "sender": "+5511888888888"
-  }
+    "id": "ara_msg_k9Bf2Xq",
+    "status": "delivered"
+  },
+  "timestamp": "2026-09-15T14:32:11.123Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
-
-Campos sempre presentes:
 
 | Campo | Tipo | Descrição |
 |---|---|---|
 | `event` | string | Tipo do evento. Ver [catálogo](/webhooks/events). |
-| `timestamp` | ISO-8601 | Quando o evento aconteceu no nosso lado. |
-| `organizationId` | string | Sua organização. Útil se você consolida múltiplos orgs. |
-| `data` | object | Payload específico do evento. |
+| `apiVersion` | string | Versão do contrato dos payloads. |
+| `data` | object | Conteúdo específico do evento. |
+| `timestamp` | string (ISO 8601) | Quando a Arara gerou o evento. |
+| `organizationId` | string (UUID) | Organização dona do evento. |
 
-## Validação HMAC
-
-Cada request vem com headers:
+## Headers
 
 ```
-X-Arara-Signature: a4f9b8c2...                      (HMAC-SHA256 hex)
-X-Arara-Event: message.status                       (mesma do body)
-X-Arara-Webhook-Id: ara_evt_xxx                     (ID único do evento)
-X-Arara-Timestamp: 1716040331                        (Unix seconds)
+Content-Type: application/json
+User-Agent: Arara-Webhook/1.0
+X-Arara-Event: message.status_updated
+X-Arara-Delivery-Id: 5d2f7c1a-8b3e-4f6d-9a0b-1c2d3e4f5a6b
+X-Arara-Api-Version: 2026-05-13
+X-Arara-Timestamp: 1789482731
+X-Arara-Signature: sha256=a4f9b8c2...
 ```
 
-Pra validar:
+| Header | Descrição |
+|---|---|
+| `X-Arara-Event` | Mesmo valor de `event`. |
+| `X-Arara-Delivery-Id` | UUID da entrega. É o mesmo em todas as tentativas e reenvios dessa entrega. |
+| `X-Arara-Api-Version` | Mesmo valor de `apiVersion`. |
+| `X-Arara-Timestamp` | Epoch em segundos do momento da tentativa. |
+| `X-Arara-Signature` | `sha256=` seguido do HMAC-SHA256 em hexadecimal. |
 
-```javascript
+## Validar a assinatura
+
+A assinatura cobre o **timestamp e o corpo cru**, unidos por ponto:
+
+```
+HMAC_SHA256(secret, "{X-Arara-Timestamp}.{corpo cru}")
+```
+
+Para validar:
+
+1. Leia o corpo **cru** (bytes exatamente como chegaram, antes de qualquer parse).
+2. Monte `"{timestamp}.{corpo}"` com o valor do header `X-Arara-Timestamp`.
+3. Calcule o HMAC-SHA256 com o seu secret e compare com o hex depois de `sha256=`, em tempo constante.
+4. Recuse timestamps com mais de 5 minutos de diferença do seu relógio.
+
+<CodeGroup>
+```javascript Node.js
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-function isValid(rawBody, signatureHeader, secret) {
-  const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-  return (
-    expected.length === signatureHeader.length &&
-    timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader))
-  );
+const TOLERANCE_SECONDS = 300;
+
+export function isValidArara(rawBody, headers, secret) {
+  const timestamp = headers['x-arara-timestamp'];
+  const signature = headers['x-arara-signature'];
+  if (typeof timestamp !== 'string' || typeof signature !== 'string') return false;
+  if (!signature.startsWith('sha256=')) return false;
+
+  const age = Math.abs(Date.now() / 1000 - Number(timestamp));
+  if (!Number.isFinite(age) || age > TOLERANCE_SECONDS) return false;
+
+  const expected = createHmac('sha256', secret)
+    .update(`${timestamp}.`)
+    .update(rawBody)
+    .digest('hex');
+  const received = signature.slice('sha256='.length);
+
+  return expected.length === received.length &&
+    timingSafeEqual(Buffer.from(expected), Buffer.from(received));
 }
 ```
 
-```php
-function isValid(string $rawBody, string $signature, string $secret): bool {
-    $expected = hash_hmac('sha256', $rawBody, $secret);
-    return hash_equals($expected, $signature);
+```php PHP
+function isValidArara(string $rawBody, array $headers, string $secret): bool {
+    $timestamp = $headers['X-Arara-Timestamp'] ?? '';
+    $signature = $headers['X-Arara-Signature'] ?? '';
+    if (!is_string($timestamp) || !is_string($signature) || !str_starts_with($signature, 'sha256=')) {
+        return false;
+    }
+    if (!ctype_digit($timestamp) || abs(time() - (int) $timestamp) > 300) {
+        return false;
+    }
+    $expected = hash_hmac('sha256', $timestamp . '.' . $rawBody, $secret);
+    return hash_equals($expected, substr($signature, 7));
 }
 ```
 
-```python
-import hmac, hashlib
+```python Python
+import hashlib
+import hmac
+import time
 
-def is_valid(raw_body: bytes, signature: str, secret: str) -> bool:
-    expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature)
+TOLERANCE_SECONDS = 300
+
+def is_valid_arara(raw_body: bytes, headers: dict, secret: str) -> bool:
+    timestamp = headers.get("X-Arara-Timestamp")
+    signature = headers.get("X-Arara-Signature")
+    if not isinstance(timestamp, str) or not isinstance(signature, str):
+        return False
+    if not signature.startswith("sha256=") or not timestamp.isdigit():
+        return False
+    if abs(time.time() - int(timestamp)) > TOLERANCE_SECONDS:
+        return False
+    expected = hmac.new(secret.encode(), timestamp.encode() + b"." + raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature[len("sha256="):])
 ```
+</CodeGroup>
 
 <Warning>
-  **Sempre use comparação constant-time** (`timingSafeEqual`, `hash_equals`, `hmac.compare_digest`). Comparação simples (`==`) é vulnerável a timing attack — atacante mede tempo de resposta byte a byte pra adivinhar a signature.
+  Use sempre comparação em tempo constante (`timingSafeEqual`, `hash_equals`, `hmac.compare_digest`). Com `==`, um atacante consegue descobrir a assinatura byte a byte medindo o tempo de resposta. Valide a assinatura **antes** de gravar qualquer coisa.
 </Warning>
 
-## Dedupe
+## Responder e retry
 
-A Meta retenta agressivamente. Você vai receber o mesmo evento múltiplas vezes em alguns casos. Use o header `X-Arara-Webhook-Id` (único por evento) pra fazer dedupe no seu lado:
+Responda **2xx em até 5 segundos**. Qualquer outra coisa conta como falha: status fora de 2xx, redirecionamento (3xx não é seguido), timeout ou erro de conexão.
 
-```sql
-INSERT INTO arara_webhook_events (id, event, received_at)
-VALUES ('ara_evt_xxx', 'message.status_updated', NOW())
-ON CONFLICT (id) DO NOTHING
-RETURNING *;
-```
-
-Se a query não retornou linha, é duplicata — ignora.
-
-## Retry e backoff
-
-```mermaid
-flowchart LR
-    A["Evento gerado"] --> B{"Seu endpoint respondeu 2xx em 10s?"}
-    B -->|sim| C["Sucesso"]
-    B -->|nao| D["Tentativa 2 (30s)"]
-    D --> E{"2xx?"}
-    E -->|sim| C
-    E -->|nao| F["Tentativa 3 (2min)"]
-    F --> G["Ate 7 tentativas em 24h"]
-    G --> H["Webhook desabilitado + email pro admin"]
-```
-
-Se seu endpoint não responder **2xx em 10 segundos**, a Arara retenta com backoff exponencial:
-
-| Tentativa | Espera |
+| Tentativa | Quando |
 |---|---|
-| 1ª | imediato |
-| 2ª | 30s |
-| 3ª | 2min |
-| 4ª | 10min |
-| 5ª | 1h |
-| 6ª | 6h |
-| 7ª | 24h |
+| 1ª | Na hora em que o evento acontece |
+| 2ª | ~30 segundos depois da 1ª falha |
+| 3ª | ~2 minutos depois da 2ª |
+| 4ª | ~15 minutos depois da 3ª |
+| 5ª | ~1 hora depois da 4ª |
 
-Após 7 tentativas falhadas em 24h, o webhook é **desabilitado** e você recebe email + sino no dashboard. Pra reativar:
-
-```bash
-curl -X POST https://api.ararahq.com/organizations/me/webhook/reenable \
-  -H "Authorization: Bearer ara_live_xxx"
-```
+Os intervalos podem atrasar até 30 segundos. Depois da 5ª falha a entrega é marcada como falha definitiva e a organização recebe um alerta no painel. Ela ainda pode ser reenviada manualmente pelo histórico.
 
 <Note>
-  Endpoint precisa responder **2xx em 10s**. Se a sua lógica é cara (banco, ML), responde 200 imediato e enfileira o processamento. Webhook NÃO é lugar de fazer trabalho pesado síncrono.
+  Se o processamento é pesado, responda `200` na hora e processe numa fila. Webhook não é lugar de trabalho síncrono demorado.
 </Note>
+
+## Desativação automática
+
+Depois de **50 falhas seguidas** (somando todas as entregas), a Arara desativa o webhook da organização e mostra um alerta no painel. Qualquer entrega bem-sucedida zera a contagem.
+
+<Warning>
+  Com o webhook desativado, os eventos novos **não são guardados nem reenviados depois**: eles se perdem. Corrija o endpoint e reative pelo painel o quanto antes. Para recuperar o que passou, consulte a API (`GET /v1/messages/{id}`, `GET /dashboard/messages`).
+</Warning>
+
+## Dedupe e idempotência
+
+- Retentativas de uma mesma entrega repetem o `X-Arara-Delivery-Id`. Grave esse ID com restrição de unicidade antes de processar e ignore repetidos.
+- O mesmo fato pode chegar em entregas diferentes (por exemplo, dois `message.status_updated` com o mesmo `status`). Deixe o handler idempotente também pela chave de negócio, como `data.id` + `data.status`.
+
+```sql
+INSERT INTO arara_webhook_deliveries (delivery_id, event, received_at)
+VALUES ('5d2f7c1a-8b3e-4f6d-9a0b-1c2d3e4f5a6b', 'message.status_updated', NOW())
+ON CONFLICT (delivery_id) DO NOTHING
+RETURNING delivery_id;
+```
+
+Sem linha retornada, é repetido: responda `200` e ignore.
 
 ## Ordem
 
-A Arara entrega eventos **na ordem em que os estados mudam** (queued → sent → delivered → read), mas **sem garantia global de ordem** entre mensagens diferentes. Seu handler precisa ser idempotente — em casos raros um `status_updated` pode chegar fora de ordem.
+Não há garantia de ordem. Um `delivered` pode chegar depois de um `read` da mesma mensagem. Compare com o estado que você já tem e nunca regrida um status.
 
-## Eventos disponíveis
+## Eventos
 
 | Evento | Quando |
 |---|---|
-| `message.status_updated` | Status de uma mensagem outbound mudou (`queued`, `sent`, `delivered`, `read`, `failed`, `canceled`, `processing`, `scheduled`). |
-| `message.received` | Cliente respondeu / iniciou conversa. **Só dispara em número dedicado.** |
-| `template.updated` | Status de template mudou (aprovado, rejeitado, pausado). |
-| `campaign.completed` | Campanha terminou de processar todos os contatos. |
-| `conversation.needs_human` | Brain decidiu escalar a conversa pra atendente humano. |
-| `webhook.test` | Evento sintético do botão "Testar" no dashboard. Valida URL + HMAC sem efeito colateral. |
+| `message.status_updated` | Status de mensagem enviada mudou. |
+| `message.received` | Cliente mandou mensagem para o seu número. |
+| `message.echo` | Sua equipe respondeu pelo app do WhatsApp Business num número em coexistência. |
+| `template.updated` | Status de template mudou (aprovado, reprovado, pausado...). |
+| `template.category_changed` | A Meta reclassificou a categoria de um template. |
+| `template.quality_updated` | A Meta atualizou a qualidade de um template. |
+| `campaign.completed` | Campanha terminou de processar (com sucesso, com erros ou falha). |
+| `conversation.needs_human` | O Brain passou a conversa para atendimento humano. |
+| `number.status` | Número banido, restringido, reabilitado ou com erro na conexão. |
+| `number.tier_updated` | Limite de envio ou qualidade do número mudou. |
+| `number.name_status` | Decisão da Meta sobre o nome de exibição. |
+| `account.review` | Resultado da revisão da conta WhatsApp. |
+| `account.capability` | Limites da conta WhatsApp mudaram. |
+| `nfse.invoice.authorized`, `.rejected`, `.cancelled`, `.error` | Mudança de status de NFS-e emitida pela Arara. |
+| `webhook.test` | Evento de teste disparado pelo painel. |
 
-Catálogo completo com schema de payload por evento em [Eventos](/webhooks/events).
+Payload de cada um em [Eventos](/webhooks/events).
 
 <Warning>
-  **Inbound só em número dedicado.** Se sua org está no pool de números compartilhados, a Arara não consegue rotear mensagens inbound pra você — o webhook `message.received` não dispara. Os outros 5 eventos funcionam normalmente. Pra habilitar inbound completo, [solicite um número dedicado](/numbers#pedir-um-número-dedicado).
+  `message.received` só dispara para número próprio da organização. Mensagem recebida no pool compartilhado da Arara não é roteada para nenhuma organização. Palavras de opt-out ("SAIR", "PARAR", "STOP"...) e respostas a confirmações de agendamento também não geram `message.received`.
 </Warning>
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Eventos detalhados" icon="list-check" href="/webhooks/events">
-    Schema completo de cada payload.
+  <Card title="Eventos" icon="list-check" href="/webhooks/events">
+    Payload de cada evento.
   </Card>
   <Card title="Receita: webhooks Laravel" icon="php" href="/integracoes/laravel#webhook">
-    Controller pronto com HMAC validation.
+    Controller pronto com validação HMAC.
   </Card>
 </CardGroup>

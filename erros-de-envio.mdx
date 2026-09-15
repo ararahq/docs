@@ -17,7 +17,14 @@ curl https://api.ararahq.com/v1/messages/ara_msg_XXXX \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-O campo `failureReason` traz o motivo traduzido. No painel, **Logs** mostra o mesmo, com filtro por status.
+Quando a mensagem está `FAILED`, o campo `reason` traz o motivo traduzido. O webhook `message.status_updated` traz o mesmo motivo em `data.errorDetails`. No painel, **Logs** mostra o mesmo, com filtro por status.
+
+O formato do motivo depende do provedor do número:
+
+- **Números no provedor atual (Meta via Gupshup):** texto corrido com o que aconteceu e o que fazer, sem código. Ex.: *"O nome de exibição do seu número ainda não foi aprovado pela Meta. ... Peça a aprovação do nome de exibição..."*
+- **Números legados (Twilio):** JSON em string com `code` (`ararahq-...`), `whatHappened` e `howToAct`.
+
+O valor de uma mensagem que falhou depois do aceite é estornado na carteira.
 
 ---
 
@@ -31,9 +38,9 @@ São a maior fatia. Quase sempre o template, não o envio.
 
 **O que fazer:** não é ação sua. Abra um chamado: é a conta do número que precisa ser reconectada do nosso lado. Se você acabou de trocar o número ou refazer o embedded signup, mencione isso no chamado.
 
-### `Falha no Template: rejeitado ou pausado pela Meta por baixa qualidade`
+### Template rejeitado, pausado ou inexistente
 
-Código interno `ararahq-template-error`.
+Aparece como *"O template usado não existe ou não está aprovado nesta conta WhatsApp"* (`ararahq-template-not-found`). Se o template já estava pausado antes do envio, a API recusa na hora com `422 TEMPLATE_PAUSED`.
 
 **O que é:** a Meta reprovou ou **pausou** um template que já estava aprovado. Pausa acontece quando muita gente bloqueia ou denuncia mensagens daquele template.
 
@@ -44,7 +51,7 @@ Código interno `ararahq-template-error`.
 
 ### `Falha na validação das variáveis: Content Variables inválido`
 
-Também aparece como *"As variáveis enviadas não batem com a estrutura do template aprovado"*.
+Também aparece como *"As variáveis enviadas não batem com a estrutura do template aprovado"* (`ararahq-template-mismatch`). Quando a Arara detecta a diferença antes de enviar, a API responde `422 TEMPLATE_VARIABLES_MISMATCH` com `details.expected` e `details.received`.
 
 **O que é:** a quantidade ou o formato das variáveis que você mandou não corresponde ao template aprovado. Template com `{{1}}` e `{{2}}` exige exatamente dois valores, na ordem.
 
@@ -56,11 +63,13 @@ Também aparece como *"As variáveis enviadas não batem com a estrutura do temp
 
 **O que fazer:** encurte o valor da variável. Para mídia, use link em vez de anexo pesado.
 
-### `Mensagem não tem um template_name`
+### Janela de 24h fechada
 
-**O que é:** você tentou iniciar conversa (fora da janela de 24h) sem informar template.
+A API recusa na hora com `422 CONVERSATION_WINDOW_CLOSED`. Se a janela fechou entre o aceite e o envio, a falha chega como *"Passaram-se mais de 24h desde a última mensagem do cliente"* (`ararahq-reengagement`).
 
-**O que fazer:** fora da janela, só template aprovado passa. Informe `templateName`. Dentro da janela, mensagem livre funciona — veja [Janela de 24h](/concepts/24h-window).
+**O que é:** você tentou mandar texto livre, botões ou lista para quem não falou com você nas últimas 24h.
+
+**O que fazer:** fora da janela, só template aprovado passa. Informe `templateName`. Veja [Janela de 24h](/concepts/24h-window).
 
 ---
 
@@ -90,6 +99,8 @@ Aqui nada que você mude no envio resolve — é o estado da conta na Meta.
 
 ### `A conta WhatsApp (WABA) da sua empresa está bloqueada ou restrita`
 
+Código `ararahq-account-locked` (erro Meta `131031`).
+
 **O que é:** a Meta bloqueou a conta inteira. Nenhum envio sai enquanto durar.
 
 **O que fazer:** o aviso e o motivo chegam no Business Manager da sua empresa. É lá que se abre a contestação — a Arara não consegue destravar por você, mas o chamado ajuda a interpretar o motivo e montar o recurso.
@@ -104,13 +115,11 @@ Código interno `ararahq-meta-block`.
 
 ### `O nome de exibição do seu número ainda não foi aprovado`
 
+Código `ararahq-display-name` (erro Meta `131037`).
+
 **O que é:** sem nome aprovado, a Meta bloqueia disparo de template.
 
 **O que fazer:** peça a aprovação do nome no Business Manager. Enquanto isso, conversa dentro da janela de 24h continua funcionando.
-
-### `Business Account locked` (Gupshup 131031)
-
-Mesma família do bloqueio de WABA, reportado pelo provedor. Tratamento igual.
 
 ---
 
@@ -120,12 +129,13 @@ Não são erro seu nem nosso. Não adianta reenviar.
 
 | Erro | O que significa |
 |---|---|
-| **Mensagem não pôde ser entregue no aparelho** (`ararahq-63032`) | Telefone desligado, sem sinal ou com você bloqueado. |
-| **A Meta não conseguiu entregar** | O número pode não ter WhatsApp, ter recusado o recebimento ou não aceitar mensagens da sua empresa. |
-| **Limite de marketing por usuário** | A Meta limitou o envio para *aquela pessoa*, para preservar a experiência dela. Não é problema do seu número. |
-| **Experimento da Meta** | O usuário está num teste da Meta que limita marketing. Nada a fazer. |
-| **`131049`** — *not delivered to maintain healthy ecosystem engagement* | Mesma família: a Meta segurou para proteger a experiência do usuário. |
-| **`131026`** — *Message undeliverable* | O destino não pode receber: número inválido, sem WhatsApp ou fora de área de cobertura. |
+| **A Meta não conseguiu entregar** (`ararahq-undeliverable`, Meta `131026`) | O número pode não ter WhatsApp, ter recusado o recebimento ou não aceitar mensagens da sua empresa. |
+| **A Meta limitou o envio para este usuário** (`ararahq-meta-block`, Meta `131048` e `131049`) | Limite de marketing por usuário ou sinal de spam. A Meta segurou para preservar a experiência da pessoa. |
+| **Experimento da Meta** (`ararahq-user-experiment`, Meta `130472`) | O usuário está num teste da Meta que limita marketing. Nada a fazer. |
+| **Destinatário inválido ou indisponível** (`ararahq-invalid-recipient`) | Número sem WhatsApp ativo, com termos pendentes ou app incompatível. |
+| **Mensagem não pôde ser entregue no aparelho** (`ararahq-63032`, números legados) | Telefone desligado, sem sinal ou com você bloqueado. |
+
+Número que falha repetidamente passa a ser recusado antes do envio com `403 NUMBER_BLOCKED`.
 
 Reenviar para esses contatos não melhora a entrega e piora sua nota de qualidade. O certo é limpar a lista.
 
@@ -142,6 +152,8 @@ Códigos `ararahq-63041` e similares.
 **O que fazer:** normalmente resolve sozinho e a mensagem é reconciliada. Se um lote inteiro ficar assim, abra chamado — é sinal de incidente, não de conteúdo.
 
 ### Mensagem parada em `SENT_TO_PROVIDER`
+
+Na API e no webhook esse estado aparece como `SENT` / `sent`; o nome técnico só aparece no histórico do painel.
 
 **O que é:** aceita pelo provedor e sem status final. Não é falha: é ausência de confirmação.
 
@@ -172,4 +184,4 @@ Se a mensagem está `FAILED`, ela não será reenviada sozinha. Corrija a causa 
 
 Abra um chamado em **Suporte**, dentro do painel. O assistente responde na hora com base nesta documentação; o que ele não resolver vai para a fila do time com o prazo do seu plano.
 
-Ajuda muito no chamado: o `id` da mensagem (`ara_msg_...`), o nome do template e o horário aproximado.
+Ajuda muito no chamado: o `id` da mensagem (`ara_msg_...`), o nome do template, o texto de `reason` e o horário aproximado.
