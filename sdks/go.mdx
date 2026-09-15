@@ -1,145 +1,200 @@
 ---
 title: 'SDK Go'
-description: 'O SDK Go oficial está em desenvolvimento. Use o CLI da Arara (escrito em Go, biblioteca interna exposta) ou chamadas REST diretas como solução temporária.'
+description: 'SDK Go oficial da Arara (github.com/ararahq/arara-go-sdk): só biblioteca padrão, context.Context em toda chamada, retry automático e erro tipado.'
 ---
 
-<Note>
-  **Status: em breve.** O SDK Go oficial está sendo extraído do código interno do [CLI da Arara](/cli) (que é escrito em Go). Release público previsto pra Q3 2026.
-</Note>
-
-## Por que ainda não tem
-
-O CLI da Arara é escrito em Go e expõe internamente toda a superfície da API. Para virar SDK público estável, faltam:
-
-- Versionamento semântico independente do CLI
-- Documentação Go-idiomática (godoc)
-- Cobertura de testes ≥ 80%
-- Suporte oficial a `context.Context` em todas as chamadas
-- Release no `pkg.go.dev` com tag `v1.0.0` estável
-
-A gente não solta SDK em estado "beta perpétuo". Quando sair, vai estar pronto pra produção.
-
-## Como resolver hoje
-
-### Opção 1 — REST direto com `net/http`
-
-Pra envio simples, 30 linhas de Go resolvem:
-
-```go
-package main
-
-import (
-    "bytes"
-    "encoding/json"
-    "fmt"
-    "io"
-    "net/http"
-    "os"
-)
-
-type SendMessageRequest struct {
-    Receiver          string   `json:"receiver"`
-    TemplateName      string   `json:"templateName,omitempty"`
-    TemplateVariables []string `json:"templateVariables,omitempty"`
-    Body              string   `json:"body,omitempty"`
-}
-
-func main() {
-    req := SendMessageRequest{
-        Receiver:     "whatsapp:+5511999999999",
-        TemplateName: "confirmacao_pedido",
-        TemplateVariables: []string{
-            "https://meusite.com/nota/123.pdf", // header (mídia)
-            "João",                              // {{1}}
-            "ARA-12345",                         // {{2}}
-        },
-    }
-
-    body, _ := json.Marshal(req)
-    httpReq, _ := http.NewRequest(
-        "POST",
-        "https://api.ararahq.com/v1/messages",
-        bytes.NewReader(body),
-    )
-    httpReq.Header.Set("Authorization", "Bearer "+os.Getenv("ARARA_API_KEY"))
-    httpReq.Header.Set("Content-Type", "application/json")
-
-    resp, err := http.DefaultClient.Do(httpReq)
-    if err != nil {
-        panic(err)
-    }
-    defer resp.Body.Close()
-
-    respBody, _ := io.ReadAll(resp.Body)
-    fmt.Println(string(respBody))
-}
-```
-
-A [referência completa da API REST](/api-reference/introduction) cobre todos os endpoints.
-
-### Opção 2 — Usar o CLI como subprocesso
-
-Pra script ou serviço pequeno, invoca o CLI da Arara via `exec.Command`:
-
-```go
-package main
-
-import (
-    "encoding/json"
-    "fmt"
-    "os/exec"
-)
-
-func main() {
-    cmd := exec.Command(
-        "arara", "send",
-        "--to", "+5511999999999",
-        "--template", "confirmacao_pedido",
-        "--var", "João",
-        "--var", "ARA-12345",
-        "--output", "json",
-    )
-
-    out, err := cmd.Output()
-    if err != nil {
-        panic(err)
-    }
-
-    var result map[string]any
-    json.Unmarshal(out, &result)
-    fmt.Println(result["id"])
-}
-```
-
-A flag `--output json` retorna estruturado. O CLI cuida de auth (profile), retry e idempotency-key automaticamente. Ver [CLI](/cli).
-
-### Opção 3 — Usar o pacote interno do CLI (não recomendado)
-
-O CLI tem em `internal/api` toda a lógica de chamada. **Não é API estável** — pode mudar sem aviso entre releases. Use apenas em projeto que você controla o upgrade junto com o CLI.
-
 ```bash
-# Não fazemos suporte. Use sob seu risco.
-go get github.com/ararahq/arara-cli/internal/api@v0.2.0
+go get github.com/ararahq/arara-go-sdk@main
 ```
 
-## Avisa quando sair
+O módulo ainda **não tem tag de release**: o `go get` resolve uma pseudo-versão do último commit da `main` (hoje `v0.0.0-20260716035048-88895cf1cf93`). Fixe essa versão no seu `go.mod` para builds reprodutíveis.
 
-<CardGroup cols={2}>
-  <Card title="Inscreve no GitHub" icon="bell" href="https://github.com/ararahq/arara-go-sdk">
-    Watch no repo (vai existir quando sair). Notificação no primeiro release.
-  </Card>
-  <Card title="Pede no Discord" icon="discord" href="https://discord.gg/ararahq">
-    Tá precisando pra um projeto específico? Avisa qual case que a gente prioriza.
-  </Card>
-</CardGroup>
+Requer Go 1.22+. Sem dependências externas (`net/http`, `encoding/json`, `context`).
+
+## Setup
+
+```go
+import (
+    "os"
+    "time"
+
+    arara "github.com/ararahq/arara-go-sdk"
+)
+
+client, err := arara.NewClient(
+    os.Getenv("ARARA_API_KEY"),
+    arara.WithBaseURL("https://api.ararahq.com"), // opcional, este é o default
+    arara.WithTimeout(15*time.Second),            // opcional, default 10s
+    arara.WithMaxRetries(3),                      // opcional, default 3
+)
+if err != nil {
+    log.Fatal(err) // apiKey vazia
+}
+```
+
+`arara.WithHTTPClient(hc)` substitui o `*http.Client` inteiro (transporte e timeout).
+
+## Recursos disponíveis
+
+Todo método recebe `context.Context` como primeiro argumento.
+
+| Recurso | Acesso | Métodos |
+|---|---|---|
+| Messages | `client.Messages` | `Send` |
+| Templates | `client.Templates` | `List`, `Create`, `Get`, `GetStatus`, `Delete` |
+| Campaigns | `client.Campaigns` | `Create`, `List`, `Estimate`, `Get`, `Cancel` |
+| Contacts | `client.Contacts` | `List`, `ImportBatch`, `Stats`, `ReactivationCandidates`, `ListTags`, `Get`, `Update`, `Messages` |
+| Conversations | `client.Conversations` | `List`, `LeadStats`, `Messages`, `Reply`, `UpdateStatus`, `WindowStatus` |
+| Wallet | `client.Wallet` | `Transactions`, `GetAutoRecharge`, `UpdateAutoRecharge` |
+| Numbers | `client.Numbers` | `List`, `Update`, `Delete`, `Request`, `ListRequests`, `Sync`, `Warming` |
+| Smart links | `client.SmartLinks` | `Create`, `Update`, `List`, `Stats` |
+| Users | `client.Users` | `GetMe`, `Update` |
+| Organizations | `client.Organizations` | `GetWebhook`, `UpdateWebhook` |
+| API Keys | `client.APIKeys` | `List`, `Create` (ver limitações) |
+
+## Enviar mensagem
+
+```go
+ctx := context.Background()
+
+resp, err := client.Messages.Send(ctx, &arara.SendMessageRequest{
+    Receiver:     "whatsapp:+5511999999999",
+    TemplateName: "confirmacao_pedido",
+    TemplateVariables: []string{
+        "https://meusite.com/nota/123.pdf", // header (mídia opcional)
+        "João",                              // {{1}}
+        "ARA-12345",                         // {{2}}
+    },
+}, arara.SendOptions{IdempotencyKey: "pedido-12345"})
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Println(resp.ID, resp.Status) // ara_msg_... e status inicial
+```
+
+**Mensagem de sessão (texto livre, dentro da janela de 24h):**
+
+```go
+_, err = client.Messages.Send(ctx, &arara.SendMessageRequest{
+    Receiver: "whatsapp:+5511999999999",
+    Body:     "Oi! Vi sua dúvida e respondo já já.",
+})
+```
+
+`SendOptions` é opcional. Repetir a mesma `IdempotencyKey` devolve a mensagem original. A API não compara o corpo nem expira a chave: com destinatário ou variáveis diferentes, a resposta continua sendo a mensagem original. O SDK não tem método para consultar a mensagem depois; use `GET /v1/messages/{id}` direto ou o webhook `message.status_updated`.
+
+## Templates
+
+`Get`, `GetStatus` e `Delete` recebem o **id** do template (UUID), não o nome.
+
+```go
+tpl, err := client.Templates.Create(ctx, &arara.CreateTemplateRequest{
+    Name:     "promo_natal",
+    Category: "MARKETING",
+    Language: "pt_BR",
+    Body:     "Oi {{1}}, oferta de Natal: {{2}}% off até {{3}}.",
+    Samples:  map[string]string{"1": "João", "2": "30", "3": "sexta"},
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+status, err := client.Templates.GetStatus(ctx, tpl.ID)
+if err == nil {
+    fmt.Println(status.Status) // PENDING, APPROVED, REJECTED...
+}
+```
+
+## Campanhas
+
+`Create` gera um `Idempotency-Key` (UUID v4) quando você não passa um. Passe o seu para que um retry do seu lado não crie campanha duplicada.
+
+```go
+campaign, err := client.Campaigns.Create(ctx, &arara.CampaignRequest{
+    Name:         "blackfriday-2026",
+    TemplateName: "bf_oferta_geral",
+    Contacts: []arara.CampaignContactRequest{
+        {To: "whatsapp:+5511999999999", Variables: []string{"João", "30"}},
+        {To: "whatsapp:+5511888888888", Variables: []string{"Maria", "25"}},
+    },
+}, arara.CampaignCreateOptions{IdempotencyKey: "bf-2026-lote-1"})
+if err != nil {
+    log.Fatal(err)
+}
+
+detail, err := client.Campaigns.Get(ctx, campaign.ID)
+```
+
+## Contatos e conversas
+
+```go
+contacts, err := client.Contacts.List(ctx, arara.ContactListParams{Page: 0, Size: 20, Lifecycle: "ENGAGED"})
+
+_, err = client.Conversations.Reply(ctx, &arara.ConversationReplyRequest{
+    ConversationID: "3f1e...",
+    Body:           "Seu pedido saiu para entrega.",
+})
+```
+
+## Erros
+
+Toda falha devolve `*arara.Error`:
+
+```go
+import "errors"
+
+_, err := client.Messages.Send(ctx, req)
+var apiErr *arara.Error
+if errors.As(err, &apiErr) {
+    fmt.Println(apiErr.StatusCode, apiErr.Code, apiErr.Message, apiErr.Details)
+    if apiErr.StatusCode == 429 && apiErr.RetryAfter != nil {
+        fmt.Println("tente de novo em", *apiErr.RetryAfter, "segundos")
+    }
+}
+```
+
+| Campo | Conteúdo |
+|---|---|
+| `StatusCode` | Status HTTP. Zero em falha de rede. |
+| `Code` | `error.code` da API. `NETWORK_ERROR`, `DECODE_ERROR`, `CONTEXT_CANCELED` ou `UNKNOWN_ERROR` quando não veio da API. |
+| `Message` | `error.message` da API. |
+| `Details` | `error.details` da API. |
+| `RetryAfter` | Segundos do header `Retry-After`, quando houver. |
+
+A API responde 403 (não 401) para chave inválida. Lista de códigos em [Erros](/erros).
+
+## Retry
+
+O SDK retenta até `WithMaxRetries` vezes em falha de rede, 429 e qualquer 5xx. Respeita `Retry-After` (até 30s); sem ele, espera 500ms e dobra a cada tentativa, até 30s. Cancelar o `context` interrompe a espera. Para desligar: `arara.WithMaxRetries(0)`.
+
+<Warning>
+  O retry reenvia `POST /v1/messages` em 5xx. Passe `SendOptions{IdempotencyKey: ...}` em todo envio.
+</Warning>
+
+## Webhooks
+
+O SDK não tem helper de webhook. Valide `X-Arara-Signature` com `crypto/hmac` sobre `"{X-Arara-Timestamp}.{corpo cru}"` e compare com `hmac.Equal`. Detalhes em [Webhooks](/webhooks).
+
+## Limitações conhecidas
+
+| Método | Problema |
+|---|---|
+| `Templates.List` | A API responde `{ data, pagination }` e o SDK decodifica em `[]Template`: erro `DECODE_ERROR`. |
+| `Templates.Get/GetStatus/Delete` | Precisam do id (UUID). Com o nome a API responde 400. |
+| `APIKeys.*` | A API recusa gestão de chaves autenticada por API key (403). Crie e revogue chaves pelo dashboard. |
+
+## Source
+
+GitHub: [github.com/ararahq/arara-go-sdk](https://github.com/ararahq/arara-go-sdk)
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="API Reference" icon="code" href="/api-reference/introduction">
-    Use REST direto enquanto isso.
+    Endpoints REST por baixo do SDK.
   </Card>
   <Card title="CLI" icon="terminal" href="/cli">
-    O CLI já é Go e cobre tudo.
+    Envio e escuta de webhooks pelo terminal.
   </Card>
 </CardGroup>

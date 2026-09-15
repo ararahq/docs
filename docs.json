@@ -105,7 +105,8 @@
               "sdks/python",
               "sdks/php",
               "sdks/java",
-              "sdks/go"
+              "sdks/go",
+              "sdks/ruby"
             ]
           },
           {

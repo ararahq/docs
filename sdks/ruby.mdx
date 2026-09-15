@@ -1,0 +1,184 @@
+---
+title: 'SDK Ruby'
+description: 'SDK Ruby oficial da Arara (gem ararahq): só biblioteca padrão, respostas em Hash, retry automático e exceções por status. Instalação pelo GitHub.'
+---
+
+```ruby
+# Gemfile
+gem "ararahq", git: "https://github.com/ararahq/arara-ruby-sdk"
+```
+
+```bash
+bundle install
+```
+
+A gem **ainda não está publicada no RubyGems** (`gem install ararahq` não funciona). Instale pelo repositório e fixe um commit com `ref:` para builds reprodutíveis. Versão no código: `0.1.0`.
+
+Requer Ruby 3.0+. Sem dependências de runtime (`net/http`, `json`, `uri`).
+
+## Setup
+
+```ruby
+require "arara"
+
+client = Arara::Client.new(
+  api_key: ENV.fetch("ARARA_API_KEY"),
+  base_url: "https://api.ararahq.com", # opcional, este é o default
+  timeout: 10,                          # opcional, em segundos (open e read)
+  max_retries: 3                        # opcional
+)
+```
+
+Sem `api_key`, o construtor lança `ArgumentError`.
+
+As respostas voltam como `Hash` com chaves `String`, exatamente como a API devolve.
+
+## Recursos disponíveis
+
+| Recurso | Acesso | Métodos |
+|---|---|---|
+| Messages | `client.messages` | `send(receiver:, template_name:, template_variables:, body:, media_url:, scheduled_at:, idempotency_key:)` |
+| Templates | `client.templates` | `list`, `create(payload)`, `get(id)`, `get_status(id)`, `delete(id)` |
+| Campaigns | `client.campaigns` | `create(payload, idempotency_key:)`, `list(page:, size:, status:)`, `estimate(template_name:, count:)`, `get(id)`, `cancel(id)` |
+| Contacts | `client.contacts` | `list`, `import_batch`, `stats`, `reactivation_candidates`, `list_tags`, `get`, `update`, `messages` |
+| Conversations | `client.conversations` | `list`, `lead_stats`, `messages`, `reply(conversation_id:, body:)`, `update_status`, `window_status` |
+| Wallet | `client.wallet` | `transactions`, `get_auto_recharge`, `update_auto_recharge` |
+| Numbers | `client.numbers` | `list`, `update`, `delete`, `request`, `list_requests`, `sync`, `warming` |
+| Smart links | `client.smart_links` | `create`, `update`, `list`, `stats` |
+| Users | `client.users` | `get_me`, `update(name:, phone_number:)` |
+| Organizations | `client.organizations` | `get_webhook`, `update_webhook(url:, secret:)` |
+| API Keys | `client.api_keys` | `list`, `create(mode:)` (ver limitações) |
+
+## Enviar mensagem
+
+```ruby
+result = client.messages.send(
+  receiver: "whatsapp:+5511999999999",
+  template_name: "confirmacao_pedido",
+  template_variables: [
+    "https://meusite.com/nota/123.pdf", # header (mídia opcional)
+    "João",                              # {{1}}
+    "ARA-12345"                          # {{2}}
+  ],
+  idempotency_key: "pedido-12345"
+)
+
+puts result["id"]     # ara_msg_...
+puts result["status"] # status inicial da mensagem
+```
+
+**Mensagem de sessão (texto livre, dentro da janela de 24h):**
+
+```ruby
+client.messages.send(
+  receiver: "whatsapp:+5511999999999",
+  body: "Oi! Vi sua dúvida e respondo já já."
+)
+```
+
+Repetir a mesma `idempotency_key` devolve a mensagem original. A API não compara o corpo nem expira a chave: com destinatário ou variáveis diferentes, a resposta continua sendo a mensagem original. O SDK não tem método para consultar a mensagem depois; use `GET /v1/messages/{id}` direto ou o webhook `message.status_updated`.
+
+<Warning>
+  `client.messages.send` sobrescreve `Object#send` nesse objeto. Chame sempre com argumentos nomeados e não use `client.messages.send(:metodo)` para metaprogramação (use `public_send`).
+</Warning>
+
+## Templates
+
+`get`, `get_status` e `delete` recebem o **id** do template (UUID), não o nome.
+
+```ruby
+page = client.templates.list
+page["data"].each { |t| puts "#{t["name"]} #{t["providerStatus"]}" }
+
+template = client.templates.create(
+  "name" => "promo_natal",
+  "category" => "MARKETING",
+  "language" => "pt_BR",
+  "body" => "Oi {{1}}, oferta de Natal: {{2}}% off até {{3}}.",
+  "samples" => { "1" => "João", "2" => "30", "3" => "sexta" }
+)
+
+status = client.templates.get_status(template["id"])
+puts status["status"]
+```
+
+## Campanhas
+
+`create` gera um `Idempotency-Key` (UUID) quando você não passa um. Passe o seu para que um retry do seu lado não crie campanha duplicada.
+
+```ruby
+campaign = client.campaigns.create(
+  {
+    "name" => "blackfriday-2026",
+    "templateName" => "bf_oferta_geral",
+    "contacts" => [
+      { "to" => "whatsapp:+5511999999999", "variables" => ["João", "30"] },
+      { "to" => "whatsapp:+5511888888888", "variables" => ["Maria", "25"] }
+    ]
+  },
+  idempotency_key: "bf-2026-lote-1"
+)
+
+detail = client.campaigns.get(campaign["id"])
+```
+
+## Erros
+
+```ruby
+begin
+  client.messages.send(receiver: "whatsapp:+5511999999999", template_name: "confirmacao_pedido")
+rescue Arara::RateLimitError => e
+  sleep(e.retry_after || 1)
+rescue Arara::Error => e
+  puts "#{e.status_code} #{e.code}: #{e.message}"
+end
+```
+
+| Exceção | Quando |
+|---|---|
+| `Arara::BadRequestError` | 400 |
+| `Arara::AuthenticationError` | 401 |
+| `Arara::PermissionError` | 403 |
+| `Arara::NotFoundError` | 404 |
+| `Arara::ConflictError` | 409 |
+| `Arara::RateLimitError` | 429 (`retry_after` em segundos) |
+| `Arara::ServerError` | 5xx |
+| `Arara::NetworkError` | timeout ou falha de conexão, depois dos retries |
+| `Arara::Error` | base de todas; qualquer outro status |
+
+Todas expõem `status_code`, `code` (`error.code` da API), `details` e `retry_after`. A API responde 403 (não 401) para chave inválida, então esse caso cai em `PermissionError`. Lista de códigos em [Erros](/erros).
+
+## Retry
+
+O SDK retenta até `max_retries` vezes em timeout, falha de conexão, 429 e qualquer 5xx. Respeita `Retry-After` em segundos (até 30s); sem ele, espera 0,5s e dobra a cada tentativa, até 30s. Para desligar: `max_retries: 0`.
+
+<Warning>
+  O retry reenvia `POST /v1/messages` em 5xx. Passe `idempotency_key:` em todo envio.
+</Warning>
+
+## Webhooks
+
+O SDK não tem helper de webhook. Valide `X-Arara-Signature` com `OpenSSL::HMAC.hexdigest("SHA256", secret, "#{timestamp}.#{raw_body}")`, prefixado com `sha256=`, e compare em tempo constante (`Rack::Utils.secure_compare` ou `ActiveSupport::SecurityUtils.secure_compare`). Detalhes em [Webhooks](/webhooks).
+
+## Limitações conhecidas
+
+| Método | Problema |
+|---|---|
+| `api_keys.*` | A API recusa gestão de chaves autenticada por API key (403). Crie e revogue chaves pelo dashboard. |
+| `templates.get/get_status/delete` | Precisam do id (UUID). Com o nome a API responde 400. |
+| `Retry-After` em formato de data | O parser chama `Time.httpdate` sem `require "time"`; se a API mandar data em vez de segundos, a chamada quebra com `NoMethodError`. |
+
+## Source
+
+GitHub: [github.com/ararahq/arara-ruby-sdk](https://github.com/ararahq/arara-ruby-sdk)
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Endpoints REST por baixo do SDK.
+  </Card>
+  <Card title="Webhooks" icon="bell" href="/webhooks">
+    Eventos, payload e validação de assinatura.
+  </Card>
+</CardGroup>
