@@ -1,32 +1,32 @@
 ---
 title: 'Quickstart'
-description: 'Do zero ao primeiro envio real de WhatsApp. cURL, Node, Python, PHP e Java lado a lado, validados contra a API real.'
+description: 'Do zero ao primeiro envio real de WhatsApp. cURL, Node, Python, PHP, Java e Go lado a lado.'
 keywords: ['quickstart', 'primeira mensagem', 'getting started', 'hello world', 'whatsapp']
 ---
 
-Você vai mandar sua primeira mensagem WhatsApp **real**. Pra isso você precisa de três coisas: um número conectado, um template aprovado e saldo na wallet. Vamos usar o `hello_world` — o template padrão da Meta, já aprovado — pra tirar o primeiro envio do papel.
+Você vai mandar uma mensagem WhatsApp **real** para o seu próprio número. Conta nova tem 3 envios gratuitos do template de demonstração `hello_world_v2`, saindo pelo número da Arara, sem plano e sem saldo. É o jeito mais rápido de ver a API funcionando.
 
 <Note>
-  Pra entender **antes** os conceitos por trás (janela 24h, templates HSM, pricing): leia [Como funciona a WhatsApp Business API](/concepts/whatsapp). 10 minutos que economizam dias.
+  Para entender antes os conceitos (janela de 24h, templates, preços), leia [Como funciona a WhatsApp Business API](/concepts/whatsapp).
 </Note>
 
-## 1. Crie sua conta e pegue a API key
+## 1. Crie a conta e gere uma chave de API
 
-Acesse o [Dashboard](https://ararahq.com/dashboard) e crie conta com Google ou email. Em **API Keys**, gere uma chave `ara_live_*` (produção — a Arara não tem modo de teste; todo envio é real).
+Crie sua conta no [Dashboard](https://app.ararahq.com). Em **API Keys**, gere uma chave e dê um nome que diga onde ela será usada. Toda chave é de produção (`ara_live_...`): a Arara não tem modo de teste, todo envio é real.
 
-A chave **completa só aparece uma vez**. Copie e guarde em variável de ambiente:
+A chave completa só aparece uma vez. Guarde em variável de ambiente:
 
 ```bash
 export ARARA_API_KEY=ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 <Warning>
-  Nunca commite a key. Nunca exponha no frontend. Use env var, Vercel/Netlify secrets, AWS Secrets Manager.
+  Nunca commite a chave e nunca a exponha no frontend. Use variável de ambiente ou um gerenciador de segredos.
 </Warning>
 
 ## 2. Mande a primeira mensagem
 
-O `hello_world` não tem variáveis — é o jeito mais rápido de ver uma entrega real. Use seu próprio número no WhatsApp pra confirmar que chegou:
+Troque o número pelo seu WhatsApp. O `hello_world_v2` tem uma variável, que a Arara preenche com o seu primeiro nome, então não é preciso enviar `templateVariables`.
 
 <CodeGroup>
 ```bash cURL
@@ -35,7 +35,7 @@ curl -X POST https://api.ararahq.com/v1/messages \
   -H "Content-Type: application/json" \
   -d '{
     "receiver": "whatsapp:+5511987654321",
-    "templateName": "hello_world"
+    "templateName": "hello_world_v2"
   }'
 ```
 
@@ -49,7 +49,7 @@ const sdk = new NodeSDK({
 
 const response = await sdk.messages.send({
   receiver: 'whatsapp:+5511987654321',
-  templateName: 'hello_world',
+  templateName: 'hello_world_v2',
 });
 
 console.log(response.id, response.status);
@@ -64,7 +64,7 @@ from arara_api_sdk.models.message import SendMessageRequest
 with AraraClient(api_key=os.environ["ARARA_API_KEY"]) as client:
     response = client.messages.send(SendMessageRequest(
         receiver="whatsapp:+5511987654321",
-        template_name="hello_world",
+        template_name="hello_world_v2",
     ))
 
 print(response.id, response.status)
@@ -79,14 +79,14 @@ $sdk = new Arara(new Config(apiKey: getenv('ARARA_API_KEY')));
 
 $response = $sdk->messages->send(
     receiver: 'whatsapp:+5511987654321',
-    templateName: 'hello_world',
+    templateName: 'hello_world_v2',
 );
 
-echo "{$response->id} {$response->status}";
+echo "{$response['id']} {$response['status']}";
 ```
 
 ```java Java
-// implementation("com.ararahq:arara-java-sdk:1.8.0")
+// implementation("com.ararahq:arara-java-sdk:1.8.1")
 import com.ararahq.arara.sdk.Arara;
 import com.ararahq.arara.sdk.models.SendMessageRequest;
 
@@ -97,7 +97,7 @@ Arara arara = Arara.builder()
 var response = arara.getMessages().send(
     SendMessageRequest.builder()
         .receiver("whatsapp:+5511987654321")
-        .templateName("hello_world")
+        .templateName("hello_world_v2")
         .build()
 );
 
@@ -105,103 +105,109 @@ System.out.println(response.getId() + " " + response.getStatus());
 ```
 
 ```go Go
-// go install (SDK Go em breve — usando net/http direto)
+// go get github.com/ararahq/arara-go-sdk
 package main
 
 import (
-    "bytes"
-    "encoding/json"
+    "context"
     "fmt"
-    "net/http"
+    "log"
     "os"
+
+    arara "github.com/ararahq/arara-go-sdk"
 )
 
 func main() {
-    body, _ := json.Marshal(map[string]any{
-        "receiver":     "whatsapp:+5511987654321",
-        "templateName": "hello_world",
+    client, err := arara.NewClient(os.Getenv("ARARA_API_KEY"))
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    resp, err := client.Messages.Send(context.Background(), &arara.SendMessageRequest{
+        Receiver:     "whatsapp:+5511987654321",
+        TemplateName: "hello_world_v2",
     })
-    req, _ := http.NewRequest("POST",
-        "https://api.ararahq.com/v1/messages",
-        bytes.NewReader(body))
-    req.Header.Set("Authorization", "Bearer "+os.Getenv("ARARA_API_KEY"))
-    req.Header.Set("Content-Type", "application/json")
-    resp, _ := http.DefaultClient.Do(req)
-    defer resp.Body.Close()
-    fmt.Println(resp.Status)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Println(resp.ID, resp.Status)
 }
 ```
 </CodeGroup>
 
-Response esperada (`202 Accepted`):
+Resposta esperada (`202 Accepted`):
 
 ```json
 {
-  "id": "ara_msg_k9Bf2XqP",
+  "id": "ara_msg_k9Bf2Xq",
   "status": "PENDING",
+  "mode": "LIVE",
   "sender": "whatsapp:+551144440000",
-  "receiver": "whatsapp:+5511987654321"
+  "receiver": "whatsapp:+5511987654321",
+  "cost": 0
 }
 ```
 
-`status` começa em `PENDING` e evolui pra `SENT`, `DELIVERED` (e `READ` quando o cliente abre).
+`status` começa em `PENDING` e evolui para `SENT`, `DELIVERED` e `READ` quando a mensagem é lida. Se falhar, vira `FAILED` com o motivo em `reason`.
 
-## 3. Consultar status
+## 3. Consulte o status
 
 ```bash
-curl https://api.ararahq.com/v1/messages/ara_msg_k9Bf2XqP \
+curl https://api.ararahq.com/v1/messages/ara_msg_k9Bf2Xq \
   -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
-```json
-{
-  "id": "ara_msg_k9Bf2XqP",
-  "status": "DELIVERED",
-  "sender": "whatsapp:+551144440000",
-  "receiver": "whatsapp:+5511987654321"
-}
-```
+Em produção, prefira receber status por [webhook](/webhooks) em vez de consultar em loop.
 
-Prefira receber status via [webhook](/webhooks) em vez de polling.
+## 4. Da demonstração para a operação
 
-## E agora?
-
-<CardGroup cols={2}>
-  <Card title="Como funciona a API" icon="lightbulb" href="/concepts/whatsapp">
-    Janela 24h, templates HSM, qualidade do número.
-  </Card>
-  <Card title="Primeiro template real" icon="file-lines" href="/concepts/templates">
-    `hello_world` é nosso template demo. Cria os seus.
-  </Card>
-  <Card title="Receber webhooks" icon="bell" href="/webhooks">
-    Status, inbound, retry com HMAC.
-  </Card>
-  <Card title="Receitas práticas" icon="book-open" href="/recipes">
-    Carrinho abandonado, OTP, BF, suporte 24/7.
-  </Card>
-</CardGroup>
-
-## Pronto pra escalar
+Os 3 envios de demonstração servem só para ver a entrega. Para enviar as suas mensagens:
 
 <Steps>
+  <Step title="Assine um plano">
+    Essencial, Voo ou Primeira Classe. Ver [Preços](/concepts/pricing).
+  </Step>
+  <Step title="Conecte um número">
+    Conecte o seu número de WhatsApp Business ou use um número provisionado pela Arara. Ver [Números](/numbers).
+  </Step>
   <Step title="Crie seus templates">
-    `hello_world` é só demo. Crie seus templates em [Templates HSM](/concepts/templates). Aprovação Meta: 1-72h.
+    Mensagem fora da janela de 24h precisa de template aprovado pela Meta. Ver [Templates](/concepts/templates).
   </Step>
-  <Step title="Configure webhook">
-    Receba status (`sent`, `delivered`, `read`, `failed`) em tempo real. Ver [Webhooks](/webhooks).
+  <Step title="Carregue a carteira e ligue a auto-recarga">
+    Mensagens são pagas com saldo pré-pago. Sem saldo, o envio é recusado.
   </Step>
-  <Step title="Liga auto-recarga">
-    Saldo de créditos zerado interrompe envios. Ver [Pricing](/concepts/pricing) e [auto-recharge](/recovery).
+  <Step title="Configure o webhook">
+    Receba status (`sent`, `delivered`, `read`, `failed`) e mensagens recebidas em tempo real. Ver [Webhooks](/webhooks).
   </Step>
 </Steps>
 
 ## Erros comuns
 
-| Sintoma | Causa provável | Fix |
+| Resposta | Causa provável | O que fazer |
 |---|---|---|
-| `401` (sem `code`) | Chave inválida, revogada ou ausente | Cheque `ARARA_API_KEY` (`ara_live_...`) |
-| `409 CONFLICT` | Template não existe ou não aprovado | Use `hello_world` ou crie um template |
-| `422 UNPROCESSABLE_ENTITY` | Texto livre fora da janela de 24h | Use template HSM. Ver [Janela 24h](/concepts/24h-window) |
-| `402 INSUFFICIENT_FUNDS` | Wallet sem saldo | Recarrega via dashboard ou [auto-recharge](/recovery) |
+| `401` | Chave inválida, revogada ou ausente | Confira `ARARA_API_KEY` (`ara_live_...`). |
+| `409 CONFLICT` | Template não existe nesta organização | Confira o nome ou crie o template. |
+| `422 TEMPLATE_NOT_SENDABLE` | Template ainda em análise, rejeitado ou desabilitado | Aguarde a aprovação ou corrija e reenvie. |
+| `422 CONVERSATION_WINDOW_CLOSED` | Texto livre fora da janela de 24h | Use um template aprovado. Ver [Janela de 24h](/concepts/24h-window). |
+| `422 UNPROCESSABLE_ENTITY` | Os 3 envios de demonstração já foram usados | Assine um plano para continuar. |
+| `402 INSUFFICIENT_FUNDS` | Carteira sem saldo | Recarregue no Dashboard ou ligue a auto-recarga. |
 
-Lista canônica em [Erros](/erros).
+Lista completa em [Erros](/erros).
+
+## E agora?
+
+<CardGroup cols={2}>
+  <Card title="Como funciona a API" icon="lightbulb" href="/concepts/whatsapp">
+    Janela de 24h, templates e qualidade do número.
+  </Card>
+  <Card title="Templates" icon="file-lines" href="/concepts/templates">
+    Crie e aprove os seus.
+  </Card>
+  <Card title="Webhooks" icon="bell" href="/webhooks">
+    Status e mensagens recebidas, com assinatura HMAC.
+  </Card>
+  <Card title="CLI" icon="terminal" href="/cli">
+    Envie e acompanhe eventos pelo terminal.
+  </Card>
+</CardGroup>

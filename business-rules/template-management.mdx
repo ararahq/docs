@@ -1,128 +1,85 @@
 ---
-title: "Gerenciamento de Templates"
-description: "Aprenda como criar e gerenciar templates de mensagem no dashboard da Arara"
+title: "Gerenciamento de templates"
+description: "Regras para criar, aprovar, enviar e manter templates de mensagem na Arara: pelo Dashboard, pela API ou pelo MCP."
 ---
 
-# Gerenciamento de Templates
+Template é a mensagem pré-aprovada pela Meta que a empresa pode enviar a qualquer momento. Na Arara, **só é possível enviar templates que existem na sua organização e estão aprovados**. O conceito completo está em [Templates](/concepts/templates).
 
-Templates são modelos de mensagens pré-aprovadas que você pode usar para enviar mensagens via WhatsApp. Na Arara, **todos os templates devem ser criados através do dashboard** antes de serem usados na API.
+## Onde criar
+
+| Canal | Como |
+|---|---|
+| Dashboard | [app.ararahq.com](https://app.ararahq.com), seção **Templates**. |
+| API | `POST /v1/templates`. Ver [Templates](/concepts/templates#criando-pela-api). |
+| Biblioteca da Meta | `POST /v1/templates/library`: modelos UTILITY que já nascem aprovados. |
+| Agente de IA | Ferramenta `create_template` do [MCP](/mcp-server). |
+| Gerenciador da Meta | Criado direto na Meta, entra na Arara com `POST /v1/templates/sync`. |
 
 <Warning>
-  **Importante**: Você não pode enviar mensagens usando templates que não foram criados previamente no dashboard. Todos os templates precisam ser criados e aprovados antes do uso.
+  Criar e listar templates exige conta ativa. Se a conta ainda está em ativação, a API responde `403 ACCOUNT_NOT_ACTIVATED`.
 </Warning>
 
-## Por Que Templates?
+## Campos obrigatórios
 
-O WhatsApp Business exige que mensagens de negócio sejam enviadas usando templates aprovados. Isso garante:
+- **Nome** em `snake_case`, sem repetir outro template da organização. É o que você passa em `templateName` no envio.
+- **Categoria**: `MARKETING`, `UTILITY` ou `AUTHENTICATION`.
+- **Idioma**: padrão `pt_BR`.
+- **Corpo**, com variáveis `{{1}}`, `{{2}}`...
+- **Um exemplo para cada variável** (`samples`), exigido pela Meta na revisão.
 
-- Conformidade com as políticas do WhatsApp
-- Melhor experiência para o usuário
-- Prevenção de spam
-- Mensagens profissionais e consistentes
+## Variáveis no envio
 
-## Criando um Template
-
-### Passo 1: Acesse o Dashboard
-
-1. Faça login no [Dashboard da Arara](https://ararahq.com/dashboard)
-2. Navegue até a seção **"Templates"** no menu lateral
-
-### Passo 2: Crie um Novo Template
-
-Clique no botão **"Criar Template"** e preencha os seguintes campos:
-
-- **Nome do Template**: Um identificador único (ex: `template_teste_inicio_conversa`)
-- **Categoria**: Categoria do template (MARKETING, UTILITY, AUTHENTICATION)
-- **Idioma**: Idioma do template (pt_BR para português brasileiro)
-- **Conteúdo**: O texto da mensagem
-
-### Passo 3: Adicione Variáveis (Opcional)
-
-Você pode adicionar variáveis dinâmicas ao seu template usando a sintaxe `{{1}}`, `{{2}}`, etc.
-
-**Exemplo de template com variáveis:**
-
-```
-Olá {{1}}! Seu pedido {{2}} foi confirmado no valor de {{3}}.
-```
-
-Quando você enviar a mensagem via API, você passará os valores no array `templateVariables`:
+Os valores vão no array `templateVariables`, na ordem das variáveis:
 
 ```json
 {
   "receiver": "whatsapp:+5511999999999",
-  "templateName": "template_teste_inicio_conversa",
+  "templateName": "confirmacao_pedido",
   "templateVariables": ["João", "#12345", "R$ 100,00"]
 }
 ```
 
-### Passo 4: Aguarde Aprovação
+Quantidade diferente da que o template declara é recusada com `422 TEMPLATE_VARIABLES_MISMATCH`.
 
-Após criar o template, ele será enviado para aprovação. O processo de aprovação pode levar algumas horas ou até 24 horas, dependendo da categoria do template.
+## Aprovação
 
-<Info>
-  Templates de categoria UTILITY geralmente são aprovados mais rapidamente do que templates de MARKETING.
-</Info>
+A revisão é feita pela Meta. Templates da biblioteca já nascem aprovados; os demais levam de minutos a algumas horas, e às vezes mais. A mudança de status chega pelo webhook `template.updated`.
 
-## Usando Templates na API
+| Status | Significado | Envio |
+|---|---|---|
+| `PENDING` | Em análise | Recusado: `422 TEMPLATE_NOT_SENDABLE` |
+| `APPROVED` | Aprovado | Permitido |
+| `REJECTED` | Rejeitado pela Meta | Recusado: `422 TEMPLATE_NOT_SENDABLE` |
+| `PAUSED` | Pausado por feedback negativo | Recusado: `422 TEMPLATE_PAUSED` |
+| `DISABLED` | Desabilitado pela Meta | Recusado: `422 TEMPLATE_NOT_SENDABLE` |
 
-Depois que seu template foi criado e aprovado, você pode usá-lo na API simplesmente referenciando o nome do template:
+Template com nome que não existe na organização é recusado com `409 CONFLICT`.
 
-```bash curl
-curl -X POST https://api.ararahq.com/v1/messages \
-  -H "Authorization: Bearer ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "receiver": "whatsapp:+5511999999999",
-    "templateName": "template_teste_inicio_conversa",
-    "templateVariables": []
-  }'
-```
+## Manutenção
 
-## Boas Práticas
+- **Listar**: `GET /v1/templates` (paginado, filtros `name` e `status`).
+- **Status**: `GET /v1/templates/{id}/status`.
+- **Desempenho**: `GET /v1/templates/{id}/analytics`.
+- **Remover**: `DELETE /v1/templates/{id}`.
+- **Categoria reclassificada** pela Meta: aviso pelo webhook `template.category_changed`. O custo passa a ser o da nova categoria.
 
-### Nomenclatura
+Os planos atuais não limitam a quantidade de templates.
 
-Use nomes descritivos e consistentes para seus templates:
+## Boas práticas
 
-**Bons exemplos:**
-- `confirmacao_pedido`
-- `lembrete_pagamento`
-- `boas_vindas_cliente`
+- Nomes descritivos: `confirmacao_pedido`, `lembrete_pagamento`, `boas_vindas_cliente`. Evite `template1` ou `teste`.
+- Variáveis só para o que muda (nome, valor, data); o resto fica fixo.
+- Categoria honesta: promoção é MARKETING, mesmo que venha junto de uma informação útil.
+- Um template por idioma, com nomes diferentes (`confirmacao_pedido`, `confirmacao_pedido_en`), porque o envio escolhe pelo nome.
+- Template pausado: edite o texto ou crie outro. O mesmo conteúdo tende a ser pausado de novo.
 
-**Evite:**
-- `template1`
-- `teste`
-
-### Variáveis
-
-- Use variáveis para informações dinâmicas (nomes, valores, datas)
-- Mantenha o texto estático sempre que possível
-- Limite o número de variáveis para facilitar a manutenção
-
-### Conteúdo
-
-- Seja claro e objetivo
-- Use linguagem profissional
-- Evite spam ou conteúdo promocional excessivo
-- Respeite as políticas do WhatsApp Business
-
-## Listando Templates
-
-Você pode ver todos os seus templates criados diretamente no dashboard. Cada template mostra:
-
-- Nome do template
-- Status (Pendente, Aprovado, Rejeitado)
-- Data de criação
-- Última atualização
-
-## Próximos Passos
+## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/v2/messages">
-    Aprenda a usar templates para enviar mensagens
+  <Card title="Templates" icon="file-lines" href="/concepts/templates">
+    Categorias, botões, mídia e criação pela API.
   </Card>
   <Card title="Webhooks" icon="webhook" href="/webhooks">
-    Configure webhooks para receber notificações em tempo real
+    Receba mudanças de status em tempo real.
   </Card>
 </CardGroup>

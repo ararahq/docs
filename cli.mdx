@@ -1,39 +1,43 @@
 ---
 title: 'CLI da Arara'
-description: 'Mande mensagem, escute webhooks, dispare campanha, gere chave, debugue request — tudo do terminal. CLI escrito em Go, single binary, sem dependência Node/Python.'
-keywords: ['cli', 'terminal', 'arara cli', 'comando de linha', 'go', 'homebrew', 'arara send', 'arara listen']
+description: 'Envie mensagem, escute eventos, consulte templates e campanhas e chame qualquer endpoint da API pelo terminal. Binário único em Go, sem dependência de Node ou Python.'
+keywords: ['cli', 'terminal', 'arara cli', 'linha de comando', 'go', 'homebrew', 'arara send', 'arara listen']
 ---
 
-O `arara` é a CLI oficial da Arara. Single binary em Go, pronto pra rodar em Mac, Linux, Windows (amd64/arm64). Sem Node, sem Python, sem npm.
+O `arara` é a CLI da Arara. Binário único em Go para macOS, Linux e Windows (amd64/arm64), sem Node e sem Python.
 
-É a forma mais rápida de **ver a API funcionando antes de escrever código** — e a melhor superfície pra ops day-2 (incidente, debug, hotfix).
+Serve para ver a API funcionando antes de escrever código e para a operação do dia a dia: conferir status de mensagem, acompanhar eventos, depurar webhook.
 
 ```bash
-# Mandar primeira mensagem
-arara send --to +5511999999999 --template ola_mundo
+# Autenticar (abre o navegador)
+arara login
 
-# Escutar eventos em real time
+# Enviar um template
+arara send --to +5511999999999 --template confirmacao_pedido --vars "João,ARA-12345"
+
+# Ver o payload e o custo estimado sem enviar
+arara send --to +5511999999999 --template confirmacao_pedido --vars "João,ARA-12345" --dry-run
+
+# Acompanhar eventos em tempo real
 arara listen
-
-# Forwardar webhook pro localhost durante dev
-arara listen --forward-to http://localhost:3000/api/webhooks
 ```
 
 ## Instalação
 
-**One-liner** — detecta OS + arquitetura, baixa o binário do GitHub Releases, valida checksum SHA-256 e instala em `/usr/local/bin` (ou `~/.local/bin` se não tiver sudo):
+**macOS / Linux**: detecta sistema e arquitetura, baixa o binário do GitHub Releases, confere o SHA-256 e instala em `/usr/local/bin` (ou `~/.local/bin` quando não há permissão de escrita):
 
 ```bash
-curl -fsSL https://get.ararahq.com/install-cli | sh
+curl -fsSL https://raw.githubusercontent.com/ararahq/cli/main/install.sh | sh
 ```
 
-Alternativas:
+Para fixar versão ou diretório, use `ARARA_VERSION` (ex.: `v0.2.0`) e `ARARA_INSTALL_DIR`.
 
 <CardGroup cols={2}>
-  <Card title="PowerShell (Windows)" icon="windows">
+  <Card title="Windows (PowerShell)" icon="windows">
     ```powershell
-    iwr -useb https://get.ararahq.com/install-cli.ps1 | iex
+    iwr -useb https://raw.githubusercontent.com/ararahq/cli/main/install.ps1 | iex
     ```
+    Instala em `%LOCALAPPDATA%\arara\bin` e adiciona ao PATH do usuário. Não precisa de admin.
   </Card>
   <Card title="Homebrew (macOS / Linux)" icon="apple">
     ```bash
@@ -46,50 +50,67 @@ Alternativas:
     ```
   </Card>
   <Card title="Download direto" icon="github">
-    [github.com/ararahq/cli/releases](https://github.com/ararahq/cli/releases) — tar.gz/zip por OS+arch + checksums.txt.
+    [github.com/ararahq/cli/releases](https://github.com/ararahq/cli/releases): tar.gz/zip por sistema e arquitetura, com `checksums.txt`.
   </Card>
 </CardGroup>
 
-Confere a versão:
+Confira a instalação:
 
 ```bash
 arara --version
-# arara version 0.1.0
+arara doctor
 ```
 
-## Login
+`arara doctor` verifica versão, autenticação e conectividade com a API.
+
+## Autenticação
 
 ```bash
 arara login
 ```
 
-Abre OAuth Device Flow no navegador. Você confirma a conta no dashboard e a CLI guarda o token em `~/.config/arara/credentials.json` (ou `%APPDATA%\arara\` no Windows). Permissões 600.
+Por padrão o login usa o OAuth Device Flow: a CLI mostra um código e um link, você aprova no navegador com a sua conta da Arara e a CLI guarda o token. Credenciais ficam no keyring do sistema (Keychain no macOS, Secret Service no Linux, Credential Manager no Windows), com fallback para `~/.arara/config.yaml` (permissão 600).
 
-Pra agências/consultorias com múltiplas contas, use **profiles**:
+Para automação (CI, servidor), autentique com uma chave de API. Prefira passar a chave por stdin, que não fica no histórico do shell nem na lista de processos:
+
+```bash
+echo "$ARARA_API_KEY" | arara login
+# ou
+arara login --key "$ARARA_API_KEY"
+```
+
+Chaves são geradas no [Dashboard](https://app.ararahq.com), em **API Keys**, ou com `arara keys create --name "<onde a chave será usada>"`. Toda chave é de produção (`ara_live_...`).
+
+<Warning>
+  A Arara não tem modo de teste. Todo `arara send` entrega de verdade e debita do saldo da carteira. Use `--dry-run` para ver payload e custo estimado antes de enviar.
+</Warning>
+
+### Perfis e organizações
+
+Para operar mais de uma conta, use perfis. A flag global `-p/--profile` escolhe o perfil de cada comando:
 
 ```bash
 arara profile add cliente-x
+arara login --profile cliente-x
 arara profile switch cliente-x
 arara profile list
+arara profile remove cliente-x
 ```
 
-## Chave de API
+Se o seu usuário participa de várias organizações:
 
-Depois do `arara login`, a CLI cria uma API key LIVE server-side e guarda no keyring do SO. **O valor da chave nunca aparece na tela nem fica no shell history.** A Arara não tem modo de teste — todo envio é real.
+```bash
+arara org list
+arara org use <slug>
+```
 
-<Warning>
-  **Todo `send` cobra do saldo da wallet** e entrega de verdade. Não há simulação.
-</Warning>
+`arara whoami` mostra o perfil ativo e `arara logout` remove as credenciais do perfil atual.
 
-<Note>
-  Pra criar chave LIVE a conta precisa estar `ACTIVE` (onboarding completo). Se vier `ACCOUNT_NOT_ACTIVATED`, complete o wizard em [ararahq.com/dashboard](https://ararahq.com/dashboard).
-</Note>
-
-## Comandos principais
+## Comandos
 
 ### `arara send`
 
-Envia mensagem única:
+Envia uma mensagem. Sem flags, abre um assistente interativo no terminal.
 
 ```bash
 arara send \
@@ -98,181 +119,201 @@ arara send \
   --vars "João,ARA-12345"
 ```
 
-Suporta mídia, body livre (dentro de janela 24h), modo agendado:
-
-```bash
-arara send --to +55... --template oferta --vars "img.jpg,João" \
-  --scheduled-at "2026-05-25T09:00:00-03:00"
-```
+| Flag | Descrição |
+|---|---|
+| `--to` | Telefone do destinatário (ex.: `+5511999999999`). |
+| `--template` | Nome do template aprovado. |
+| `--vars` | Variáveis do template separadas por vírgula. |
+| `--body` | Texto livre. Só funciona com a [janela de 24h](/concepts/24h-window) aberta. Não combina com `--template`. |
+| `--scheduled-at` | Agenda o envio (ISO 8601, ex.: `2026-10-01T09:00:00-03:00`). |
+| `--dry-run` | Mostra payload e custo estimado sem enviar (estimativa só para template). |
+| `--watch` | Espera a mensagem chegar a um status final (entregue, lida, falhou) e sai. |
+| `--watch-timeout` | Tempo máximo do `--watch`. |
 
 ### `arara listen`
 
-Escuta eventos em real-time via SSE:
+Escuta os eventos da conta em tempo real (SSE):
 
 ```bash
 arara listen
-# [2026-05-18 14:32:11] message.status_updated  ara_msg_xxx  sent → delivered
-# [2026-05-18 14:32:18] message.received       +5511...  "ok, recebi"
+arara listen --events message.status_updated,message.received
 ```
 
-Forward pra dev local (replicação de webhook em produção pra debugar offline):
+Para desenvolver um receptor de webhook local, encaminhe cada evento via POST:
 
 ```bash
 arara listen --forward-to http://localhost:3000/api/webhooks
 ```
 
-Capture mode (intercepta webhook real, assina e manda pro localhost — útil quando você quer testar produção sem expor seu localhost via ngrok):
+Com `--capture`, a CLI registra um listener temporário no backend e o evento chega assinado no seu handler local (header `X-Arara-Signature`), sem expor o localhost com túnel. Se o ambiente não suportar captura, a CLI volta ao modo passivo e avisa.
 
 ```bash
 arara listen --capture --forward-to http://localhost:3000/api/webhooks
 ```
 
+### `arara logs`
+
+```bash
+arara logs                 # mensagens recentes
+arara logs --limit 50
+arara logs --follow        # eventos ao vivo em NDJSON, bom para pipe
+arara logs --tail          # eventos ao vivo em visualizador no terminal
+```
+
 ### `arara api`
 
-Chamada REST genérica. Útil pra endpoints ainda sem subcomando:
+Chamada autenticada a qualquer endpoint, útil quando ainda não existe subcomando:
 
 ```bash
-arara api /v1/templates --jq '.[] | select(.providerStatus=="APPROVED") | .name'
+arara api /v1/templates --jq '.data[].name'
 arara api -X POST /v1/contacts/batch --input contatos.json
-echo '{"name":"Promo"}' | arara api -X POST /v1/segments --input -
+echo '{"phones":["+5511999999999"]}' | arara api -X POST /v1/conversations/window-status --input -
 ```
 
-`-X` define o método (default `GET`). `--body` aceita JSON inline, `--input` lê de arquivo ou stdin (`-`). A `--jq` aceita expressão jq embarcada (gojq, sem dependência externa).
+| Flag | Descrição |
+|---|---|
+| `-X, --method` | Método HTTP (padrão `GET`). |
+| `--body` | Corpo JSON inline. |
+| `--input` | Lê o corpo de um arquivo, ou de stdin com `-`. |
+| `-H, --header` | Header extra (`Nome:Valor`), pode repetir. |
+| `--silent` | Não imprime o corpo da resposta (o código de saída continua valendo). |
 
-### `arara init`
-
-Scaffolda `.arara/` no projeto:
-
-```bash
-arara init
-```
-
-Cria:
-
-```
-.arara/
-├── settings.json           # config local (env, timeout, formato)
-├── hooks/
-│   ├── pre-send.example.sh    # roda antes de cada send
-│   └── post-receive.example.sh # roda quando webhook chega
-└── commands/
-    └── exemplo.md          # slash command custom
-```
-
-Adiciona `credentials*` no `.gitignore` automaticamente.
-
-### `arara org`
-
-Pra contas multi-org (você é OWNER em uma e MEMBER em outras):
-
-```bash
-arara org list
-arara org use cliente-x
-```
-
-### `arara upgrade`
-
-Auto-upgrade:
-
-```bash
-arara upgrade           # checa se tem versão nova
-arara upgrade --install # baixa, valida SHA-256, atomic swap
-```
-
-### `arara telemetry`
-
-Opt-in (default off). Envia anonymous usage events pra ajudar a melhorar a CLI:
-
-```bash
-arara telemetry on
-arara telemetry status
-arara telemetry off
-```
-
-UUID local, batches de até 50 events em 5min, zero PII.
-
-## Outros comandos
+### Templates, campanhas, contatos, chaves e números
 
 | Comando | Função |
 |---|---|
-| `arara whoami` | Quem está logado e em qual org. |
-| `arara doctor` | Diagnóstico: token válido, rede ok, latência, versão atualizada. |
-| `arara status` | Status público da Arara (igual `status.ararahq.com`). |
-| `arara campaigns list/get` | Lista e detalhe de campanhas. |
-| `arara contacts list/get/import` | Contatos (`import` aceita CSV). |
-| `arara templates list/status/delete` | Templates (criação ainda só via dashboard ou `arara api`). |
-| `arara keys list/create/rotate/revoke` | Gerenciamento de API keys. |
-| `arara numbers list/request` | Números da org. |
-| `arara logs` | Tail de mensagens enviadas, com filtros (`--status failed`, `--last 1h`). |
-| `arara config get/set` | `~/.config/arara/config.json` (default org, output format, etc). |
-| `arara settings` | Configs da org (webhook URL, secret, brain). |
-| `arara mcp` | Inicia o servidor MCP local (stdio) com sua API key. |
-| `arara docs` | Abre a doc no browser. |
-| `arara completion <shell>` | Gera autocomplete pra bash/zsh/fish. |
-| `arara commands` | Lista todos os comandos disponíveis. |
+| `arara templates list` | Lista os templates. |
+| `arara templates status <template-id>` | Status de aprovação de um template. |
+| `arara templates delete <template-id>` | Remove um template. |
+| `arara campaigns list` | Lista campanhas. |
+| `arara campaigns create --name --template --contacts` | Cria campanha. `--contacts` aceita JSON inline ou `@arquivo.json`. |
+| `arara campaigns status <campaign-id>` | Status e progresso de uma campanha. |
+| `arara campaigns estimate --template --count` | Estima o custo antes de disparar. |
+| `arara contacts list [-q busca] [--page] [--size]` | Lista contatos, paginado. |
+| `arara contacts search -q <termo>` | Busca por nome ou telefone. |
+| `arara contacts import --file contatos.json` | Importa contatos de um arquivo JSON. |
+| `arara contacts stats` | Estatísticas da base de contatos. |
+| `arara keys list` | Lista as chaves de API. |
+| `arara keys create --name <nome>` | Cria uma chave. |
+| `arara keys revoke <key-id>` | Revoga uma chave. |
+| `arara numbers` | Lista os números da organização. |
 
-Use `arara <comando> --help` pra ver flags específicas.
+A criação de template não tem subcomando. Use o [Dashboard](https://app.ararahq.com) ou `arara api -X POST /v1/templates --input template.json` (ver [Templates](/concepts/templates)).
 
-## Output formats
+### Outros comandos
 
-Default é text amigável. Pra script, use JSON:
+| Comando | Função |
+|---|---|
+| `arara status` | Painel ao vivo no terminal com métricas, mensagens e saldo (atualiza a cada 30s). Aliases: `dash`, `dashboard`. |
+| `arara doctor` | Diagnóstico de versão, autenticação e conectividade. |
+| `arara init` | Cria `.arara/` no projeto: `settings.json`, um comando de exemplo, um hook de exemplo e a entrada `credentials*` no `.gitignore`. |
+| `arara upgrade` | Verifica se há versão nova. Com `--install`, baixa, confere o SHA-256 e troca o binário. |
+| `arara telemetry on/off/status` | Telemetria anônima de uso da CLI. Desligada por padrão. |
+| `arara config list/get/set` | Configuração em `~/.arara/config.yaml` (`profile`, `api-url`, `output`). |
+| `arara settings list/get/set` | Preferências da CLI (tema, hooks, plugins), em camadas usuário e projeto. |
+| `arara completion <shell>` | Gera autocomplete (bash, zsh, fish, powershell). `arara completion install` instala. |
+| `arara commands list/show/which` | Lista e inspeciona comandos definidos pelo usuário. |
+| `arara mcp` | Roda a CLI como servidor MCP local (ver abaixo). |
+| `arara docs` | Abre esta documentação no navegador. |
+
+Use `arara <comando> --help` para ver todas as flags.
+
+## Formatos de saída
+
+Flags globais, valem para qualquer comando:
+
+| Flag | Descrição |
+|---|---|
+| `-o, --output` | `text` (padrão), `json`, `table` ou `stream-json` (NDJSON). |
+| `--jq <expr>` | Filtra a saída JSON com uma expressão jq embutida (não precisa do `jq` instalado). |
+| `--no-color` / `--theme mono` | Saída sem cores. `NO_COLOR=1` e `ARARA_THEME=mono` têm o mesmo efeito. |
+| `-v, --verbose` | Mostra detalhes das requisições, com segredos mascarados. |
 
 ```bash
-arara api /v1/messages --output json | jq '.[0].status'
-arara send --to +55... --template ola --output json | jq -r '.id'
+arara logs -o json
+arara send --to +5511999999999 --template confirmacao_pedido --vars "João" --watch -o stream-json
 ```
-
-Disponíveis: `text` (default), `json`, `yaml`, `table` (forçado em listings).
 
 ## Hooks
 
-Em `.arara/hooks/`, qualquer script executável `pre-send`, `post-send`, `pre-receive`, `post-receive` é rodado no momento certo:
+Scripts executados em eventos do ciclo de vida, configurados via `arara settings`:
 
 ```bash
-#!/bin/bash
-# .arara/hooks/pre-send
-# Bloqueia envio se o template não está APPROVED no provider
-status=$(arara templates status "$ARARA_TEMPLATE" --output json | jq -r '.status')
-if [ "$status" != "APPROVED" ]; then
-  echo "Template '$ARARA_TEMPLATE' está $status — bloqueando envio" >&2
-  exit 1
-fi
+arara settings set hooks.preSend "~/hooks/log-send.sh"
+arara settings set hooks.preSend "./scripts/checa-template.sh" --project
 ```
 
-Variáveis disponíveis: `ARARA_TEMPLATE`, `ARARA_TO`, `ARARA_VARS_JSON`, `ARARA_MESSAGE_ID` (post-send).
+| Evento | Chave | Comportamento |
+|---|---|---|
+| `pre-send` | `hooks.preSend` | Saída diferente de zero cancela o envio. |
+| `post-deliver` | `hooks.postDeliver` | Só registra; não interrompe. |
+| `pre-campaign` | `hooks.preCampaign` | Saída diferente de zero cancela a campanha. |
+| `post-campaign` | `hooks.postCampaign` | Só registra; não interrompe. |
+| `on-error` | `hooks.onError` | Só registra; não interrompe. |
+
+O script recebe o payload do evento em JSON pelo stdin e as variáveis `ARARA_EVENT`, `ARARA_PROFILE` e `ARARA_MODE`. O tempo limite padrão é 30s, ajustável em `hookTimeoutSeconds`.
+
+```bash
+#!/usr/bin/env bash
+echo "[$(date)] arara $ARARA_EVENT (profile=$ARARA_PROFILE)" >> ~/.arara/audit.log
+cat > /dev/null
+exit 0
+```
+
+## Plugins e comandos próprios
+
+- **Plugins**: qualquer executável `arara-<nome>` no `PATH` (ou em `plugins.searchPaths`) vira `arara <nome>`.
+- **Comandos em Markdown**: arquivos `.md` em `./.arara/commands/` (projeto) ou `~/.arara/commands/` (usuário) viram subcomandos. Comandos nativos sempre têm prioridade, então um projeto não consegue sobrescrever `arara send`.
+
+<Warning>
+  O corpo de um comando em Markdown é shell executado com as permissões do seu usuário. Trate `.arara/commands/` de um projeto como trataria o `Makefile` dele.
+</Warning>
+
+## Servidor MCP da CLI
+
+`arara mcp` expõe um conjunto enxuto de ferramentas para clientes MCP, reaproveitando a autenticação da CLI. Por padrão só ferramentas de leitura (templates, status de mensagem, contatos, métricas, saldo, números, estimativa de campanha). As de escrita (envio, campanha, importação de contatos) só aparecem com `--allow-write-tools`.
+
+```bash
+arara mcp --dry-run                      # lista as ferramentas sem subir o servidor
+arara mcp --dry-run --allow-write-tools
+```
+
+Para agentes de IA, o caminho recomendado é o pacote [`@ararahq/mcp`](/mcp-server), com login OAuth próprio e ferramentas pensadas para operação em linguagem natural.
 
 ## CI/CD
 
-GitHub Actions:
-
 ```yaml
-- uses: ararahq/setup-arara@v1
-  with:
-    version: '0.2.0'
-- run: arara send --to +55... --template deploy_notification --vars "${{ github.sha }}"
+- name: Instalar a CLI
+  run: curl -fsSL https://raw.githubusercontent.com/ararahq/cli/main/install.sh | sh
+- name: Autenticar
+  run: echo "$ARARA_API_KEY" | arara login
   env:
     ARARA_API_KEY: ${{ secrets.ARARA_API_KEY }}
+- name: Avisar deploy
+  run: arara send --to +5511999999999 --template aviso_deploy --vars "${{ github.sha }}"
 ```
 
-Em CI use **API key direto via env var**, não OAuth profile (que assumiria sessão interativa).
+Em CI, autentique com chave de API. O login OAuth depende de aprovação no navegador.
 
 ## Variáveis de ambiente
 
-| Var | Descrição |
+| Variável | Descrição |
 |---|---|
-| `ARARA_API_KEY` | Chave de API. Override o profile. |
-| `ARARA_BASE_URL` | Base URL custom. Default `https://api.ararahq.com`. |
-| `ARARA_PROFILE` | Profile ativo. Override o default. |
-| `ARARA_OUTPUT` | Formato de output (text/json/yaml). |
-| `ARARA_NO_TELEMETRY` | Desabilita telemetria (mesmo se estiver opt-in). |
+| `ARARA_THEME` | `auto` (padrão) ou `mono`. |
+| `NO_COLOR` | Desliga cores. |
+| `ARARA_OAUTH_CLIENT_ID` | Client ID OAuth customizado, quando o seu ambiente exigir. |
+| `ARARA_VERSION` | Só no `install.sh`: versão a instalar. |
+| `ARARA_INSTALL_DIR` | Só no `install.sh`: diretório de instalação. |
+
+A URL da API é configurada por perfil (`arara config set api-url <url>`). O padrão é a produção da Arara.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="MCP Server" icon="server" href="/mcp-server">
-    Conecta seu agente IA (Claude/Cursor) ao mesmo backend.
+    Conecte Claude, Cursor ou ChatGPT à sua conta.
   </Card>
   <Card title="API Reference" icon="code" href="/api-reference/introduction">
-    REST completa por baixo dos comandos.
+    A API REST por baixo dos comandos.
   </Card>
 </CardGroup>

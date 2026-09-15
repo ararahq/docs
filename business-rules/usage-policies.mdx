@@ -1,220 +1,126 @@
 ---
-title: 'Políticas de Uso e Boas Práticas'
-description: 'Entenda as políticas de uso da Arara, critérios de opt-in e o que pode levar ao banimento de conta'
+title: 'Políticas de uso'
+description: 'Opt-in, opt-out, qualidade do conteúdo, proteções automáticas de envio e o que pode levar à suspensão de uma conta na Arara.'
 ---
 
-# Políticas de Uso e Boas Práticas
+A Arara serve para empresas falarem com a própria base: clientes, leads e contatos que têm relação com o negócio. Esta página descreve o que é permitido, as proteções que a plataforma aplica automaticamente e o que leva à suspensão.
 
-Esta página descreve as políticas de uso da Arara, os critérios de qualidade que mantemos e o que você precisa saber para usar a plataforma de forma responsável e escalável.
+## Princípio
 
-## Princípio Fundamental
+**Volume não é problema; contato sem consentimento é.** Com opt-in e conteúdo legítimo, o volume é limitado só pelo plano contratado e pelos limites da Meta para o seu número. Ver [Planos e limites](/business-rules/planos-e-limites).
 
-**Não existe limite de volume, existe critério de qualidade.**
+## Opt-in
 
-A Arara foi projetada para escalar com você. Se você tem o opt-in (autorização) do cliente e o conteúdo é legítimo, não há limites artificiais de volume. Nossa prioridade é manter a qualidade da entrega para quem trabalha sério.
+Opt-in é a autorização do cliente para receber mensagens da sua empresa pelo WhatsApp. É exigência da Meta e da LGPD.
 
-## Opt-in (Autorização do Cliente)
+**Conta como opt-in:**
 
-### O Que É Opt-in?
+- Cliente marcou consentimento em formulário ou cadastro.
+- Cliente escreveu para a empresa pedindo informação ou atendimento.
+- Cliente comprou ou contratou e foi informado de que receberia comunicações pelo WhatsApp.
+- Cliente se inscreveu em lista de espera, newsletter ou evento com esse aviso.
 
-Opt-in é a autorização explícita e documentada que você possui de um cliente para enviar mensagens via WhatsApp. É um requisito fundamental para o uso responsável da plataforma.
+**Não conta como opt-in:**
 
-### Tipos de Opt-in Aceitos
-
-#### 1. Opt-in Explícito
-
-O cliente forneceu consentimento claro e documentado:
-
-- ✅ Cliente preencheu formulário online marcando checkbox de consentimento
-- ✅ Cliente enviou mensagem de texto confirmando interesse
-- ✅ Cliente completou processo de cadastro com aceite explícito
-- ✅ Cliente solicitou informações via chat ou formulário de contato
-
-#### 2. Opt-in Contextual
-
-O cliente demonstrou interesse através de interação prévia:
-
-- ✅ Cliente fez compra em sua loja/e-commerce
-- ✅ Cliente solicitou orçamento ou informações sobre produto/serviço
-- ✅ Cliente se inscreveu em newsletter ou lista de espera
-- ✅ Cliente interagiu com sua empresa em outros canais
-
-### O Que NÃO É Opt-in
-
-- ❌ Número obtido de lista de compra ou terceiros
-- ❌ Número encontrado em redes sociais sem interação prévia
-- ❌ Número coletado sem consentimento explícito
-- ❌ Envio para contatos frios (sem relação prévia)
+- Lista comprada ou cedida por terceiros.
+- Número coletado em site, rede social ou diretório sem interação com a empresa.
+- Contato sem nenhuma relação prévia com o negócio.
 
 <Warning>
-  **Importante**: Sempre mantenha documentação do opt-in. Em caso de disputa, você precisará comprovar que possui autorização do cliente.
+  Guarde o registro de quando e como cada opt-in foi obtido. Em caso de denúncia, é a sua prova.
 </Warning>
 
-### Boas Práticas de Opt-in
+Para marketing, a Meta exige consentimento específico. Na dúvida, peça de novo.
 
-1. **Seja Transparente**: Informe claramente ao cliente que ele receberá mensagens via WhatsApp
-2. **Documente**: Mantenha registros de quando e como o opt-in foi obtido
-3. **Permita Cancelamento**: Sempre ofereça opção de opt-out (cancelamento)
-4. **Respeite Preferências**: Se o cliente pedir para não receber mais mensagens, respeite imediatamente
+## Opt-out
 
-## Critérios de Qualidade
+Quem pede para parar não recebe mais nada da sua organização. A Arara aplica isso de forma automática:
 
-### O Que É Permitido
+- **Palavras-chave**: se o cliente responder só com `sair`, `parar`, `pare`, `stop`, `cancelar`, `remover`, `não quero mais`, `desinscrever`, `unsubscribe` ou `opt-out`, o número é marcado como opt-out e recebe uma confirmação. Responder `start` ou `voltar` reverte.
+- **Pela API**: `POST /v1/opt-outs` com `{ "phone": "+55...", "reason": "..." }`. Consulta em `GET /v1/opt-outs` e `GET /v1/opt-outs/{phone}`; remoção em `DELETE /v1/opt-outs/{phone}`.
+- **Pelo MCP**: ferramenta `opt_out`.
 
-✅ **Uso Legítimo e Responsável**
-- Envio de mensagens para clientes com opt-in válido
-- Comunicação relacionada a produtos/serviços que o cliente demonstrou interesse
-- Notificações de transações e atualizações de pedidos
-- Suporte ao cliente e atendimento
-- Campanhas de marketing para base opt-in
+Todo envio para um número em opt-out é recusado com `422 RECIPIENT_OPTED_OUT`. Em campanha, o contato é pulado e o valor dele não é cobrado.
 
-✅ **Conteúdo Legítimo**
-- Informações sobre produtos e serviços
-- Notificações de pedidos e entregas
-- Atualizações de conta e transações
-- Suporte e atendimento ao cliente
-- Conteúdo educativo e informativo relevante
+## Conteúdo
 
-### O Que NÃO É Permitido
+**Permitido:**
 
-❌ **Spam e Uso Indevido**
-- Envio de mensagens não solicitadas
-- Spam ou mensagens em massa sem opt-in
-- Conteúdo enganoso ou fraudulento
-- Phishing ou tentativas de golpe
-- Conteúdo ilegal ou que viole leis locais
+- Notificações de pedido, entrega, cobrança e agendamento.
+- Atendimento e suporte.
+- Campanhas de marketing para base com opt-in.
+- Reativação de clientes e recuperação de venda para quem já tem relação com a empresa.
+- Conteúdo informativo relevante para quem recebe.
 
-❌ **Contatos Frios**
-- Envio para números sem relação prévia
-- Uso de listas compradas de terceiros
-- Scraping de números de sites ou redes sociais
-- Envio sem consentimento explícito
+**Proibido:**
 
-❌ **Atividades Ilícitas**
-- Qualquer atividade ilegal
-- Conteúdo que viole direitos autorais
-- Mensagens que violem privacidade
-- Atividades que violem termos de serviço do WhatsApp
+- Mensagem para quem não deu opt-in ou já pediu opt-out.
+- Conteúdo enganoso, golpe, phishing ou fraude.
+- Produtos e serviços proibidos pela [política comercial da Meta](https://www.whatsapp.com/legal/commerce-policy) ou pela lei.
+- Contornar limites da Meta ou da Arara (vários números para o mesmo disparo recusado, rotação de remetente para fugir de bloqueio).
 
-## Critérios de Banimento
+Regras específicas de template em [Política de templates](/templates/policy).
 
-### Quando Uma Conta Pode Ser Banida?
+## Proteções automáticas
 
-A Arara não bane contas por volume, mas sim por **qualidade e uso indevido**. Os critérios principais são:
+Estas travas valem para todas as contas e existem para proteger o seu número:
 
-#### 1. Uso Indevido da Plataforma
+| Proteção | Resposta da API |
+|---|---|
+| Destinatário em opt-out | `422 RECIPIENT_OPTED_OUT` |
+| Número de destino com 3 falhas por número inválido ou sem WhatsApp em 7 dias | `403 NUMBER_BLOCKED` |
+| Muitas mensagens para o mesmo destinatário em poucos minutos | `403 FRAUD_SUSPECTED` |
+| Frequência alta de MARKETING para o mesmo destinatário | `429 MARKETING_FREQUENCY_EXCEEDED` |
+| Template pausado pela Meta por feedback negativo | `422 TEMPLATE_PAUSED` |
 
-- Envio de spam ou mensagens não solicitadas
-- Uso de contatos frios sem opt-in
-- Atividades fraudulentas ou enganosas
-- Violação repetida das políticas de uso
+A Meta também acompanha a qualidade de cada número. Bloqueios e denúncias derrubam a qualidade, reduzem o limite diário de envio do número e podem pausar templates.
 
-#### 2. Qualidade do Conteúdo
+## Suspensão
 
-- Conteúdo ilegal ou que viole leis
-- Mensagens enganosas ou fraudulentas
-- Phishing ou tentativas de golpe
-- Conteúdo que viole termos de serviço do WhatsApp
+A Arara pode suspender uma organização por uso indevido, como:
 
-#### 3. Reclamações e Denúncias
+- Envio sem opt-in ou reiterado para quem pediu opt-out.
+- Conteúdo fraudulento, enganoso ou ilegal.
+- Volume de bloqueios e denúncias que coloque em risco o número ou a conta na Meta.
+- Violação repetida depois de aviso.
 
-- Múltiplas reclamações de clientes sobre spam
-- Denúncias de uso indevido
-- Taxa alta de bloqueios ou reclamações
-- Violação repetida após avisos
+Com a organização suspensa, os envios são recusados com `403 ORGANIZATION_SUSPENDED`. Casos graves ou reincidentes podem levar ao encerramento da conta (`403 ACCOUNT_BANNED` no login).
 
-### Processo de Banimento
+O caminho normal é: aviso, análise do caso, suspensão temporária e, só em casos graves ou reincidentes, encerramento. A Meta pode, por conta própria, restringir números e contas que violem as políticas dela.
 
-1. **Aviso Inicial**: Em caso de violação menor, você receberá um aviso
-2. **Análise**: Nossa equipe analisa o caso e verifica evidências
-3. **Suspensão Temporária**: Em casos graves, a conta pode ser suspensa temporariamente
-4. **Banimento Permanente**: Em casos extremos ou reincidência, a conta pode ser banida permanentemente
+## Boas práticas
 
-<Warning>
-  **Importante**: O banimento é baseado em critérios de qualidade, não em volume. Se você tem opt-in válido e usa a plataforma corretamente, não há risco de banimento por enviar muitas mensagens.
-</Warning>
+1. Tenha opt-in documentado e respeite opt-out na hora.
+2. Comece conversas com template e responda dentro da [janela de 24h](/concepts/24h-window).
+3. Segmente: mande para quem tem motivo para receber.
+4. Espace campanhas de marketing para o mesmo contato.
+5. Acompanhe entrega, leitura e bloqueios de cada campanha e ajuste o que não funciona.
 
-## Boas Práticas para Evitar Problemas
+## Perguntas frequentes
 
-### 1. Sempre Tenha Opt-in Válido
+### Existe limite de mensagens?
 
-- Documente como obteve o consentimento
-- Mantenha registros de opt-in
-- Respeite solicitações de opt-out imediatamente
+Existe o teto mensal do plano (20.000 no Essencial, 50.000 no Voo, sem teto na Primeira Classe), o limite diário que a Meta define para cada número e, para quem ainda envia pelo número compartilhado da Arara, limites diários menores. Os detalhes estão em [Planos e limites](/business-rules/planos-e-limites).
 
-### 2. Mantenha Qualidade do Conteúdo
+### Posso comprar lista de números?
 
-- Envie apenas conteúdo relevante e legítimo
-- Evite mensagens genéricas ou spam
-- Personalize mensagens quando possível
+Não. Lista comprada não é opt-in e é motivo de suspensão.
 
-### 3. Monitore Métricas
+### O que acontece se meu número for restringido pela Meta?
 
-- Acompanhe taxas de entrega
-- Monitore reclamações e bloqueios
-- Responda rapidamente a problemas
-
-### 4. Respeite a Janela de 24h
-
-- Use templates para iniciar conversas
-- Responda mensagens dentro da janela de 24h
-- Não tente burlar limites do WhatsApp
-
-### 5. Comunique-se Transparentemente
-
-- Seja claro sobre o que o cliente está recebendo
-- Ofereça opções de cancelamento
-- Responda perguntas e dúvidas
-
-## Perguntas Frequentes
-
-### Existe limite de mensagens por dia?
-
-**Não.** Não há limite de volume se você tem opt-in válido e usa a plataforma corretamente. A Arara foi feita para escalar com você.
-
-### O que acontece se eu enviar muitas mensagens?
-
-Se você tem opt-in válido e o conteúdo é legítimo, nada. O volume não é um problema. O que importa é a qualidade e o uso responsável.
-
-### Como sei se tenho opt-in válido?
-
-Você tem opt-in válido se:
-- O cliente forneceu consentimento explícito
-- O cliente demonstrou interesse através de interação prévia
-- Você pode documentar como obteve a autorização
-
-### Posso comprar listas de números?
-
-**Não.** Listas compradas de terceiros não constituem opt-in válido. Você só pode enviar para números onde tem autorização documentada.
-
-### O que acontece se eu for banido?
-
-Em caso de banimento, você receberá notificação explicando o motivo. Contas banidas não podem ser reativadas. Em casos de suspensão temporária, você pode entrar em contato com suporte para revisão.
-
-### Como posso evitar banimento?
-
-- Sempre tenha opt-in válido e documentado
-- Envie apenas conteúdo legítimo e relevante
-- Respeite solicitações de opt-out
-- Monitore métricas e responda a problemas rapidamente
-- Use a plataforma de forma responsável
+Os envios passam a falhar ou ficam limitados. Reduza o volume, revise o conteúdo e a base, e fale com o suporte.
 
 ## Suporte
 
-Se você tiver dúvidas sobre políticas de uso, opt-in ou critérios de banimento:
+Dúvidas sobre políticas, opt-in ou suspensão: **suporte@ararahq.com** ou pelo [Dashboard](https://app.ararahq.com).
 
-- **Email**: suporte@ararahq.com
-- **Dashboard**: [ararahq.com/dashboard](https://ararahq.com/dashboard)
-
-Nossa equipe está disponível para ajudar você a usar a plataforma de forma responsável e escalável.
-
-## Próximos Passos
+## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Enviar Mensagens" icon="paper-plane" href="/api-reference/endpoint/v2/messages">
-    Documentação de envio de mensagens
+  <Card title="Planos e limites" icon="scale-balanced" href="/business-rules/planos-e-limites">
+    Tetos do plano e limites de proteção.
   </Card>
-  <Card title="Fluxo Inbound" icon="inbox" href="/webhooks/events">
-    Como receber e responder mensagens
+  <Card title="Eventos de webhook" icon="inbox" href="/webhooks/events">
+    Receba mensagens e respostas dos clientes.
   </Card>
 </CardGroup>
