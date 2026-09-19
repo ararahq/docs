@@ -152,6 +152,31 @@ Mensagem que **sua equipe** mandou pelo app do WhatsApp Business num número em 
 
 Mesmos campos de `message.received`, com o sentido invertido (`from` é o seu número) e mais `provider_id`, `conversation_id` (vazio quando não há conversa), `direction` e `source`. `timestamp` é o horário do aparelho.
 
+### `message.flow_reply`
+
+Resposta de um [formulário](/flows) enviado pelo cliente. As chaves de `fields` são as que você definiu ao criar o formulário e não mudam.
+
+```json
+{
+  "event": "message.flow_reply",
+  "data": {
+    "id": "wamid.HBgM...",
+    "from": "5588999990000",
+    "to": "5588911110000",
+    "flow_id": "0b7e6a52-3c1d-4f7a-9a55-2f4f6f1f9c10",
+    "flow_name": "Captar contato",
+    "source_message_id": "c0a8012e-7d2b-4a3f-8e11-9b1f4c2d7a66",
+    "fields": { "nome": "Maria Souza", "email": "maria@exemplo.com" },
+    "answers": [
+      { "key": "nome", "label": "Seu nome", "value": "Maria Souza" },
+      { "key": "email", "label": "Seu melhor e-mail", "value": "maria@exemplo.com" }
+    ]
+  }
+}
+```
+
+`fields` é o atalho pra ler por chave; `answers` traz a pergunta junto, na ordem do formulário. `source_message_id` é a mensagem da Arara que levou o botão (vazio quando não dá pra determinar). Na conversa, a resposta aparece como mensagem do cliente com o texto `Formulário respondido`.
+
 ## Templates
 
 ### `template.updated`

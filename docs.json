@@ -159,6 +159,12 @@
             ]
           },
           {
+            "group": "Formulários",
+            "pages": [
+              "flows"
+            ]
+          },
+          {
             "group": "Brain (IA)",
             "pages": [
               "brain",
