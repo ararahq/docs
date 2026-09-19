@@ -165,6 +165,12 @@
             ]
           },
           {
+            "group": "Cobranças",
+            "pages": [
+              "cobrancas"
+            ]
+          },
+          {
             "group": "Brain (IA)",
             "pages": [
               "brain",
