@@ -101,6 +101,12 @@ A Arara é a operação de WhatsApp para empresas brasileiras: disparo para a ba
 
 - `POST /v1/smart-links/whatsapp` · `GET /v1/smart-links/whatsapp` · `PUT /v1/smart-links/whatsapp/{id}` · `GET /v1/smart-links/whatsapp/{id}/stats`
 
+## Formulários (WhatsApp Flows)
+
+- `POST /v1/flows` · `GET /v1/flows` · `GET /v1/flows/{id}` · `GET /v1/flows/{id}/responses` · `POST /v1/flows/{id}/publish` · `POST /v1/flows/{id}/deprecate` · `DELETE /v1/flows/{id}`
+- Envio na conversa aberta, sem template: `POST /v1/messages` com `interactive: { type: "flow", flowId, body, buttonText }`.
+- Botão `FLOW` em `POST /v1/templates` (`flowId`). Resposta chega no webhook como `message.flow_reply`, com os valores em `data.fields`.
+
 ## Brain (agente de IA hospedado)
 
 - `POST /v1/brain/interact` · `POST /v1/brain/suggest-reply` · `POST /v1/brain/test` · `POST /v1/brain/cost-estimate`
