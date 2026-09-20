@@ -9,8 +9,10 @@ Toda automação com gatilho `webhook` tem um link só dela. O seu sistema faz `
 Com isso a automação sabe "pagou / não pagou" sem você mapear variáveis nem chamar outra API.
 
 ```
-POST https://api.ararahq.com/hooks/a/{token}
+POST https://api.ararahq.com/hooks/a/ara_hook_…
 ```
+
+Copie o link pronto na tela da automação; o token tem 43 caracteres depois de `ara_hook_`.
 
 <Warning>
 O link não usa API key: o `token` na URL é a credencial. Trate o link como um segredo. Se ele vazar, gere outro no dashboard, na tela da automação. O link antigo para de funcionar na hora.
@@ -282,15 +284,19 @@ Todo erro segue o formato padrão, com o código em `error.code`:
 { "error": { "code": "HOOK_SIGNATURE_INVALID", "message": "...", "details": {} } }
 ```
 
-| `error.code` | Quando |
-|---|---|
-| `HOOK_NOT_FOUND` | O token não existe, ou o link foi regenerado. |
-| `HOOK_SIGNATURE_INVALID` | A assinatura é exigida e o header está ausente ou não confere com o corpo. |
-| `HOOK_PAYLOAD_INVALID` | O corpo não é nenhum dos dois formatos, ou falta campo obrigatório. |
-| `INVALID_CHARGE` | A cobrança não passou nas conferências (Pix inválido, valor, `referenceId`...). |
-| `AUTOMATION_INACTIVE` | A automação está desligada. |
-| `CHARGE_NOT_FOUND` | Não existe cobrança com esse `referenceId` enviada por esta automação. |
-| `CHARGE_ALREADY_SETTLED` | A cobrança já tem um status final diferente do enviado. |
+| Status | `error.code` | Quando |
+|---|---|---|
+| 404 | `HOOK_NOT_FOUND` | O token não existe, o link foi regenerado, ou a automação não usa mais o gatilho de webhook. A resposta é a mesma nos três casos. |
+| 401 | `HOOK_SIGNATURE_INVALID` | A assinatura é exigida e o header está ausente ou não confere com o corpo. |
+| 400 | `HOOK_PAYLOAD_INVALID` | O corpo não é nenhum dos dois formatos. A mensagem explica os dois. |
+| 400 | `INVALID_CHARGE` | A cobrança não passou nas conferências (Pix inválido, valor diferente do Pix, `referenceId` já usado na conta...). |
+| 413 | `HOOK_PAYLOAD_TOO_LARGE` | Corpo acima de 64 KB. |
+| 409 | `AUTOMATION_INACTIVE` | A automação está desligada. Só é informado depois que a assinatura confere. |
+| 404 | `CHARGE_NOT_FOUND` | Não existe cobrança com esse `referenceId` enviada por esta automação. |
+| 409 | `CHARGE_ALREADY_SETTLED` | A cobrança já tem um status final diferente do enviado. |
+| 429 | `HOOK_RATE_LIMITED` | Passou de 300 chamadas por minuto nesta automação. Respeite o header `Retry-After`. |
+
+`paid`, `canceled` e `expired` são finais. `failed` não é: uma cobrança que falhou ainda pode ser paga.
 
 Veja a [lista de erros](/erros).
 

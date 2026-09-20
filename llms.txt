@@ -112,7 +112,7 @@ A Arara é a operação de WhatsApp para empresas brasileiras: disparo para a ba
 - Na conversa aberta: `POST /v1/messages` com `interactive: { type: "charge", body, charge: { referenceId, items, pix | paymentLink } }`. Valores em centavos. A API confere o CRC do Pix e recusa total diferente do valor dentro do código.
 - Baixa: `POST /v1/messages` com `interactive: { type: "charge_status", body, chargeStatus: { referenceId, status: PAID | FAILED | CANCELED } }`.
 - Fora da janela: template com botão `CHARGE` (único botão) e `charge` no envio do template. Em automações, o passo leva um molde `charge` com `{{variavel}}` do evento. Campanhas ainda não enviam cobrança.
-- `GET /v1/charges?page&size&status&source&contactId&q` · `GET /v1/charges/{id}` · `GET /v1/contacts/{id}/charges` · `GET /v1/charges/summary?days=30`. Status `PENDING | PAID | FAILED | CANCELED | EXPIRED` (`EXPIRED` automático quando `expiresAt` passa). Cobrança fica ligada ao contato; paga, atualiza total gasto, compras e última compra.
+- `GET /v1/charges?page&size&status&source&contactId&receiver&q` · `GET /v1/charges/{id}` · `PUT /v1/charges/{id}/status { status: PAID | CANCELED | FAILED }` (funciona com a janela fechada) · `GET /v1/charges/summary?days=30`. Status `PENDING | PAID | FAILED | CANCELED | EXPIRED` (`EXPIRED` automático quando `expiresAt` passa). Cobrança fica ligada ao contato; paga, atualiza total gasto, compras e última compra.
 - Webhooks `charge.sent | charge.paid | charge.failed | charge.canceled | charge.expired`, sem o código Pix nem o link.
 
 ## Link da automação e pagamento
