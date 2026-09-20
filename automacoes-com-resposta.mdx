@@ -1,10 +1,10 @@
 ---
 title: 'Automações com resposta'
 description: 'Faça uma pergunta com botões no meio da automação e siga um caminho diferente pra cada resposta do cliente: cobrar, etiquetar, lembrar quem não respondeu.'
-keywords: ['automação', 'pergunta', 'botões', 'ramificação', 'QUESTION', 'BUTTON_REPLIED', 'resposta rápida', 'histórico de execução']
+keywords: ['automação', 'pergunta', 'botões', 'ramificação', 'question', 'button.replied', 'resposta rápida', 'histórico de execução']
 ---
 
-O passo `QUESTION` envia uma pergunta com opções e espera o cliente responder. Cada opção tem o seu próprio caminho de passos, e existe um caminho pra quem não respondeu e outro pra quem respondeu outra coisa.
+O passo `question` envia uma pergunta com opções e espera o cliente responder. Cada opção tem o seu próprio caminho de passos, e existe um caminho pra quem não respondeu e outro pra quem respondeu outra coisa.
 
 O resto da automação continua igual: gatilho, passos em ordem, um contato por execução. Se você ainda não montou uma automação, comece pela [receita de carrinho abandonado](/recipes/abandoned-cart#3b-sequência-com-espera-automação).
 
@@ -25,8 +25,7 @@ curl -X POST https://api.ararahq.com/v1/automations \
     "trigger": "payment.failed",
     "steps": [
       {
-        "id": "pergunta-pagamento",
-        "type": "QUESTION",
+        "type": "question",
         "config": {
           "mode": "template",
           "templateName": "pagamento_falhou_opcoes",
@@ -41,7 +40,6 @@ curl -X POST https://api.ararahq.com/v1/automations \
         "branches": {
           "pix": [
             {
-              "id": "cobranca-pix",
               "type": "message",
               "config": {
                 "templateId": "0b8f6c1e-7a52-4a1b-9a0e-3f2d6c9e1a44",
@@ -59,11 +57,10 @@ curl -X POST https://api.ararahq.com/v1/automations \
             }
           ],
           "atendente": [
-            { "id": "etiqueta-atendente", "type": "tag", "config": { "tag": "quer_atendente" } }
+            { "type": "tag", "config": { "tag": "quer_atendente" } }
           ],
           "__timeout": [
             {
-              "id": "lembrete",
               "type": "message",
               "config": { "templateId": "5d2a9b7c-1e44-4f0a-8c3b-6a7e2d1f9b10", "variables": ["nome"] }
             }
@@ -80,14 +77,14 @@ A automação nasce desligada. Ligue com `PUT /v1/automations/{id}/active` e `{ 
 
 ## O passo
 
-Um passo `QUESTION` é um passo comum com dois campos a mais:
+Um passo `question` é um passo comum com dois campos a mais:
 
 | Campo | Regra |
 |---|---|
-| `id` | Identificador do passo. Volta nas respostas e no histórico. |
-| `type` | `QUESTION`. |
+| `id` | Gerado pela Arara. Só aparece nas respostas e no histórico (`stepId`); não envie na criação. |
+| `type` | `question`. |
 | `config` | A pergunta. Veja a tabela abaixo. |
-| `branches` | Objeto que liga cada chave a uma lista ordenada de passos. Só existe em `QUESTION`. |
+| `branches` | Objeto que liga cada chave a uma lista ordenada de passos. Só existe em `question`. |
 
 As chaves de `branches` são o `id` de cada opção, mais duas reservadas:
 
@@ -97,7 +94,7 @@ As chaves de `branches` são o `id` de cada opção, mais duas reservadas:
 | `__timeout` | O cliente não respondeu dentro do prazo. |
 | `__other` | O cliente respondeu outra coisa duas vezes. |
 
-Os passos de um caminho têm o mesmo formato dos passos da raiz, inclusive outro `QUESTION`. Quando o caminho acaba, a execução termina. **Os caminhos não se juntam de novo**: o que precisa acontecer em todos eles vai repetido em cada um.
+Os passos de um caminho têm o mesmo formato dos passos da raiz, inclusive outro `question`. Quando o caminho acaba, a execução termina. **Os caminhos não se juntam de novo**: o que precisa acontecer em todos eles vai repetido em cada um.
 
 ### `config`
 
@@ -122,13 +119,13 @@ Os passos de um caminho têm o mesmo formato dos passos da raiz, inclusive outro
 | Opções | Até 3 | Até 10 |
 | `title` | Até 20 caracteres | Até 24 caracteres |
 
-Uma automação aceita até **2 perguntas aninhadas**: uma pergunta dentro do caminho de outra, e só.
+Uma automação aceita até **2 níveis de pergunta**: uma pergunta dentro do caminho de outra, e só. Uma terceira, dentro dessa, é recusada.
 
 ## Dentro e fora da janela de 24h
 
 `buttons` e `list` são mensagens de sessão. Só funcionam com a janela de 24h aberta, ou seja, quando o cliente falou com você nas últimas 24 horas.
 
-Pra começar uma conversa com quem está fora da janela, **a primeira pergunta precisa ser `template`**: um template aprovado com botões de resposta rápida. Nesse modo, o `id` de cada opção é igual ao payload (ou ao texto) do botão no template.
+Pra começar uma conversa com quem está fora da janela, **a primeira pergunta precisa ser `template`**: um template aprovado com botões de resposta rápida. Nesse modo, o toque chega com o **texto do botão**, e a Arara casa esse texto com o `title` (ou o `id`) de cada opção. Então o `title` precisa ser igual ao texto do botão no template.
 
 Depois que o cliente toca no botão, a janela abre. As perguntas seguintes podem ser `buttons` ou `list`.
 
@@ -160,18 +157,23 @@ Use como `{{resposta_1}}`, do mesmo jeito que as variáveis do evento que dispar
 
 ## Gatilho: toque num botão
 
-O gatilho `BUTTON_REPLIED` inicia a automação quando o cliente toca num botão com um `id` específico e nenhuma execução está esperando aquela resposta.
+O gatilho `button.replied` inicia a automação quando o cliente toca num botão com um `id` específico e nenhuma execução está esperando aquela resposta.
 
-Configuração do gatilho:
+A configuração vai em `triggerConfig`, ao lado de `trigger`:
 
 ```json
-{ "replyId": "quero-saber-mais", "templateName": "promo_outubro" }
+{
+  "trigger": "button.replied",
+  "triggerConfig": { "replyId": "Quero saber mais", "templateName": "promo_outubro" }
+}
 ```
 
 | Campo | Regra |
 |---|---|
-| `replyId` | O `id` do botão. Em botão de template, é o payload do botão. |
-| `templateName` | Opcional. Só inicia quando o botão veio desse template. |
+| `replyId` | Obrigatório. O `id` do botão, comparado exatamente (maiúsculas contam). Em resposta rápida de template, o `id` que chega é o **texto do botão**. |
+| `templateName` | Opcional. Fica guardado pra você se organizar; a resposta do WhatsApp não diz de qual template veio, então não entra na comparação. |
+
+Sem `replyId` a criação é recusada com `AUTOMATION_TRIGGER_CONFIG_INVALID`.
 
 O uso típico é uma campanha com três respostas rápidas, cada uma iniciando uma automação diferente.
 
@@ -189,8 +191,24 @@ curl "https://api.ararahq.com/v1/automations/{id}/runs?page=0&size=20" \
 ```json
 {
   "data": [
-    { "id": "7c1d2e90-4b3a-4c8e-9f21-5a6b7c8d9e01", "status": "WAITING_REPLY" },
-    { "id": "2a9f8b11-6d5c-4e7f-8a90-1b2c3d4e5f60", "status": "COMPLETED" }
+    {
+      "id": "7c1d2e90-4b3a-4c8e-9f21-5a6b7c8d9e01",
+      "phoneNumber": "5588999990000",
+      "status": "WAITING_REPLY",
+      "currentStepId": "b2f0c1de-98a7-4c55-8f10-3e2d1c0b9a87",
+      "createdAt": "2026-09-20T14:02:11Z",
+      "finishedAt": null,
+      "stoppedReason": null
+    },
+    {
+      "id": "2a9f8b11-6d5c-4e7f-8a90-1b2c3d4e5f60",
+      "phoneNumber": "5588911112222",
+      "status": "STOPPED",
+      "currentStepId": null,
+      "createdAt": "2026-09-20T13:40:02Z",
+      "finishedAt": "2026-09-20T13:52:47Z",
+      "stoppedReason": "atendente assumiu"
+    }
   ],
   "pagination": { "page": 0, "size": 20, "totalElements": 2, "totalPages": 1 }
 }
@@ -214,12 +232,12 @@ curl "https://api.ararahq.com/v1/automations/{id}/runs/{runId}/events?page=0&siz
 ```json
 {
   "data": [
-    { "kind": "STARTED" },
-    { "kind": "QUESTION_ASKED" },
-    { "kind": "REPLY_UNMATCHED" },
-    { "kind": "REPLY_MATCHED" },
-    { "kind": "CHARGE_SENT" },
-    { "kind": "COMPLETED" }
+    { "id": "e1...", "stepId": null, "kind": "STARTED", "detail": { "trigger": "payment.failed" }, "createdAt": "2026-09-20T14:02:11Z" },
+    { "id": "e2...", "stepId": "b2f0c1de-...", "kind": "QUESTION_ASKED", "detail": { "mode": "template", "options": ["pix", "atendente"] }, "createdAt": "2026-09-20T14:02:12Z" },
+    { "id": "e3...", "stepId": "b2f0c1de-...", "kind": "REPLY_UNMATCHED", "detail": { "text": "quanto é?", "misses": 1 }, "createdAt": "2026-09-20T14:05:40Z" },
+    { "id": "e4...", "stepId": "b2f0c1de-...", "kind": "REPLY_MATCHED", "detail": { "option": "pix", "title": "Pix" }, "createdAt": "2026-09-20T14:06:03Z" },
+    { "id": "e5...", "stepId": "c7a1...", "kind": "CHARGE_SENT", "detail": null, "createdAt": "2026-09-20T14:06:04Z" },
+    { "id": "e6...", "stepId": null, "kind": "COMPLETED", "detail": null, "createdAt": "2026-09-20T14:06:04Z" }
   ],
   "pagination": { "page": 0, "size": 50, "totalElements": 6, "totalPages": 1 }
 }
@@ -229,7 +247,7 @@ curl "https://api.ararahq.com/v1/automations/{id}/runs/{runId}/events?page=0&siz
 |---|---|
 | `STARTED` | A execução começou. |
 | `MESSAGE_SENT` | Um passo de mensagem enviou. |
-| `QUESTION_ASKED` | A pergunta foi enviada, inclusive a segunda tentativa. |
+| `QUESTION_ASKED` | A pergunta foi enviada. |
 | `REPLY_MATCHED` | A resposta bateu com uma opção. |
 | `REPLY_UNMATCHED` | A resposta não bateu com nenhuma. |
 | `TIMED_OUT` | O prazo acabou sem resposta. |
@@ -240,7 +258,7 @@ curl "https://api.ararahq.com/v1/automations/{id}/runs/{runId}/events?page=0&siz
 | `STOPPED` | A execução parou antes do fim. |
 | `COMPLETED` | A execução terminou. |
 
-Os exemplos mostram só os campos de estado. As duas listas seguem o formato `{ data, pagination }`.
+`detail` muda conforme o `kind` e pode ser `null`. As duas listas seguem o formato `{ data, pagination }`.
 
 ## Erros
 
@@ -250,7 +268,7 @@ Todo erro segue o formato padrão:
 { "error": { "code": "...", "message": "...", "details": {} } }
 ```
 
-Pergunta fora dos limites (opções demais, `title` longo, `id` repetido ou começando com `__`, mais de 2 perguntas aninhadas) é recusada na criação, com o motivo em `message`. Veja a [lista de erros](/erros).
+Pergunta fora dos limites (opções demais, `title` longo, `id` repetido ou começando com `__`, mais de 2 níveis de pergunta) é recusada na criação com `AUTOMATION_STEP_INVALID` e o motivo em `message`. Automação ou execução de outra organização responde 404 (`AUTOMATION_NOT_FOUND`, `AUTOMATION_RUN_NOT_FOUND`). Veja a [lista de erros](/erros).
 
 ## Como testar
 
