@@ -173,7 +173,8 @@
           {
             "group": "Automações",
             "pages": [
-              "automacoes-com-resposta"
+              "automacoes-com-resposta",
+              "automacoes-webhook"
             ]
           },
           {
