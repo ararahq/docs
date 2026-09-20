@@ -1,0 +1,264 @@
+---
+title: 'Automações com resposta'
+description: 'Faça uma pergunta com botões no meio da automação e siga um caminho diferente pra cada resposta do cliente: cobrar, etiquetar, lembrar quem não respondeu.'
+keywords: ['automação', 'pergunta', 'botões', 'ramificação', 'QUESTION', 'BUTTON_REPLIED', 'resposta rápida', 'histórico de execução']
+---
+
+O passo `QUESTION` envia uma pergunta com opções e espera o cliente responder. Cada opção tem o seu próprio caminho de passos, e existe um caminho pra quem não respondeu e outro pra quem respondeu outra coisa.
+
+O resto da automação continua igual: gatilho, passos em ordem, um contato por execução. Se você ainda não montou uma automação, comece pela [receita de carrinho abandonado](/recipes/abandoned-cart#3b-sequência-com-espera-automação).
+
+## Exemplo completo
+
+Pagamento falhou. A automação pergunta como o cliente quer resolver, por template, porque ele pode estar fora da janela de 24h:
+
+- **Pix**: envia a [cobrança](/cobrancas) na hora.
+- **Falar com alguém**: aplica uma etiqueta pra sua equipe assumir.
+- **Não respondeu em 24h**: manda um lembrete.
+
+```bash
+curl -X POST https://api.ararahq.com/v1/automations \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Pagamento falhou: como resolver",
+    "trigger": "payment.failed",
+    "steps": [
+      {
+        "id": "pergunta-pagamento",
+        "type": "QUESTION",
+        "config": {
+          "mode": "template",
+          "templateName": "pagamento_falhou_opcoes",
+          "variables": ["nome"],
+          "options": [
+            { "id": "pix", "title": "Pix", "match": ["1", "pix"] },
+            { "id": "atendente", "title": "Falar com alguém", "match": ["2", "atendente", "humano"] }
+          ],
+          "timeoutMinutes": 1440,
+          "retryText": "Não entendi. Toque em um dos botões ou responda Pix ou Atendente."
+        },
+        "branches": {
+          "pix": [
+            {
+              "id": "cobranca-pix",
+              "type": "message",
+              "config": {
+                "templateId": "0b8f6c1e-7a52-4a1b-9a0e-3f2d6c9e1a44",
+                "variables": ["nome"],
+                "charge": {
+                  "referenceId": "pedido-{{order_id}}",
+                  "description": "{{product}}",
+                  "amountCents": "{{amount_cents}}",
+                  "pixCode": "{{pix_code}}",
+                  "pixKey": "39580525000189",
+                  "pixKeyType": "CNPJ",
+                  "merchantName": "Loja Exemplo"
+                }
+              }
+            }
+          ],
+          "atendente": [
+            { "id": "etiqueta-atendente", "type": "tag", "config": { "tag": "quer_atendente" } }
+          ],
+          "__timeout": [
+            {
+              "id": "lembrete",
+              "type": "message",
+              "config": { "templateId": "5d2a9b7c-1e44-4f0a-8c3b-6a7e2d1f9b10", "variables": ["nome"] }
+            }
+          ]
+        }
+      }
+    ]
+  }'
+```
+
+O template `pagamento_falhou_opcoes` tem dois botões de resposta rápida, `Pix` e `Falar com alguém`. O template do caminho `pix` é um [template de cobrança](/cobrancas#fora-da-janela-template-de-cobrança).
+
+A automação nasce desligada. Ligue com `PUT /v1/automations/{id}/active` e `{ "active": true }`.
+
+## O passo
+
+Um passo `QUESTION` é um passo comum com dois campos a mais:
+
+| Campo | Regra |
+|---|---|
+| `id` | Identificador do passo. Volta nas respostas e no histórico. |
+| `type` | `QUESTION`. |
+| `config` | A pergunta. Veja a tabela abaixo. |
+| `branches` | Objeto que liga cada chave a uma lista ordenada de passos. Só existe em `QUESTION`. |
+
+As chaves de `branches` são o `id` de cada opção, mais duas reservadas:
+
+| Chave | Quando a execução segue por ela |
+|---|---|
+| `<id da opção>` | O cliente escolheu essa opção. |
+| `__timeout` | O cliente não respondeu dentro do prazo. |
+| `__other` | O cliente respondeu outra coisa duas vezes. |
+
+Os passos de um caminho têm o mesmo formato dos passos da raiz, inclusive outro `QUESTION`. Quando o caminho acaba, a execução termina. **Os caminhos não se juntam de novo**: o que precisa acontecer em todos eles vai repetido em cada um.
+
+### `config`
+
+| Campo | Regra |
+|---|---|
+| `mode` | `buttons`, `list` ou `template`. |
+| `text` | O texto da pergunta, em `buttons` e `list`. |
+| `buttonText` | Só em `list`: o texto do botão que abre a lista. |
+| `options` | As opções. Cada uma com `id`, `title` e `match`. |
+| `options[].id` | De 1 a 200 caracteres, único na pergunta. Não pode começar com `__`. |
+| `options[].title` | O texto que o cliente vê. |
+| `options[].match` | Opcional. Textos digitados que contam como essa opção, como `["1", "pix"]`. |
+| `timeoutMinutes` | Prazo pra responder. Padrão `1440` (24h), de `1` a `10080` (7 dias). |
+| `retryText` | Opcional. O que a automação manda quando não entende a primeira resposta. |
+| `templateName` | Só em `template`: o nome do template aprovado. |
+| `variables` | Só em `template`: as variáveis do template, na ordem de `{{1}}`, `{{2}}`... |
+
+### Limites
+
+| | `buttons` | `list` |
+|---|---|---|
+| Opções | Até 3 | Até 10 |
+| `title` | Até 20 caracteres | Até 24 caracteres |
+
+Uma automação aceita até **2 perguntas aninhadas**: uma pergunta dentro do caminho de outra, e só.
+
+## Dentro e fora da janela de 24h
+
+`buttons` e `list` são mensagens de sessão. Só funcionam com a janela de 24h aberta, ou seja, quando o cliente falou com você nas últimas 24 horas.
+
+Pra começar uma conversa com quem está fora da janela, **a primeira pergunta precisa ser `template`**: um template aprovado com botões de resposta rápida. Nesse modo, o `id` de cada opção é igual ao payload (ou ao texto) do botão no template.
+
+Depois que o cliente toca no botão, a janela abre. As perguntas seguintes podem ser `buttons` ou `list`.
+
+## Como a resposta é reconhecida
+
+1. **Pelo toque.** Se o cliente tocou num botão ou numa opção da lista, vale o `id` dele.
+2. **Pelo texto.** Se ele digitou, o texto é comparado com a lista `match` e com o `title` de cada opção, sem diferenciar maiúsculas nem acentos. `PIX`, `pix` e `Píx` dão no mesmo.
+
+Quando nada bate:
+
+- **Primeira vez**: a automação pergunta de novo, uma vez, com o `retryText`.
+- **Segunda vez**: segue pelo caminho `__other`. Sem `__other`, a execução para e a mensagem vai pro atendimento normal (Brain ou caixa de entrada).
+
+Enquanto uma execução espera resposta, quem responde é a automação, não o Brain. A mensagem do cliente aparece na conversa do mesmo jeito, e o webhook [`message.received`](/webhooks/events#message-received) dispara normalmente, com `reply` quando foi um toque.
+
+Se um atendente humano assume a conversa, a execução para.
+
+## Variáveis da resposta
+
+A opção escolhida vira variável da execução e pode ser usada nos passos seguintes:
+
+| Variável | Valor |
+|---|---|
+| `resposta_1` | O `id` da opção escolhida na primeira pergunta. |
+| `resposta_1_texto` | O `title` dessa opção. |
+| `resposta_2`, `resposta_2_texto` | O mesmo, pra segunda pergunta. |
+
+Use como `{{resposta_1}}`, do mesmo jeito que as variáveis do evento que disparou a automação.
+
+## Gatilho: toque num botão
+
+O gatilho `BUTTON_REPLIED` inicia a automação quando o cliente toca num botão com um `id` específico e nenhuma execução está esperando aquela resposta.
+
+Configuração do gatilho:
+
+```json
+{ "replyId": "quero-saber-mais", "templateName": "promo_outubro" }
+```
+
+| Campo | Regra |
+|---|---|
+| `replyId` | O `id` do botão. Em botão de template, é o payload do botão. |
+| `templateName` | Opcional. Só inicia quando o botão veio desse template. |
+
+O uso típico é uma campanha com três respostas rápidas, cada uma iniciando uma automação diferente.
+
+A execução começa com duas variáveis: `reply_id` e `reply_title`.
+
+## Histórico de execuções
+
+Cada contato que entra na automação gera uma execução.
+
+```bash
+curl "https://api.ararahq.com/v1/automations/{id}/runs?page=0&size=20" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+```json
+{
+  "data": [
+    { "id": "7c1d2e90-4b3a-4c8e-9f21-5a6b7c8d9e01", "status": "WAITING_REPLY" },
+    { "id": "2a9f8b11-6d5c-4e7f-8a90-1b2c3d4e5f60", "status": "COMPLETED" }
+  ],
+  "pagination": { "page": 0, "size": 20, "totalElements": 2, "totalPages": 1 }
+}
+```
+
+| `status` | Significado |
+|---|---|
+| `RUNNING` | Executando passos. |
+| `WAITING_REPLY` | Parada numa pergunta, esperando o cliente. |
+| `COMPLETED` | Chegou ao fim de um caminho. |
+| `STOPPED` | Parou antes do fim: condição, resposta não reconhecida sem `__other`, ou atendente assumiu. |
+| `FAILED` | Um passo falhou. |
+
+Pra ver o que aconteceu dentro de uma execução:
+
+```bash
+curl "https://api.ararahq.com/v1/automations/{id}/runs/{runId}/events?page=0&size=50" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+```json
+{
+  "data": [
+    { "kind": "STARTED" },
+    { "kind": "QUESTION_ASKED" },
+    { "kind": "REPLY_UNMATCHED" },
+    { "kind": "REPLY_MATCHED" },
+    { "kind": "CHARGE_SENT" },
+    { "kind": "COMPLETED" }
+  ],
+  "pagination": { "page": 0, "size": 50, "totalElements": 6, "totalPages": 1 }
+}
+```
+
+| `kind` | Quando |
+|---|---|
+| `STARTED` | A execução começou. |
+| `MESSAGE_SENT` | Um passo de mensagem enviou. |
+| `QUESTION_ASKED` | A pergunta foi enviada, inclusive a segunda tentativa. |
+| `REPLY_MATCHED` | A resposta bateu com uma opção. |
+| `REPLY_UNMATCHED` | A resposta não bateu com nenhuma. |
+| `TIMED_OUT` | O prazo acabou sem resposta. |
+| `TAG_APPLIED` | Uma etiqueta foi aplicada. |
+| `CONDITION_STOPPED` | Um passo de condição parou a sequência. |
+| `CHARGE_SENT` | Uma cobrança foi enviada. |
+| `FAILED` | Um passo falhou. |
+| `STOPPED` | A execução parou antes do fim. |
+| `COMPLETED` | A execução terminou. |
+
+Os exemplos mostram só os campos de estado. As duas listas seguem o formato `{ data, pagination }`.
+
+## Erros
+
+Todo erro segue o formato padrão:
+
+```json
+{ "error": { "code": "...", "message": "...", "details": {} } }
+```
+
+Pergunta fora dos limites (opções demais, `title` longo, `id` repetido ou começando com `__`, mais de 2 perguntas aninhadas) é recusada na criação, com o motivo em `message`. Veja a [lista de erros](/erros).
+
+## Como testar
+
+1. Crie a automação com uma pergunta em modo `buttons` e ligue.
+2. Mande uma mensagem do seu celular pro seu número, pra abrir a janela de 24h.
+3. Dispare o gatilho pro seu próprio telefone.
+4. Toque num botão e confira o caminho. Depois repita digitando um texto de `match`, e outra vez digitando qualquer coisa duas vezes, pra ver o `retryText` e o `__other`.
+5. Pra testar o `__timeout` sem esperar um dia, use `"timeoutMinutes": 1`.
+6. Abra `GET /v1/automations/{id}/runs/{runId}/events` e confira a ordem: `QUESTION_ASKED`, `REPLY_MATCHED` e o passo do caminho.
+
+Pra testar o modo `template`, o template com respostas rápidas precisa estar aprovado. Pra coletar vários dados de uma vez em vez de uma escolha, use um [formulário](/flows).

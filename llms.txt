@@ -114,6 +114,13 @@ A Arara é a operação de WhatsApp para empresas brasileiras: disparo para a ba
 - Fora da janela: template com botão `CHARGE` (único botão) e `charge` no envio do template. Em automações, o passo leva um molde `charge` com `{{variavel}}` do evento. Campanhas ainda não enviam cobrança.
 - `GET /v1/charges?receiver=&status=`
 
+## Automações com resposta
+
+- Passo `QUESTION` em `POST /v1/automations`: `config: { mode: buttons | list | template, text, buttonText, options: [{ id, title, match }], timeoutMinutes, retryText, templateName, variables }` e `branches: { <id da opção> | __timeout | __other: [passos] }`. Caminhos não se juntam; até 2 perguntas aninhadas. `buttons` (até 3 opções, título até 20) e `list` (até 10, título até 24) só com a janela de 24h aberta; fora dela a primeira pergunta é `template` com respostas rápidas.
+- Resposta reconhecida pelo id do botão, depois pelo texto contra `match` e `title`, sem maiúsculas nem acentos. Primeiro erro repete a pergunta (`retryText`); segundo segue `__other` ou para. Variáveis `resposta_1`, `resposta_1_texto`, `resposta_2`...
+- Gatilho `BUTTON_REPLIED` com `{ replyId, templateName? }`; variáveis `reply_id` e `reply_title`.
+- `GET /v1/automations/{id}/runs` · `GET /v1/automations/{id}/runs/{runId}/events` (paginados). Status: RUNNING, WAITING_REPLY, COMPLETED, STOPPED, FAILED.
+
 ## Brain (agente de IA hospedado)
 
 - `POST /v1/brain/interact` · `POST /v1/brain/suggest-reply` · `POST /v1/brain/test` · `POST /v1/brain/cost-estimate`
