@@ -112,7 +112,16 @@ A Arara é a operação de WhatsApp para empresas brasileiras: disparo para a ba
 - Na conversa aberta: `POST /v1/messages` com `interactive: { type: "charge", body, charge: { referenceId, items, pix | paymentLink } }`. Valores em centavos. A API confere o CRC do Pix e recusa total diferente do valor dentro do código.
 - Baixa: `POST /v1/messages` com `interactive: { type: "charge_status", body, chargeStatus: { referenceId, status: PAID | FAILED | CANCELED } }`.
 - Fora da janela: template com botão `CHARGE` (único botão) e `charge` no envio do template. Em automações, o passo leva um molde `charge` com `{{variavel}}` do evento. Campanhas ainda não enviam cobrança.
-- `GET /v1/charges?receiver=&status=`
+- `GET /v1/charges?page&size&status&source&contactId&q` · `GET /v1/charges/{id}` · `GET /v1/contacts/{id}/charges` · `GET /v1/charges/summary?days=30`. Status `PENDING | PAID | FAILED | CANCELED | EXPIRED` (`EXPIRED` automático quando `expiresAt` passa). Cobrança fica ligada ao contato; paga, atualiza total gasto, compras e última compra.
+- Webhooks `charge.sent | charge.paid | charge.failed | charge.canceled | charge.expired`, sem o código Pix nem o link.
+
+## Link da automação e pagamento
+
+- Automação com gatilho `webhook` tem link próprio: `POST https://api.ararahq.com/hooks/a/{token}`, sem API key (o token é a credencial). Regenerar: `POST /v1/automations/{id}/hook/regenerate`. Assinatura opcional: `PUT /v1/automations/{id}/hook/signature { enabled }` e header `X-Arara-Signature: sha256=<HMAC-SHA256 do corpo cru>`.
+- Iniciar: `{ phone, variables, charge: { referenceId, method: pix | link, pixCode, pixKey, pixKeyType, merchantName, paymentLink, amountCents, description, expiresAt } }`, header `Idempotency-Key` opcional. Responde 202 `{ runId, status: started | duplicate }`.
+- Atualizar pagamento no mesmo link: `{ referenceId, status: paid | failed | canceled | expired }`. Responde 200 `{ referenceId, status, cardUpdated, runResumed }`; status repetido devolve `{ status: unchanged }`.
+- Passo `wait_payment`: `config: { timeoutMinutes (1 a 43200), referenceId? }`, `branches: { paid, unpaid }`. Execução fica `WAITING_PAYMENT`. Gatilhos `charge.paid` e `charge.expired` com variáveis `reference_id`, `amount_cents`, `description`.
+- Erros em `error.code`: `HOOK_NOT_FOUND`, `HOOK_SIGNATURE_INVALID`, `HOOK_PAYLOAD_INVALID`, `INVALID_CHARGE`, `AUTOMATION_INACTIVE`, `CHARGE_NOT_FOUND`, `CHARGE_ALREADY_SETTLED`.
 
 ## Automações com resposta
 
