@@ -48,7 +48,7 @@ curl https://api.ararahq.com/v1/recovery/endpoint \
 }
 ```
 
-O endpoint nasce **desligado** (`active: false`). Enquanto estiver assim, os eventos são recusados com `403 RECOVERY_ENDPOINT_INACTIVE`. Ligue quando terminar a configuração:
+O endpoint nasce **desligado** (`active: false`). Esse interruptor governa a recuperação de um passo (evento -> template): enquanto estiver desligado, ela não envia nada. Automação ativa que escuta o evento roda do mesmo jeito, porque quem autoriza a automação é ela mesma. Ligue quando terminar a configuração:
 
 ```bash
 curl -X PATCH https://api.ararahq.com/v1/recovery/endpoint \
@@ -123,7 +123,7 @@ A resposta é `202` com `{ ingestId, status, reason, messageId }`. `status` pode
 | `REJECTED` | Recusado. Ex.: `INVALID_PHONE`, `OPTED_OUT`, `EVENT_DISABLED`, `TEMPLATE_NOT_APPROVED`. |
 | `FAILED` | Falhou. Ex.: `NO_TEMPLATE` (nenhum template nem automação para o evento), `UNKNOWN_EVENT`. |
 
-Erros antes do processamento: `403 RECOVERY_ENDPOINT_INACTIVE` (endpoint desligado), `401 RECOVERY_HMAC_INVALID` (assinatura não confere), `400 RECOVERY_EVENT_INVALID` (sem `X-Arara-Event`) e `429 RECOVERY_RATE_LIMITED` (com header `Retry-After`).
+Erros antes do processamento: `401 RECOVERY_HMAC_INVALID` (assinatura não confere), `400 RECOVERY_EVENT_INVALID` (sem `X-Arara-Event`) e `429 RECOVERY_RATE_LIMITED` (com header `Retry-After`).
 
 <Note>
   A assinatura do endpoint de recuperação é HMAC do **corpo cru**, sem timestamp. É diferente dos [webhooks que a Arara envia para você](/webhooks), que assinam `"{timestamp}.{corpo}"`.

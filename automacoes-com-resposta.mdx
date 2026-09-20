@@ -94,7 +94,7 @@ As chaves de `branches` são o `id` de cada opção, mais duas reservadas:
 | `__timeout` | O cliente não respondeu dentro do prazo. |
 | `__other` | O cliente respondeu outra coisa duas vezes. |
 
-Os passos de um caminho têm o mesmo formato dos passos da raiz, inclusive outro `question`. Quando o caminho acaba, a execução termina. **Os caminhos não se juntam de novo**: o que precisa acontecer em todos eles vai repetido em cada um.
+Os passos de um caminho têm o mesmo formato dos passos da raiz, inclusive outro `question` ou um [`wait_payment`](/automacoes-webhook#o-passo-wait_payment), que espera o pagamento de uma cobrança e segue por `paid` ou `unpaid`. Quando o caminho acaba, a execução termina. **Os caminhos não se juntam de novo**: o que precisa acontecer em todos eles vai repetido em cada um.
 
 ### `config`
 
@@ -227,6 +227,7 @@ curl "https://api.ararahq.com/v1/automations/{id}/runs?page=0&size=20" \
 |---|---|
 | `RUNNING` | Executando passos. |
 | `WAITING_REPLY` | Parada numa pergunta, esperando o cliente. |
+| `WAITING_PAYMENT` | Parada num `wait_payment`, esperando o pagamento da cobrança. |
 | `COMPLETED` | Chegou ao fim de um caminho. |
 | `STOPPED` | Parou antes do fim: condição, resposta não reconhecida sem `__other`, ou atendente assumiu. |
 | `FAILED` | Um passo falhou. |
@@ -263,6 +264,9 @@ curl "https://api.ararahq.com/v1/automations/{id}/runs/{runId}/events?page=0&siz
 | `TAG_APPLIED` | Uma etiqueta foi aplicada. |
 | `CONDITION_STOPPED` | Um passo de condição parou a sequência. |
 | `CHARGE_SENT` | Uma cobrança foi enviada. |
+| `PAYMENT_WAITING` | A execução parou num `wait_payment`. |
+| `PAYMENT_CONFIRMED` | A cobrança foi paga; segue por `paid`. |
+| `PAYMENT_NOT_CONFIRMED` | Segue por `unpaid`. `detail.reason` diz por quê: `timeout`, `failed`, `canceled` ou `expired`. |
 | `FAILED` | Um passo falhou. |
 | `STOPPED` | A execução parou antes do fim. |
 | `COMPLETED` | A execução terminou. |
@@ -288,4 +292,4 @@ Pergunta fora dos limites (opções demais, `title` longo, `id` repetido ou come
 5. Pra testar o `__timeout` sem esperar um dia, use `"timeoutMinutes": 1`.
 6. Abra `GET /v1/automations/{id}/runs/{runId}/events` e confira a ordem: `QUESTION_ASKED`, `REPLY_MATCHED` e o passo do caminho.
 
-Pra testar o modo `template`, o template com respostas rápidas precisa estar aprovado. Pra coletar vários dados de uma vez em vez de uma escolha, use um [formulário](/flows).
+Pra testar o modo `template`, o template com respostas rápidas precisa estar aprovado. Pra coletar vários dados de uma vez em vez de uma escolha, use um [formulário](/flows). Pra cobrar e seguir um caminho quando o cliente pagar, veja [Link da automação e pagamento](/automacoes-webhook).

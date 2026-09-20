@@ -152,7 +152,7 @@ Algumas recusas de regra de negócio saem com um código de diagnóstico no luga
 | HTTP | Código | Quando |
 |---|---|---|
 | `404` | `RECOVERY_ENDPOINT_NOT_FOUND` | Endpoint ou ingestão não encontrado. |
-| `403` | `RECOVERY_ENDPOINT_INACTIVE` | Endpoint desativado. |
+| `403` | `RECOVERY_ENDPOINT_INACTIVE` | Endpoint de conversão desativado. O endpoint de recuperação não responde mais isso: desligado, ele devolve `REJECTED` com `NO_ACTIVE_AUTOMATION` quando nenhuma automação ativa escuta o evento. |
 | `400` | `RECOVERY_EVENT_INVALID` | Tipo de evento ou período inválido. |
 | `401` | `RECOVERY_HMAC_INVALID` | Assinatura HMAC não confere. |
 | `429` | `RECOVERY_RATE_LIMITED` | Excesso de eventos. `Retry-After: 60`. |

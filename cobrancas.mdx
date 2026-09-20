@@ -51,7 +51,7 @@ Com link de pagamento, troque o bloco `pix` por:
 | `charge.referenceId` | Seu número da cobrança. Até 60 caracteres: letras, números, `.`, `-` e `_`. **Único por organização**: é com ele que você dá baixa. |
 | `charge.items` | De 1 a 10. `name` até 60 caracteres, `amountCents` e `quantity` positivos. `id` opcional (seu SKU). |
 | `charge.shippingCents`, `charge.discountCents` | Opcionais. O total do cartão é itens + frete − desconto. |
-| `charge.expiresAt` | Opcional, epoch em segundos, pelo menos 5 minutos à frente. |
+| `charge.expiresAt` | Opcional, epoch em segundos, pelo menos 5 minutos à frente. Quando passa sem pagamento, a cobrança vira `EXPIRED` sozinha. |
 | `charge.pix` | `code` (copia-e-cola), `key`, `keyType` (`CPF`, `CNPJ`, `EMAIL`, `PHONE` ou `EVP`) e `merchantName`. |
 | `charge.paymentLink` | `url` em `https`. |
 
@@ -86,6 +86,8 @@ curl -X POST https://api.ararahq.com/v1/messages \
 ```
 
 `status` aceita `PAID`, `FAILED` (o pagamento não passou; a cobrança segue em aberto) e `CANCELED`. `description` é opcional, até 120 caracteres. Cobrança já paga não muda mais.
+
+Existe ainda o status `EXPIRED`, que você não envia: a Arara marca sozinha quando o `expiresAt` passa. No WhatsApp o cartão aparece como cancelado, porque ele não tem um estado de vencido.
 
 A baixa é uma mensagem de sessão, então vale a janela de 24h. Como pagamento costuma ser confirmado em minutos, na prática ela está aberta.
 
@@ -152,14 +154,76 @@ Num passo de mensagem com template de cobrança, você diz de onde vem cada dado
 
 Pra link de pagamento, use `"paymentLink": "{{payment_url}}"` no lugar dos campos de Pix. O seu sistema gera o Pix ou o link e manda no evento (`payment.failed`, `cart.abandoned` ou webhook próprio); a automação monta e envia a cobrança. As mesmas conferências do envio pela API valem aqui.
 
+### Saber se pagou dentro da automação
+
+O caminho recomendado é o [link da automação](/automacoes-webhook): o seu sistema manda a cobrança pronta num `POST`, a automação envia e para no passo `wait_payment`, e um segundo `POST` no mesmo link avisa `paid`. A execução segue por `paid` ou `unpaid`, sem mapear `{{variaveis}}`.
+
+Os gatilhos `charge.paid` e `charge.expired` iniciam uma automação quando qualquer cobrança da conta chega nesse status.
+
+## Cobrança e contato
+
+Toda cobrança fica ligada ao contato do telefone. Quando ela é paga, o contato tem o total gasto, o número de compras e a última compra atualizados.
+
 ## Consultar
 
 ```bash
-curl "https://api.ararahq.com/v1/charges?receiver=5588999990000&status=PENDING" \
+curl "https://api.ararahq.com/v1/charges?page=0&size=20&status=PENDING" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Devolve `{ data, pagination }` com `referenceId`, `description`, `totalCents`, `paymentMethod` (`PIX` ou `PAYMENT_LINK`), `status` e datas. O código Pix e o link **não são guardados** pela Arara.
+| Filtro | Valores |
+|---|---|
+| `status` | `PENDING`, `PAID`, `FAILED`, `CANCELED` ou `EXPIRED`. |
+| `source` | `CONVERSATION`, `TEMPLATE`, `AUTOMATION` ou `HOOK`. |
+| `contactId` | Só as cobranças de um contato. |
+| `receiver` | Só as cobranças de um telefone. |
+| `q` | Busca por texto. |
+| `page`, `size` | Paginação. |
+
+Devolve `{ data, pagination }`. Cada item:
+
+```json
+{
+  "id": "3f1c9a20-5b7d-4e8a-9c11-2d4e6f8a0b12",
+  "referenceId": "pedido-1042",
+  "description": "Plano mensal",
+  "totalCents": 5990,
+  "method": "PIX",
+  "status": "PAID",
+  "source": "HOOK",
+  "contact": { "id": "a1b2c3d4-...", "name": "Maria", "phone": "5588999990000" },
+  "customerNumber": "5588999990000",
+  "automationId": "0e4f3c1e-...",
+  "automationName": "Cobrança do plano mensal",
+  "runId": "7c1d2e90-...",
+  "createdAt": "2026-09-20T14:02:11Z",
+  "statusUpdatedAt": "2026-09-20T14:09:40Z",
+  "paidAt": "2026-09-20T14:09:40Z",
+  "expiresAt": "2026-09-21T12:00:00Z"
+}
+```
+
+`method` é `PIX` ou `PAYMENT_LINK`. `contact` pode vir `null`; `automationId`, `automationName` e `runId` só vêm preenchidos quando a cobrança saiu de uma automação. O código Pix e o link **não são guardados** pela Arara.
+
+| Endpoint | O que devolve |
+|---|---|
+| `GET /v1/charges/{id}` | Uma cobrança. |
+| `GET /v1/charges?contactId={id}` | As cobranças de um contato. |
+| `PUT /v1/charges/{id}/status` | Dá baixa direto: `{ "status": "PAID" \| "CANCELED" \| "FAILED" }`. Funciona com a conversa fechada; o cartão no WhatsApp só é atualizado quando a janela de 24h deixa (`cardUpdated` na resposta). |
+| `GET /v1/charges/summary?days=30` | O resumo do período. |
+
+```json
+{
+  "pendingCount": 12,
+  "pendingCents": 71880,
+  "paidCount": 48,
+  "paidCents": 287520,
+  "expiredCount": 5,
+  "conversionRate": 0.74
+}
+```
+
+Pra receber cada mudança de status no seu backend, use os eventos [`charge.*`](/webhooks/events#cobranças).
 
 ## No dashboard
 

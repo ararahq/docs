@@ -74,7 +74,7 @@ Qualquer outro nome de evento é aceito se houver uma automação escutando ele.
       -H "Content-Type: application/json" \
       -d '{ "active": true }'
     ```
-    Com o endpoint inativo, todo evento recebido responde `403 RECOVERY_ENDPOINT_INACTIVE` e nada é registrado.
+    Esse interruptor vale pra recuperação de um passo (evento -> template). Com ele desligado, o evento só é aproveitado por [automações](/automacoes-webhook) ativas que escutam aquele evento; sem nenhuma, a resposta vem `REJECTED` com `reason: NO_ACTIVE_AUTOMATION`.
   </Step>
 </Steps>
 

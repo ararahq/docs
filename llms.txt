@@ -112,13 +112,22 @@ A Arara é a operação de WhatsApp para empresas brasileiras: disparo para a ba
 - Na conversa aberta: `POST /v1/messages` com `interactive: { type: "charge", body, charge: { referenceId, items, pix | paymentLink } }`. Valores em centavos. A API confere o CRC do Pix e recusa total diferente do valor dentro do código.
 - Baixa: `POST /v1/messages` com `interactive: { type: "charge_status", body, chargeStatus: { referenceId, status: PAID | FAILED | CANCELED } }`.
 - Fora da janela: template com botão `CHARGE` (único botão) e `charge` no envio do template. Em automações, o passo leva um molde `charge` com `{{variavel}}` do evento. Campanhas ainda não enviam cobrança.
-- `GET /v1/charges?receiver=&status=`
+- `GET /v1/charges?page&size&status&source&contactId&receiver&q` · `GET /v1/charges/{id}` · `PUT /v1/charges/{id}/status { status: PAID | CANCELED | FAILED }` (funciona com a janela fechada) · `GET /v1/charges/summary?days=30`. Status `PENDING | PAID | FAILED | CANCELED | EXPIRED` (`EXPIRED` automático quando `expiresAt` passa). Cobrança fica ligada ao contato; paga, atualiza total gasto, compras e última compra.
+- Webhooks `charge.sent | charge.paid | charge.failed | charge.canceled | charge.expired`, sem o código Pix nem o link.
+
+## Link da automação e pagamento
+
+- Automação com gatilho `webhook` tem link próprio: `POST https://api.ararahq.com/hooks/a/{token}`, sem API key (o token é a credencial). Regenerar: `POST /v1/automations/{id}/hook/regenerate`. Assinatura opcional: `PUT /v1/automations/{id}/hook/signature { enabled }` e header `X-Arara-Signature: sha256=<HMAC-SHA256 do corpo cru>`.
+- Iniciar: `{ phone, variables, charge: { referenceId, method: pix | link, pixCode, pixKey, pixKeyType, merchantName, paymentLink, amountCents, description, expiresAt } }`, header `Idempotency-Key` opcional. Responde 202 `{ runId, status: started | duplicate }`.
+- Atualizar pagamento no mesmo link: `{ referenceId, status: paid | failed | canceled | expired }`. Responde 200 `{ referenceId, status, cardUpdated, runResumed }`; status repetido devolve `{ status: unchanged }`.
+- Passo `wait_payment`: `config: { timeoutMinutes (1 a 43200), referenceId? }`, `branches: { paid, unpaid }`. Execução fica `WAITING_PAYMENT`. Gatilhos `charge.paid` e `charge.expired` com variáveis `reference_id`, `amount_cents`, `description`.
+- Erros em `error.code`: `HOOK_NOT_FOUND`, `HOOK_SIGNATURE_INVALID`, `HOOK_PAYLOAD_INVALID`, `INVALID_CHARGE`, `AUTOMATION_INACTIVE`, `CHARGE_NOT_FOUND`, `CHARGE_ALREADY_SETTLED`.
 
 ## Automações com resposta
 
-- Passo `QUESTION` em `POST /v1/automations`: `config: { mode: buttons | list | template, text, buttonText, options: [{ id, title, match }], timeoutMinutes, retryText, templateName, variables }` e `branches: { <id da opção> | __timeout | __other: [passos] }`. Caminhos não se juntam; até 2 perguntas aninhadas. `buttons` (até 3 opções, título até 20) e `list` (até 10, título até 24) só com a janela de 24h aberta; fora dela a primeira pergunta é `template` com respostas rápidas.
+- Passo `question` em `POST /v1/automations`: `config: { mode: buttons | list | template, text, buttonText, options: [{ id, title, match }], timeoutMinutes, retryText, templateName, variables }` e `branches: { <id da opção> | __timeout | __other: [passos] }`. Caminhos não se juntam; até 2 níveis de pergunta. `buttons` (até 3 opções, título até 20) e `list` (até 10, título até 24) só com a janela de 24h aberta; fora dela a primeira pergunta é `template` com respostas rápidas.
 - Resposta reconhecida pelo id do botão, depois pelo texto contra `match` e `title`, sem maiúsculas nem acentos. Primeiro erro repete a pergunta (`retryText`); segundo segue `__other` ou para. Variáveis `resposta_1`, `resposta_1_texto`, `resposta_2`...
-- Gatilho `BUTTON_REPLIED` com `{ replyId, templateName? }`; variáveis `reply_id` e `reply_title`.
+- Gatilho `button.replied` com `triggerConfig: { replyId, templateName? }` (em resposta rápida de template o `replyId` é o texto do botão); variáveis `reply_id` e `reply_title`.
 - `GET /v1/automations/{id}/runs` · `GET /v1/automations/{id}/runs/{runId}/events` (paginados). Status: RUNNING, WAITING_REPLY, COMPLETED, STOPPED, FAILED.
 
 ## Brain (agente de IA hospedado)
