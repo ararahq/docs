@@ -165,6 +165,18 @@
             ]
           },
           {
+            "group": "Cobranças",
+            "pages": [
+              "cobrancas"
+            ]
+          },
+          {
+            "group": "Automações",
+            "pages": [
+              "automacoes-com-resposta"
+            ]
+          },
+          {
             "group": "Brain (IA)",
             "pages": [
               "brain",

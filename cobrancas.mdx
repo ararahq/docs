@@ -1,0 +1,166 @@
+---
+title: 'Cobranças (Pix e link de pagamento)'
+description: 'Envie um cartão de pagamento dentro do WhatsApp, com Pix copia-e-cola ou link de pagamento, dê baixa quando o cliente pagar e use em conversas, templates e automações.'
+keywords: ['pix', 'cobrança', 'pagamento', 'order_details', 'link de pagamento', 'copia e cola', 'baixa']
+---
+
+A cobrança chega como um cartão nativo do WhatsApp: número da cobrança, itens, total e o botão **Copiar código Pix** (ou **Pagar**, no link de pagamento). O cliente paga no app do banco dele, sem sair da conversa pra procurar boleto ou site.
+
+<Note>
+**O WhatsApp não processa o pagamento, e a Arara também não.** O Pix copia-e-cola ou o link vêm do seu banco ou PSP: o dinheiro cai direto na sua conta. A Arara entrega o cartão e, quando você avisa que pagou, põe o selo de pago nele.
+</Note>
+
+O ciclo tem dois passos: **enviar a cobrança** e **dar baixa**.
+
+## Enviar na conversa (janela de 24h aberta)
+
+```bash
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "5588999990000",
+    "interactive": {
+      "type": "charge",
+      "body": "Segue a fatura de outubro. É só tocar no botão pra pagar.",
+      "charge": {
+        "referenceId": "fatura-2026-10-9912",
+        "items": [{ "name": "Fatura out/2026", "amountCents": 5990, "quantity": 1 }],
+        "pix": {
+          "code": "00020126580014br.gov.bcb.pix...6304ABCD",
+          "key": "39580525000189",
+          "keyType": "CNPJ",
+          "merchantName": "Loja Exemplo"
+        }
+      }
+    }
+  }'
+```
+
+Com link de pagamento, troque o bloco `pix` por:
+
+```json
+"paymentLink": { "url": "https://pay.seupsp.com/c/abc123" }
+```
+
+### Campos
+
+| Campo | Regra |
+|---|---|
+| `body` | Obrigatório, até 1024 caracteres. |
+| `charge.referenceId` | Seu número da cobrança. Até 60 caracteres: letras, números, `.`, `-` e `_`. **Único por organização**: é com ele que você dá baixa. |
+| `charge.items` | De 1 a 10. `name` até 60 caracteres, `amountCents` e `quantity` positivos. `id` opcional (seu SKU). |
+| `charge.shippingCents`, `charge.discountCents` | Opcionais. O total do cartão é itens + frete − desconto. |
+| `charge.expiresAt` | Opcional, epoch em segundos, pelo menos 5 minutos à frente. |
+| `charge.pix` | `code` (copia-e-cola), `key`, `keyType` (`CPF`, `CNPJ`, `EMAIL`, `PHONE` ou `EVP`) e `merchantName`. |
+| `charge.paymentLink` | `url` em `https`. |
+
+Valores são sempre **em centavos**. Informe **um** meio de pagamento por cobrança: `pix` ou `paymentLink`.
+
+### O que a Arara confere antes de enviar
+
+Erro de cobrança aparece no celular do seu cliente, então a API recusa cedo, com `422` e a frase do problema:
+
+- **Código Pix cortado ou com caractere trocado.** Todo copia-e-cola termina num dígito verificador; a Arara recalcula e recusa o que não fecha.
+- **Total diferente do valor dentro do Pix.** Se o código fixa um valor e ele não bate com o total da cobrança, o envio é recusado. Sem isso o cartão mostraria um número e o banco cobraria outro.
+- **`referenceId` repetido**, total zerado, link sem `https`, item sem nome.
+
+A cobrança só é registrada depois que o envio é aceito: envio que falha não gasta o `referenceId`.
+
+## Dar baixa
+
+Quando o seu banco ou PSP confirmar o pagamento, avise. O cartão ganha o selo de pago.
+
+```bash
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "5588999990000",
+    "interactive": {
+      "type": "charge_status",
+      "body": "Recebemos o pagamento. Obrigado!",
+      "chargeStatus": { "referenceId": "fatura-2026-10-9912", "status": "PAID" }
+    }
+  }'
+```
+
+`status` aceita `PAID`, `FAILED` (o pagamento não passou; a cobrança segue em aberto) e `CANCELED`. `description` é opcional, até 120 caracteres. Cobrança já paga não muda mais.
+
+A baixa é uma mensagem de sessão, então vale a janela de 24h. Como pagamento costuma ser confirmado em minutos, na prática ela está aberta.
+
+## Fora da janela: template de cobrança
+
+Pra cobrar quem não falou com você nas últimas 24h, crie um template com o botão de cobrança. Ele precisa ser o **único** botão do template.
+
+```bash
+curl -X POST https://api.ararahq.com/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "fatura_pix",
+    "category": "UTILITY",
+    "language": "pt_BR",
+    "body": "Oi {{nome}}, sua fatura de {{mes}} chegou.",
+    "buttons": [{ "type": "CHARGE", "text": "Pagar com Pix" }]
+  }'
+```
+
+Depois de aprovado, envie o template com o mesmo objeto `charge` do envio na conversa:
+
+```bash
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "5588999990000",
+    "templateName": "fatura_pix",
+    "templateVariables": ["Maria", "outubro"],
+    "charge": {
+      "referenceId": "fatura-2026-10-9912",
+      "items": [{ "name": "Fatura out/2026", "amountCents": 5990 }],
+      "pix": { "code": "000201...", "key": "39580525000189", "keyType": "CNPJ", "merchantName": "Loja Exemplo" }
+    }
+  }'
+```
+
+Template com botão de cobrança **exige** `charge`; template sem o botão o recusa. Como template vai pra fila, aqui a cobrança é registrada no enfileiramento: se o envio falhar, mande de novo com outro `referenceId`.
+
+<Warning>
+Campanhas ainda não enviam cobrança por contato. Um template de cobrança escolhido numa campanha é recusado na criação. Use a API ou uma automação.
+</Warning>
+
+## Em automações
+
+Num passo de mensagem com template de cobrança, você diz de onde vem cada dado. Cada campo aceita texto fixo ou `{{variavel}}` do evento que dispara a automação:
+
+```json
+{
+  "templateId": "…",
+  "variables": ["nome"],
+  "charge": {
+    "referenceId": "pedido-{{order_id}}",
+    "description": "{{product}}",
+    "amountCents": "{{amount_cents}}",
+    "pixCode": "{{pix_code}}",
+    "pixKey": "39580525000189",
+    "pixKeyType": "CNPJ",
+    "merchantName": "Loja Exemplo"
+  }
+}
+```
+
+Pra link de pagamento, use `"paymentLink": "{{payment_url}}"` no lugar dos campos de Pix. O seu sistema gera o Pix ou o link e manda no evento (`payment.failed`, `cart.abandoned` ou webhook próprio); a automação monta e envia a cobrança. As mesmas conferências do envio pela API valem aqui.
+
+## Consultar
+
+```bash
+curl "https://api.ararahq.com/v1/charges?receiver=5588999990000&status=PENDING" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Devolve `{ data, pagination }` com `referenceId`, `description`, `totalCents`, `paymentMethod` (`PIX` ou `PAYMENT_LINK`), `status` e datas. O código Pix e o link **não são guardados** pela Arara.
+
+## No dashboard
+
+Na caixa de **Conversas**, o link **Cobrar** fica ao lado de Template e Formulário. Cole o Pix: a tela confere o código, preenche valor, nome e chave a partir dele e mostra o valor no próprio botão antes de enviar. As cobranças em aberto da conversa aparecem ali, com **Marcar como paga** e **Cancelar**.

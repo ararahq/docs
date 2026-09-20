@@ -120,6 +120,21 @@ O cliente mandou mensagem para um número próprio da organização.
 | `sender_name` | Nome de perfil do cliente no WhatsApp. |
 | `timestamp` | Quando a Arara processou a mensagem. |
 | `provider` | `META` ou `TWILIO`. |
+| `reply` | Só aparece quando o cliente tocou num botão ou numa opção de lista. Veja abaixo. |
+
+Quando a mensagem é o toque num botão, `body` traz o texto que o cliente viu e `reply` diz qual opção foi:
+
+```json
+"reply": { "kind": "button", "id": "quero-pagar", "title": "Quero pagar" }
+```
+
+| Campo | Descrição |
+|---|---|
+| `kind` | `button` (botão de mensagem interativa), `list` (opção de lista) ou `template_button` (resposta rápida de template). |
+| `id` | O `id` que você definiu ao enviar o botão ou a opção. Em `template_button` é o payload do botão do template. |
+| `title` | O texto que o cliente viu. |
+
+Decida pelo `id`, não pelo `title`: o texto pode mudar, o `id` é seu. Mensagem digitada não traz `reply`.
 
 Não dispara para mensagem recebida no pool compartilhado, para palavras de opt-out ("SAIR", "PARAR", "STOP"...) nem para respostas de confirmação de agendamento.
 
