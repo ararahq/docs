@@ -155,6 +155,15 @@ A opção escolhida vira variável da execução e pode ser usada nos passos seg
 
 Use como `{{resposta_1}}`, do mesmo jeito que as variáveis do evento que disparou a automação.
 
+## Quanto custa
+
+| Pergunta | Custo |
+|---|---|
+| `buttons` ou `list` (formato livre) | O custo de uma mensagem de sessão no seu plano. |
+| `template` | O custo do template, pela categoria dele. |
+
+A estimativa de `costPerRunBrl` soma o caminho mais caro, porque cada pessoa atravessa um caminho só. `GET /v1/automations/pricing` devolve o preço da mensagem livre (`sessionUnitPriceBrl`) pra você somar antes de salvar.
+
 ## Gatilho: toque num botão
 
 O gatilho `button.replied` inicia a automação quando o cliente toca num botão com um `id` específico e nenhuma execução está esperando aquela resposta.
