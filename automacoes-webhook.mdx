@@ -327,3 +327,5 @@ Guarde o link e o secret em credenciais ou variáveis do n8n, não no texto do n
 6. Inicie outra execução, com outro `referenceId`, e não avise o pagamento. Depois de 1 minuto chega a mensagem do caminho `unpaid`.
 7. Abra `GET /v1/automations/{id}/runs/{runId}/events` e confira a ordem: `CHARGE_SENT`, `PAYMENT_WAITING` e `PAYMENT_CONFIRMED` ou `PAYMENT_NOT_CONFIRMED`.
 8. Se ligou a assinatura, mande uma chamada sem o header e confira o `HOOK_SIGNATURE_INVALID`.
+
+Pra criar, editar e ligar a automação pela API, veja [Automações pela API](/automacoes-api).
