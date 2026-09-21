@@ -1,0 +1,261 @@
+---
+title: 'Automações pela API'
+description: 'Crie, edite, ligue e acompanhe automações sem abrir o dashboard: o ciclo de vida completo por API, com preço estimado antes de ativar.'
+keywords: ['automação', 'api', 'automations', 'lifecycle', 'permissão', 'AUTOMATIONS_MANAGE', 'pricing', 'runs']
+---
+
+Uma automação é uma sequência de passos que roda sozinha para cada contato que entra por um gatilho: mensagem, espera, condição, etiqueta, pergunta com ramificação ou espera de pagamento. Esta página é o ciclo de vida pela API; para o passo `question` e o link de webhook com `wait_payment`, veja [Automações com resposta](/automacoes-com-resposta) e [Link da automação e pagamento](/automacoes-webhook).
+
+## Autenticação
+
+Toda chamada usa API key no header `Authorization: Bearer ara_live_xxx`.
+
+<Warning>
+A permissão `AUTOMATIONS_MANAGE` é opt-in: chaves já existentes **não** têm ela. Ligue em **API Keys**, na chave que vai chamar `/v1/automations`, antes da primeira chamada de escrita.
+</Warning>
+
+| Operação | Permissão |
+|---|---|
+| Criar, editar, ligar/desligar, apagar | `AUTOMATIONS_MANAGE` |
+| Listar, ler, ver execuções e eventos | `READ` |
+
+Uma chave com `ADMIN` já tem as duas. Sem a permissão certa, a chamada responde `403` sem `error.code` — veja [Autenticação](/api-reference/authentication#permissões).
+
+## Ciclo de vida
+
+### Listar
+
+```bash
+curl "https://api.ararahq.com/v1/automations" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Devolve a lista de automações da organização, cada uma com `id`, `name`, `trigger`, `active`, `costPerRunBrl` e `steps`.
+
+### Ler uma
+
+```bash
+curl "https://api.ararahq.com/v1/automations/{id}" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Traz os mesmos campos da listagem, com `stats` (execuções, em andamento, concluídas, paradas) e, no gatilho `webhook`, o objeto `hook` (`url`, `signatureEnabled`, `hasSecret`).
+
+### Criar
+
+```bash
+curl -X POST https://api.ararahq.com/v1/automations \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Lembrete de renovação",
+    "trigger": "cart.abandoned",
+    "steps": [
+      { "type": "wait", "config": { "minutes": 60 } },
+      { "type": "message", "config": { "templateId": "0b8f6c1e-7a52-4a1b-9a0e-3f2d6c9e1a44", "variables": ["nome"] } }
+    ]
+  }'
+```
+
+**A automação nasce sempre desligada** (`active: false`), mesmo que você não mande esse campo — não existe jeito de criar já ligada. Criar não conta no teto de automações ativas do plano, só ligar conta.
+
+### Editar
+
+```bash
+curl -X PUT https://api.ararahq.com/v1/automations/{id} \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "...", "trigger": "...", "steps": [ ... ] }'
+```
+
+`PUT` substitui a automação inteira: nome, gatilho e a lista de passos. Não existe patch parcial — mande sempre o objeto completo, do jeito que `GET /v1/automations/{id}` devolveu.
+
+<Warning>
+Salvar uma automação que está **ligada** para quem está no meio de uma execução parada — esperando resposta de uma [`question`](/automacoes-com-resposta) ou o pagamento de um [`wait_payment`](/automacoes-webhook) — **encerra essa execução**, com `stoppedReason: "automação editada"`. Quem já recebeu a primeira mensagem some da sequência; ela não continua com a versão antiga nem pula para a nova no meio. Editar automações ativas com gente esperando é uma operação com efeito colateral real, não um ajuste de rascunho.
+</Warning>
+
+### Ligar e desligar
+
+```bash
+curl -X PUT https://api.ararahq.com/v1/automations/{id}/active \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "active": true }'
+```
+
+O teto de automações ativas do plano é conferido aqui, não na criação, e ignora a própria automação que está sendo ligada — só as outras contam. Automação sem nenhum passo não liga (`AUTOMATION_EMPTY`). Desligar não derruba quem já está no meio da sequência; só impede gente nova de entrar.
+
+### Apagar
+
+```bash
+curl -X DELETE https://api.ararahq.com/v1/automations/{id} \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+`204` sem corpo. Apaga a automação e as execuções ligadas a ela.
+
+### Execuções e o rastro de uma execução
+
+```bash
+curl "https://api.ararahq.com/v1/automations/{id}/runs?page=0&size=20" \
+  -H "Authorization: Bearer ara_live_xxx"
+
+curl "https://api.ararahq.com/v1/automations/{id}/runs/{runId}/events?page=0&size=50" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+Os dois endpoints, o formato de resposta e as tabelas de `status` e `kind` estão em [Histórico de execuções](/automacoes-com-resposta#histórico-de-execuções).
+
+## Gatilhos (`trigger`)
+
+| `trigger` | Precisa de `triggerConfig`? | Quando dispara |
+|---|---|---|
+| `webhook` | Não | `POST` no [link próprio da automação](/automacoes-webhook). |
+| `cart.abandoned` | Não | Evento de [recuperação](/recovery) do seu e-commerce. |
+| `payment.failed` | Não | Evento de recuperação de pagamento falho. |
+| `tag.applied` | Não | Um contato ganhou uma etiqueta (tela, API ou outra automação). |
+| `conversation.started` | Não | Primeira mensagem de alguém que nunca falou com a organização. |
+| `button.replied` | **Sim** | Cliente tocou um botão com o `id` configurado. Ver [Gatilho: toque num botão](/automacoes-com-resposta#gatilho-toque-num-botão). |
+| `charge.paid` | Não | Qualquer cobrança da organização foi paga. |
+| `charge.expired` | Não | Uma cobrança venceu sem pagamento. |
+
+Só `button.replied` exige `triggerConfig`, com `{ "replyId": "...", "templateName?": "..." }`. Os demais ignoram o campo. Gatilho inexistente é recusado com `400 AUTOMATION_TRIGGER_INVALID`; `triggerConfig` inválido em `button.replied` (sem `replyId`), com `400 AUTOMATION_TRIGGER_CONFIG_INVALID`.
+
+`GET /v1/automations/catalog` devolve a mesma lista de gatilhos e tipos de passo que o dashboard usa para montar os seletores — útil para validar no seu lado antes de mandar.
+
+## Tipos de passo (`steps[].type`)
+
+| `type` | `config` | Ramifica (`branches`)? |
+|---|---|---|
+| `message` | `templateId` **ou** `sessionText`, nunca os dois. Com template: `variables` (array na ordem de `{{1}}`, `{{2}}`...) e, opcionalmente, `charge` (ver [cobrança em automações](/cobrancas#em-automações)). `sessionText` é texto livre de sessão, até 1.024 caracteres — só funciona quando o passo roda com a janela de 24h aberta. | Não |
+| `wait` | `{ "minutes": N }`, de 1 a 43.200 (30 dias). | Não |
+| `condition` | `{ "tag": "..." }`. Segue só se o contato **ainda não tem** a etiqueta; se tiver, a sequência para. | Não |
+| `tag` | `{ "tag": "..." }`. Aplica a etiqueta no contato. | Não |
+| `question` | Pergunta com opções. Ver [Automações com resposta](/automacoes-com-resposta#config). | Sim — uma chave de `branches` por opção, mais `__timeout` e `__other`. |
+| `wait_payment` | `{ "timeoutMinutes": N, "referenceId?": "..." }`. Ver [Link da automação e pagamento](/automacoes-webhook#o-passo-wait_payment). | Sim — `paid` e `unpaid`. |
+
+`PUT` e `POST` reescrevem a lista de passos inteira a cada chamada: não existe id de passo estável entre versões, então não dá para editar um passo isolado.
+
+## Exemplo completo: pergunta com dois caminhos
+
+Uma automação com uma única chamada `POST`: pergunta se o cliente quer Pix ou boleto, cobra por Pix num caminho e etiqueta no outro, liga, e depois confere uma execução.
+
+```bash
+curl -X POST https://api.ararahq.com/v1/automations \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Como você quer pagar?",
+    "trigger": "payment.failed",
+    "steps": [
+      {
+        "type": "question",
+        "config": {
+          "mode": "template",
+          "templateName": "como_pagar",
+          "variables": ["nome"],
+          "options": [
+            { "id": "pix", "title": "Pix", "match": ["1", "pix"] },
+            { "id": "boleto", "title": "Boleto", "match": ["2", "boleto"] }
+          ],
+          "timeoutMinutes": 1440
+        },
+        "branches": {
+          "pix": [
+            {
+              "type": "message",
+              "config": {
+                "templateId": "0b8f6c1e-7a52-4a1b-9a0e-3f2d6c9e1a44",
+                "variables": ["nome"],
+                "charge": {
+                  "referenceId": "pedido-{{order_id}}",
+                  "description": "{{product}}",
+                  "amountCents": "{{amount_cents}}",
+                  "pixCode": "{{pix_code}}",
+                  "pixKey": "39580525000189",
+                  "pixKeyType": "CNPJ",
+                  "merchantName": "Loja Exemplo"
+                }
+              }
+            }
+          ],
+          "boleto": [
+            { "type": "tag", "config": { "tag": "quer_boleto" } }
+          ]
+        }
+      }
+    ]
+  }'
+```
+
+```bash
+curl -X PUT https://api.ararahq.com/v1/automations/{id}/active \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "active": true }'
+```
+
+```bash
+curl "https://api.ararahq.com/v1/automations/{id}/runs?page=0&size=5" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+O `status` de cada execução (`RUNNING`, `WAITING_REPLY`, `COMPLETED`...) e o detalhe de cada evento estão em [Histórico de execuções](/automacoes-com-resposta#histórico-de-execuções).
+
+## Quanto custa
+
+```json
+{ "costPerRunBrl": 0.42 }
+```
+
+`costPerRunBrl`, devolvido em toda automação, é uma estimativa por pessoa que entra, não uma cobrança. Ela soma o **caminho mais caro**: como cada pessoa atravessa só um caminho quando há `question` ou `wait_payment`, a Arara usa o ramo de maior custo em vez de somar todos ou usar o mais barato — o teto é a promessa honesta.
+
+Cada passo de mensagem entra no cálculo assim:
+
+- **Com template**: o preço de referência da categoria do template (`MARKETING`, `UTILITY`...) no plano da organização.
+- **Sem template** (`sessionText`): o preço de uma mensagem de sessão livre no plano da organização.
+
+```bash
+curl "https://api.ararahq.com/v1/automations/pricing" \
+  -H "Authorization: Bearer ara_live_xxx"
+```
+
+```json
+{ "sessionUnitPriceBrl": 0.006 }
+```
+
+Some `sessionUnitPriceBrl` manualmente antes de salvar se você estiver montando a automação no seu próprio sistema, sem passar pelo editor do dashboard.
+
+## Erros
+
+Formato padrão, com o código em `error.code`:
+
+```json
+{ "error": { "code": "AUTOMATION_STEP_INVALID", "message": "...", "details": {} } }
+```
+
+| Status | `error.code` | Quando |
+|---|---|---|
+| 404 | `AUTOMATION_NOT_FOUND` | Automação inexistente ou de outra organização. |
+| 404 | `AUTOMATION_RUN_NOT_FOUND` | Execução inexistente ou de outra automação. |
+| 400 | `AUTOMATION_TRIGGER_INVALID` | `trigger` não é um dos valores da tabela acima. |
+| 400 | `AUTOMATION_TRIGGER_CONFIG_INVALID` | `button.replied` sem `replyId`, ou `replyId` acima do limite de caracteres. |
+| 400 | `AUTOMATION_STEP_INVALID` | Passo fora das regras: `message` com `templateId` e `sessionText` juntos (ou nenhum dos dois), `wait` fora de 1 a 43.200 minutos, `tag`/`condition` sem etiqueta, ou uma pergunta fora dos limites (ver [Automações com resposta](/automacoes-com-resposta#limites)). `message` explica o motivo. |
+| 400 | `AUTOMATION_EMPTY` | Tentou ligar uma automação sem nenhum passo. |
+
+Veja a [lista de erros](/erros) para os códigos genéricos (autenticação, plano, validação).
+
+## Idempotência
+
+`POST /v1/automations` não aceita `Idempotency-Key` hoje: chamar duas vezes cria duas automações. Isso está sendo adicionado por outra frente; confira a mudança antes de depender de retry automático nesse endpoint.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Automações com resposta" icon="comments" href="/automacoes-com-resposta">
+    O passo `question`, ramificação e reconhecimento de resposta.
+  </Card>
+  <Card title="Link da automação e pagamento" icon="link" href="/automacoes-webhook">
+    Gatilho `webhook`, `wait_payment` e assinatura HMAC do link.
+  </Card>
+</CardGroup>
