@@ -129,6 +129,7 @@ A Arara é a operação de WhatsApp para empresas brasileiras: disparo para a ba
 - Resposta reconhecida pelo id do botão, depois pelo texto contra `match` e `title`, sem maiúsculas nem acentos. Primeiro erro repete a pergunta (`retryText`); segundo segue `__other` ou para. Variáveis `resposta_1`, `resposta_1_texto`, `resposta_2`...
 - Gatilho `button.replied` com `triggerConfig: { replyId, templateName? }` (em resposta rápida de template o `replyId` é o texto do botão); variáveis `reply_id` e `reply_title`.
 - `GET /v1/automations/{id}/runs` · `GET /v1/automations/{id}/runs/{runId}/events` (paginados). Status: RUNNING, WAITING_REPLY, COMPLETED, STOPPED, FAILED.
+- Ciclo de vida pela API: `GET/POST /v1/automations` · `GET/PUT/DELETE /v1/automations/{id}` · `PUT /v1/automations/{id}/active` · `GET /v1/automations/catalog` · `GET /v1/automations/pricing`. Escrita exige permissão `AUTOMATIONS_MANAGE` da chave (opt-in), leitura exige `READ`. Nasce sempre desligada; editar automação ligada com execução esperando resposta ou pagamento encerra essa execução (`stoppedReason: "automação editada"`). `costPerRunBrl` soma o caminho mais caro. Sem `Idempotency-Key` em `POST /v1/automations` hoje.
 
 ## Brain (agente de IA hospedado)
 
