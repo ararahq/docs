@@ -1,91 +1,112 @@
 ---
 title: 'Formulários (WhatsApp Flows)'
-description: 'Formulário nativo que abre dentro da conversa do WhatsApp: crie pela API ou pelo dashboard, anexe a um template e receba cada resposta no webhook com chaves estáveis.'
+description: 'Formulário nativo que abre dentro da conversa do WhatsApp: crie pelo painel, envie por template ou pela API e receba cada resposta no webhook com chaves estáveis.'
 keywords: ['whatsapp flows', 'formulário', 'flow', 'nfm_reply', 'lead', 'pesquisa', 'nps', 'opt-in']
 ---
 
-Um formulário abre por cima da conversa quando o cliente toca no botão da mensagem. Ele responde sem sair do WhatsApp e a resposta chega estruturada no seu webhook, sem link externo e sem texto livre pra interpretar.
+## O que é
 
-O caminho inteiro são três passos: criar o formulário, enviar (num botão de template, ou direto numa conversa aberta) e ler o evento `message.flow_reply`.
+Um formulário é uma tela de perguntas que abre **por cima da conversa**, dentro do próprio WhatsApp, quando o cliente toca no botão da sua mensagem. Ele preenche ali, toca em Enviar, e a resposta volta pra você já separada campo a campo.
+
+Não é link, não é site, não é bot perguntando uma coisa por vez. É um recurso nativo do WhatsApp (a Meta chama de Flow) que a Arara cria, publica e lê pra você.
+
+O formulário da Arara é **uma tela só e estática**: de 1 a 10 perguntas, todas visíveis de uma vez, tudo declarado na criação. Não tem etapas, não tem pergunta que aparece dependendo da resposta anterior e não tem nada vindo do seu servidor enquanto o cliente preenche. Os tipos de campo são nove — texto, texto longo, e-mail, telefone, número, escolha única, múltipla escolha, data e aceite. Não há upload de arquivo, imagem nem link dentro do formulário.
+
+## Por que usar
+
+- **Ninguém sai da conversa.** Sem link externo, sem página que demora a carregar, sem "abrir no navegador".
+- **A resposta chega estruturada.** Você lê `fields.email`, não uma frase pra interpretar.
+- **A chave do campo é sua e não muda.** O que você leu uma vez vale pra sempre.
+- **Serve pra cadastro, pesquisa, NPS, agendamento, opt-in.** De 1 a 10 perguntas por formulário.
 
 <Note>
-Disponível do plano Voo pra cima. Abaixo disso a API responde `403 PLAN_FEATURE_LOCKED`.
+Disponível do plano Voo pra cima. Abaixo disso, criar ou enviar formulário responde `403 PLAN_FEATURE_LOCKED`.
 </Note>
 
-## 1. Criar
-
-Você descreve as perguntas. A Arara gera o Flow JSON, sobe pra Meta e publica na mesma chamada.
-
-```bash
-curl -X POST https://api.ararahq.com/v1/flows \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Captar contato",
-    "category": "LEAD_GENERATION",
-    "title": "Fale com a gente",
-    "intro": "Leva menos de um minuto.",
-    "submitLabel": "Enviar",
-    "fields": [
-      { "key": "nome",      "label": "Seu nome",            "type": "TEXT" },
-      { "key": "email",     "label": "Seu melhor e-mail",   "type": "EMAIL" },
-      { "key": "interesse", "label": "O que você procura?", "type": "SELECT",
-        "options": ["Conhecer preços", "Tirar uma dúvida", "Falar com vendas"] },
-      { "key": "obs",       "label": "Quer contar mais?",   "type": "LONG_TEXT", "required": false }
-    ]
-  }'
-```
-
-Resposta `201`:
-
-```json
-{
-  "id": "0b7e6a52-3c1d-4f7a-9a55-2f4f6f1f9c10",
-  "name": "Captar contato",
-  "category": "LEAD_GENERATION",
-  "status": "PUBLISHED",
-  "responseCount": 0,
-  "publishError": null,
-  "definition": { "title": "Fale com a gente", "fields": [ { "key": "nome", "label": "Seu nome", "type": "TEXT", "required": true, "options": [] } ] }
-}
-```
-
-### Campos
-
-| Campo | Regra |
-|---|---|
-| `name` | Até 120 caracteres, único por número. Só você vê. |
-| `category` | `SIGN_UP`, `LEAD_GENERATION`, `SURVEY`, `APPOINTMENT_BOOKING`, `CONTACT_US` ou `OTHER`. |
-| `title` | Até 30 caracteres. Aparece no topo do formulário. |
-| `intro` | Opcional, até 300 caracteres. |
-| `submitLabel` | Até 30 caracteres. Padrão `Enviar`. |
-| `fields` | De 1 a 10 perguntas. |
-| `fields[].type` | `TEXT`, `LONG_TEXT`, `EMAIL`, `PHONE`, `NUMBER`, `SELECT`, `MULTI_SELECT`, `DATE`, `OPT_IN`. |
-| `fields[].label` | Até 80 caracteres. Pergunta longa vira texto acima do campo, você não precisa encurtar. |
-| `fields[].options` | Só em `SELECT` e `MULTI_SELECT`: de 2 a 20 opções, até 30 caracteres cada. |
-| `fields[].required` | Padrão `true`. |
-| `fields[].key` | Opcional. Minúsculas, números e `_`, começando por letra. É o nome do campo no webhook. |
-
-Sem `key`, a chave nasce do texto da pergunta (`Seu melhor e-mail` vira `seu_melhor_e_mail`). Defina a sua quando o handler já existe.
-
 <Warning>
-A Meta não deixa editar formulário publicado. Pra mudar perguntas, crie outro e desative o antigo. Por isso as chaves são estáveis: o que você leu uma vez vale pra sempre.
+**Criar, listar e ler respostas é pelo painel.** Os caminhos `/v1/flows/**` ainda não aceitam API key: chamar com `ara_live_...` responde 403. O que dá pra automatizar hoje é o **envio**, por `POST /v1/messages`, e a **leitura das respostas**, pelo webhook `message.flow_reply`. Acesso por API key aos formulários está previsto, mas ainda não disponível.
 </Warning>
 
-### Quando a publicação falha
+## Como aparece no WhatsApp
 
-Criar são três chamadas na Meta. Se o JSON for recusado, nada é gravado e você recebe `400 INVALID_FLOW` com o motivo. Se só a publicação falhar, o formulário volta com `status: "DRAFT"` e `publishError` preenchido. Retente sem recriar:
+À esquerda, a mensagem com o botão. À direita, o formulário depois que o cliente toca nele.
 
-```bash
-curl -X POST https://api.ararahq.com/v1/flows/{id}/publish \
-  -H "Authorization: Bearer ara_live_xxx"
-```
+<div style={{ margin: '24px 0' }}>
+<svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mensagem com botão Responder e, ao lado, o formulário aberto dentro do WhatsApp" style={{ width: '100%', height: 'auto', color: 'currentColor' }}>
+  <g fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.5">
+    <rect x="16" y="16" width="200" height="328" rx="24" />
+    <rect x="368" y="16" width="200" height="328" rx="24" />
+  </g>
+  <g fill="currentColor" opacity="0.35">
+    <rect x="94" y="30" width="44" height="5" rx="2.5" />
+    <rect x="446" y="30" width="44" height="5" rx="2.5" />
+  </g>
 
-Repetir um `POST /v1/flows` que já passou devolve `409 FLOW_NAME_TAKEN` em vez de duplicar.
+  <g>
+    <rect x="34" y="70" width="164" height="96" rx="14" fill="currentColor" opacity="0.07" />
+    <rect x="34" y="70" width="164" height="96" rx="14" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.25" />
+    <text x="48" y="96" fontFamily="Geist, sans-serif" fontSize="11" fill="currentColor" opacity="0.85">Oi Ana, conta pra gente</text>
+    <text x="48" y="112" fontFamily="Geist, sans-serif" fontSize="11" fill="currentColor" opacity="0.85">o que você procura?</text>
+    <line x1="34" y1="128" x2="198" y2="128" stroke="currentColor" strokeWidth="1" opacity="0.2" />
+    <text x="116" y="150" fontFamily="Geist, sans-serif" fontSize="11.5" fill="#1c99a7" textAnchor="middle">Responder</text>
+  </g>
+  <text x="116" y="196" fontFamily="Geist, sans-serif" fontSize="10" fill="currentColor" opacity="0.5" textAnchor="middle">o cliente toca no botão</text>
 
-## 2. Colocar num template
+  <g stroke="#1c99a7" strokeWidth="1.5" fill="none">
+    <line x1="246" y1="180" x2="336" y2="180" />
+    <polyline points="326,172 336,180 326,188" />
+  </g>
 
-Use o botão `FLOW` com o `id` do formulário. Vale pra um botão por template, junto com outros botões se quiser.
+  <g>
+    <rect x="380" y="112" width="176" height="220" rx="16" fill="currentColor" opacity="0.07" />
+    <rect x="380" y="112" width="176" height="220" rx="16" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.25" />
+    <text x="396" y="138" fontFamily="Geist, sans-serif" fontSize="12" fill="currentColor" opacity="0.9">Fale com a gente</text>
+    <text x="396" y="154" fontFamily="Geist, sans-serif" fontSize="9.5" fill="currentColor" opacity="0.55">Leva menos de um minuto.</text>
+
+    <text x="396" y="180" fontFamily="Geist, sans-serif" fontSize="9" fill="currentColor" opacity="0.55">Seu nome</text>
+    <rect x="396" y="186" width="144" height="20" rx="5" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+    <text x="404" y="200" fontFamily="Geist, sans-serif" fontSize="9.5" fill="currentColor" opacity="0.8">Ana Exemplo</text>
+
+    <text x="396" y="224" fontFamily="Geist, sans-serif" fontSize="9" fill="currentColor" opacity="0.55">Seu melhor e-mail</text>
+    <rect x="396" y="230" width="144" height="20" rx="5" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+    <text x="404" y="244" fontFamily="Geist, sans-serif" fontSize="9.5" fill="currentColor" opacity="0.8">ana@exemplo.com</text>
+
+    <text x="396" y="268" fontFamily="Geist, sans-serif" fontSize="9" fill="currentColor" opacity="0.55">O que você procura?</text>
+    <rect x="396" y="274" width="144" height="20" rx="5" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+    <text x="404" y="288" fontFamily="Geist, sans-serif" fontSize="9.5" fill="currentColor" opacity="0.8">Falar com vendas</text>
+    <polyline points="524,282 529,287 534,282" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.6" />
+
+    <rect x="396" y="304" width="144" height="20" rx="10" fill="#1c99a7" />
+    <text x="468" y="318" fontFamily="Geist, sans-serif" fontSize="10" fill="#ffffff" textAnchor="middle">Enviar</text>
+  </g>
+</svg>
+</div>
+
+Quando o cliente toca em Enviar, a conversa recebe uma mensagem de resposta e o seu webhook recebe o evento `message.flow_reply` com os campos preenchidos.
+
+## Como faço
+
+<Steps>
+<Step title="Crie o formulário no painel">
+Na aba **Formulários**, em Nova, você escreve as perguntas, escolhe o tipo de cada uma e confere a prévia. A Arara monta o Flow JSON, sobe pra Meta e publica.
+
+Vale gastar um minuto na prévia: a criação já publica, e publicado não se edita.
+
+<Frame caption="Formulários: o construtor, com as perguntas já montadas e a prévia do que o cliente vê.">
+  <img src="/images/formularios-construtor.png" alt="Tela de criação de formulário no dashboard da Arara, com a lista de perguntas e a prévia" />
+</Frame>
+
+Depois de criado, o formulário aparece na lista com o **id** — é esse id que você usa no envio pela API e o que o botão de template aponta.
+
+<Frame caption="Formulários: a lista, com status, id copiável e contagem de respostas de cada formulário.">
+  <img src="/images/formularios-lista.png" alt="Lista de formulários no dashboard da Arara, com status, id e contagem de respostas" />
+</Frame>
+
+Os limites de quem preenche o construtor: de 1 a 10 perguntas, título até 30 caracteres, introdução até 300, de 2 a 20 opções em escolha única e múltipla, com até 30 caracteres cada. Pergunta que não couber no rótulo do WhatsApp aparece como texto acima do campo, com um rótulo curto no campo — você não precisa encurtar.
+</Step>
+
+<Step title="Mande num template (ou direto na conversa)">
+**Com template**, use o botão `FLOW` com o `id` do formulário. Um botão de formulário por template, podendo conviver com outros botões.
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/templates \
@@ -102,11 +123,9 @@ curl -X POST https://api.ararahq.com/v1/templates \
   }'
 ```
 
-Depois de aprovado, envie o template como qualquer outro. Formulário e template precisam estar no mesmo número: formulário, como template, vive na conta WhatsApp em que foi criado.
+Depois de aprovado, envie como qualquer outro template.
 
-### Ou mande direto na conversa, sem template
-
-Com a janela de 24h aberta, o formulário vai como mensagem interativa. Não passa por template nem por aprovação da Meta, então é o jeito mais rápido de testar: crie o formulário e mande pra você mesmo.
+**Sem template**, com a janela de 24h aberta, o formulário vai como mensagem interativa. Não passa por aprovação da Meta, então é o jeito mais rápido de testar: crie e mande pra você mesmo.
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/messages \
@@ -123,11 +142,13 @@ curl -X POST https://api.ararahq.com/v1/messages \
   }'
 ```
 
-`body` é obrigatório. `buttonText` é opcional (padrão `Responder`, até 20 caracteres). Vale a mesma regra de qualquer mensagem de sessão: fora da janela a API recusa, e aí o caminho é o template. No dashboard, é o link **Formulário** ao lado de **Template** na caixa de Conversas.
+`body` é obrigatório. `buttonText` é opcional: padrão `Responder`, até 20 caracteres. Fora da janela de 24h a API recusa, e aí o caminho é o template. No dashboard, é o link **Formulário** ao lado de **Template**, na caixa de Conversas.
 
-## 3. Receber a resposta
+`POST /v1/messages` e `POST /v1/templates` aceitam API key. O `flowId` vem da lista de formulários no painel.
+</Step>
 
-Cada envio chega como [`message.flow_reply`](/webhooks/events#message-flow-reply). Leia de `data.fields`:
+<Step title="Leia a resposta">
+Cada envio chega no seu webhook como [`message.flow_reply`](/webhooks/events#message-flow-reply). Leia de `data.fields`:
 
 ```json
 {
@@ -140,37 +161,107 @@ Cada envio chega como [`message.flow_reply`](/webhooks/events#message-flow-reply
     "flow_name": "Captar contato",
     "source_message_id": "c0a8012e-7d2b-4a3f-8e11-9b1f4c2d7a66",
     "fields": {
-      "nome": "Maria Souza",
-      "email": "maria@exemplo.com",
+      "nome": "Ana Exemplo",
+      "email": "ana@exemplo.com",
       "interesse": "Falar com vendas",
       "obs": ""
     },
     "answers": [
-      { "key": "nome", "label": "Seu nome", "value": "Maria Souza" }
+      { "key": "nome", "label": "Seu nome", "value": "Ana Exemplo" }
     ]
   }
 }
 ```
 
-Os valores já vêm legíveis: opção escolhida chega com o texto da opção, múltipla escolha separada por vírgula, aceite como `Sim` ou `Não`, data como `dd/MM/yyyy`. Pergunta opcional sem resposta chega como string vazia, nunca ausente.
+Os valores já vêm legíveis: a opção escolhida chega com o texto da opção, múltipla escolha separada por vírgula, aceite como `Sim` ou `Não`, data como `dd/MM/yyyy`. Pergunta opcional sem resposta chega como string vazia, nunca ausente.
 
-`source_message_id` é o id da mensagem da Arara que levou o botão. Use pra ligar a resposta ao envio ou à campanha.
+`source_message_id` é o id da mensagem da Arara que levou o botão. Use pra ligar a resposta ao envio, ao contato e à campanha.
 
-A resposta também entra na conversa, no dashboard, como uma mensagem do cliente com o texto `Formulário respondido`.
+**A conversa não mostra o que foi respondido.** No inbox entra só uma mensagem do cliente com o texto "Formulário respondido" — as respostas em si só existem em dois lugares: no webhook e no detalhe do formulário, numa lista de 50 por página em que você expande cada envio.
 
-## Consultar e desativar
+<Frame caption="Formulários: o detalhe de um formulário, com a lista de respostas e um envio expandido mostrando pergunta e resposta.">
+  <img src="/images/formularios-respostas.png" alt="Detalhe de um formulário no dashboard da Arara, com a lista de respostas e um envio expandido" />
+</Frame>
+</Step>
+</Steps>
+
+## O que pode dar errado
+
+### Publicar é automático, e publicado não se edita
+
+`POST /v1/flows` já publica. Não existe rascunho pra revisar antes, nem pré-visualização no WhatsApp de formulário não publicado: quando a chamada volta `201`, ele está no ar. **Confira as perguntas, as opções e as chaves antes de criar** — é o que mais gera retrabalho aqui.
+
+A Meta não deixa mudar um formulário que já está no ar. Não existe endpoint de edição na Arara porque não existe do outro lado. Pra mudar uma pergunta, crie outro formulário e desative o antigo com `POST /v1/flows/{id}/deprecate`. Desativar mantém as respostas já recebidas e impede que o botão abra pra quem recebeu a mensagem antes.
+
+`DELETE /v1/flows/{id}` só funciona em formulário que nunca foi publicado (`DRAFT`); publicado responde `409 FLOW_NOT_DRAFT`.
+
+### Formulário vive por número, não por conta
+
+O formulário nasce preso ao número (à conta WhatsApp) em que foi criado. É a mesma armadilha do template:
+
+- Se o botão de um template apontar pra um formulário criado em outro número, o envio é recusado com a frase "foi criado em outro número. Recrie o formulário neste número".
+- Se aquele número sair da sua conta, as ações sobre esse formulário respondem `409 FLOW_NUMBER_GONE`.
+- Trocou de número ou de conexão? **Recrie o formulário**, não adianta reapontar.
+
+O nome também é único por número, não por organização: `409 FLOW_NAME_TAKEN` quando repete.
+
+E não existe atalho: template tem "Recriar neste número", formulário **não tem**. Não dá pra duplicar nem reaproveitar. Trocou de número, você reescreve as perguntas à mão. Some isso a "publicado não se edita" e a conclusão prática é uma só: confira na prévia antes de publicar.
+
+### A resposta casa pelo token do envio
+
+O WhatsApp não diz qual formulário foi respondido. Ele devolve só o `flow_token` que saiu no envio — e a Arara manda ali o id do formulário mais o id da mensagem. É assim que `flow_id` e `source_message_id` aparecem no webhook.
+
+Consequências práticas:
+
+- O token vem do aparelho do cliente, então a Arara sempre confere se aquele formulário é da organização dona do número que recebeu. Token que não casa é ignorado, sem evento.
+- Resposta que chega duas vezes (o WhatsApp reentrega) é gravada uma vez só, pelo id da mensagem do provedor.
+- Se a gravação da resposta falhar, a mensagem "Formulário respondido" ainda entra na conversa — só que sem resposta guardada e sem evento. Conversa com essa mensagem e nenhum envio na lista do formulário é exatamente esse caso.
+
+### A publicação falha sem o formulário sumir
+
+Criar são três chamadas na Meta. Se o JSON for recusado, nada é gravado e você recebe `400 INVALID_FLOW` com o motivo. Se só a publicação falhar, o formulário fica em **rascunho** com o erro da Meta anotado. Ele aparece assim na lista e você manda publicar de novo pelo painel, sem reescrever as perguntas.
+
+### Chave de campo é decisão de uma vez só
+
+Sem `key`, a chave nasce do texto da pergunta (`Seu melhor e-mail` vira `seu_melhor_e_mail`). Como o formulário publicado não se edita, essa chave vai viver com você. Defina a sua sempre que o handler do outro lado já existir.
+
+## Referência
+
+### Limites de cada campo
+
+| Campo | Regra |
+|---|---|
+| `name` | Até 120 caracteres, único por número. Só você vê. |
+| `category` | `SIGN_UP`, `LEAD_GENERATION`, `SURVEY`, `APPOINTMENT_BOOKING`, `CONTACT_US` ou `OTHER`. |
+| `title` | Até 30 caracteres. Aparece no topo do formulário. |
+| `intro` | Opcional, até 300 caracteres. |
+| `submitLabel` | Até 30 caracteres. Padrão `Enviar`. |
+| `fields` | De 1 a 10 perguntas. |
+| `fields[].type` | `TEXT`, `LONG_TEXT`, `EMAIL`, `PHONE`, `NUMBER`, `SELECT`, `MULTI_SELECT`, `DATE`, `OPT_IN`. |
+| `fields[].label` | Até 80 caracteres no request. Pergunta que não couber no rótulo do WhatsApp aparece como texto acima do campo, com um rótulo curto no campo — você não precisa encurtar nada. |
+| `fields[].options` | Só em `SELECT` e `MULTI_SELECT`: de 2 a 20 opções, até 30 caracteres cada. |
+| `fields[].required` | Padrão `true`. |
+| `fields[].key` | Minúsculas, números e `_`, começando por letra, até 40 caracteres. É o nome do campo no webhook. |
+
+### Endpoints
+
+<Note>
+Estes caminhos respondem à sessão do painel. A API key ainda não os alcança — com `ara_live_...` a resposta é 403.
+</Note>
 
 ```bash
-curl "https://api.ararahq.com/v1/flows?page=0&size=20" -H "Authorization: Bearer ara_live_xxx"
-curl "https://api.ararahq.com/v1/flows/{id}" -H "Authorization: Bearer ara_live_xxx"
-curl "https://api.ararahq.com/v1/flows/{id}/responses?page=0&size=50" -H "Authorization: Bearer ara_live_xxx"
-curl -X POST "https://api.ararahq.com/v1/flows/{id}/deprecate" -H "Authorization: Bearer ara_live_xxx"
-curl -X DELETE "https://api.ararahq.com/v1/flows/{id}" -H "Authorization: Bearer ara_live_xxx"
+GET    /v1/flows?page=0&size=20
+GET    /v1/flows/{id}
+GET    /v1/flows/{id}/responses?page=0&size=50
+POST   /v1/flows
+POST   /v1/flows/{id}/publish
+POST   /v1/flows/{id}/deprecate
+DELETE /v1/flows/{id}
 ```
 
-Listas seguem o formato `{ data, pagination }`. Desativar impede que o botão abra pra quem já recebeu e mantém as respostas. `DELETE` só vale pra formulário que nunca foi publicado.
+Listas seguem o formato `{ data, pagination }`.
 
-## Erros
+### Erros
 
 | Status | `error.code` | Quando |
 |---|---|---|
