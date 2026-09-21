@@ -257,6 +257,38 @@ Fluxos prontos que o cliente MCP expõe como atalhos. Nenhum recebe argumento, e
 | `campaign_review` | Acha a campanha com `campaign_report`, abre o relatório completo, resume entrega, leitura, cliques, respostas e conversões em percentual da base, explica bloqueados e estornos, e recomenda um próximo passo: responder quem respondeu, reenviar pra quem não leu com outro template, ou parar. |
 | `reply_to_responses` | Lê o que a pessoa escreveu com `read_conversation` e rascunha uma resposta curta. Se ela pediu pra sair, chama `opt_out` em vez de responder. Não envia sem você aprovar o texto exato. |
 
+## Automações (em preparação)
+
+<Note>
+Esta seção descreve tools que ainda não estão no pacote publicado. Elas chegam numa próxima versão do `@ararahq/mcp`; os nomes abaixo podem mudar até o lançamento.
+</Note>
+
+Sete tools para montar e acompanhar automações em linguagem natural, sobre a mesma [API de automações](/automacoes-api):
+
+| Tool | O que faz |
+|---|---|
+| `list_automations` | Lista as automações da organização, com status e custo por execução. |
+| `get_automation` | Traz uma automação inteira: gatilho, passos, ramos e estatísticas. |
+| `create_automation` | Cria uma automação nova, com passos e ramificações. Nasce sempre desligada. |
+| `update_automation` | Substitui nome, gatilho e passos de uma automação existente. |
+| `set_automation_active` | Liga ou desliga uma automação. |
+| `delete_automation` | Apaga uma automação e as execuções ligadas a ela. |
+| `list_automation_runs` | Lista execuções de uma automação, com status e onde cada contato parou. |
+
+Vale a mesma nota de permissão da API: escrita exige `AUTOMATIONS_MANAGE`, leitura exige `READ`. Sem a permissão, a tool falha com o `error.code` que a API devolveu.
+
+<Warning>
+`create_automation` e `update_automation` nunca ligam a automação sozinhos — ela sai desligada ou do jeito que já estava. Ligar uma automação com `set_automation_active` manda mensagens reais para clientes reais a partir daquele momento; confirme com a pessoa antes de chamar. O link de uma automação com gatilho `webhook` é uma credencial: nunca cole nem repita esse link na conversa.
+</Warning>
+
+```
+monta uma automação que pergunta se o cliente quer pagar por Pix ou cartão e etiqueta cada resposta
+```
+
+```
+me mostra quem parou na pergunta ontem
+```
+
 ## O que mudou
 
 A versão atual é o pacote `@ararahq/mcp` 6.x. O pacote antigo sem escopo, `ararahq-mcp`, é a v4 congelada. Se você usava a v4 ou a v5 (voltada a atendimento), o mapa:
