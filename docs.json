@@ -174,7 +174,8 @@
             "group": "Automações",
             "pages": [
               "automacoes-com-resposta",
-              "automacoes-webhook"
+              "automacoes-webhook",
+              "automacoes-api"
             ]
           },
           {
