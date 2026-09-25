@@ -100,6 +100,44 @@ No envio, a URL pública da mídia vai como **primeiro elemento** do array `temp
 | `SMART_LINK` | Link curto da Arara com rastreamento de clique. Conta no limite de botões de link. Ver [Smart Links](/smart-links). |
 | `COPY_CODE` | Copia um código para a área de transferência. |
 
+## Template de autenticação (código de verificação)
+
+A categoria `AUTHENTICATION` é a mais restrita do WhatsApp. A Arara monta o template no formato fixo que a Meta exige: corpo padrão com o código e botão **Copiar código**. Não dá para escrever um corpo próprio nessa categoria.
+
+### Quem pode criar
+
+A Meta só libera a criação de templates de autenticação quando a conta cumpre **os três** requisitos:
+
+| Requisito | Onde conferir |
+| --- | --- |
+| Empresa verificada na Meta | business.facebook.com → Configurações → Informações da empresa |
+| Limite de mensagens do número em **2.000 ou mais** conversas iniciadas pela empresa em 24 horas | WhatsApp Manager → Limites de mensagens |
+| Conta sem restrição ou banimento | WhatsApp Manager → Visão geral |
+
+Número novo ou que ainda está no limite de **250** não consegue criar template de autenticação, mesmo com a empresa verificada. Templates `UTILITY` e `MARKETING` continuam funcionando normalmente.
+
+### Erro "does not have permission to create message template"
+
+Quando algum requisito não é cumprido, o template de autenticação volta com status `FAILED` e o motivo:
+
+```text
+This WhatsApp business account does not have permission to create message template
+```
+
+Não é problema de redação, de plano da Arara nem de coexistência com o app do WhatsApp Business. Reescrever o texto não muda o resultado. O caminho é:
+
+1. Verificar a empresa na Meta, se ainda não estiver verificada.
+2. Enviar conversas de boa qualidade com templates `UTILITY` ou `MARKETING` até o número chegar ao limite de 2.000. A Meta sobe o limite sozinha conforme o uso.
+3. Criar o template de autenticação de novo. A Meta libera a categoria automaticamente quando os requisitos são cumpridos.
+
+### Código de verificação em outra categoria
+
+A Meta não aceita código de verificação em template `UTILITY` ou `MARKETING`. Esses templates são recusados, em geral com o motivo vazio (`rejectionReason: null`).
+
+### Enviar código enquanto a categoria não é liberada
+
+Use a janela de atendimento: quando o usuário manda uma mensagem para o seu número (por exemplo, por um link "receber meu código"), abre uma janela de 24 horas em que você pode enviar o código como mensagem de texto comum, sem template.
+
 ## Categoria reclassificada: o que acontece
 
 1. A Meta reclassifica o template, por exemplo de UTILITY para MARKETING.
