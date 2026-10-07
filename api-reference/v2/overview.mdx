@@ -1,0 +1,48 @@
+---
+title: 'API v2'
+description: 'A API da Arara. Três chamadas resolvem o dia a dia — enviar, lote, status. Você diz pra quem e o quê; a Arara cuida da janela de 24h, do template e do número.'
+keywords: ['api', 'whatsapp api', 'arara', 'send', 'simples']
+---
+
+**Base URL** `https://api.ararahq.com/api` (endpoints `/v1/...`) · **Auth** `Authorization: Bearer ara_live_xxx` (a chave define a org).
+
+## As 3 chamadas do dia a dia
+
+```bash
+POST /api/v1/messages        { "receiver": "whatsapp:+5511987654321", "body": "Seu pedido saiu pra entrega" }
+POST /api/v1/messages/batch  { "templateName": "promo_junho", "messages": [{ "receiver": "whatsapp:+5511987654321" }] }
+GET  /api/v1/messages/{id}
+```
+
+`receiver` usa o formato `whatsapp:+55...` (prefixo do canal + E.164 com DDI). Ver [Enviar](/api-reference/v2/send) pra tudo que dá pra mandar (texto, mídia, botões, lista) e [Templates](/api-reference/v2/templates) pra criar template.
+
+## Janela de 24h
+
+A única regra do WhatsApp que importa: você só manda **texto/mídia livre** se o cliente te escreveu nas últimas 24h. Fora disso, só **template aprovado**.
+
+A Arara aplica sozinha: dentro da janela, o envio de texto livre passa; fora, devolve um erro (`422 UNPROCESSABLE_ENTITY`) pra você mandar um template aprovado no lugar (nunca inventa nem manda cópia errada).
+
+## Regras do contrato
+
+| | |
+|---|---|
+| Erro (domínio) | `{ "error": { "code", "message", "details" } }` com `code` estável |
+| Erro (auth/validação) | `{ "timestamp", "status", "error", "path" }` sem `code` — ramifique pelo status HTTP |
+| Paginação | `{ "data": [...], "pagination": { "page", "size", "totalElements", "totalPages" } }` |
+| Idempotência | header `Idempotency-Key` em qualquer POST que cria recurso |
+
+Lista completa de códigos em [Erros](/erros).
+
+## Onde está cada coisa
+
+<CardGroup cols={3}>
+  <Card title="Enviar" icon="paper-plane" href="/api-reference/v2/send">
+    enviar, lote, status e todos os tipos de mensagem.
+  </Card>
+  <Card title="Templates" icon="file-lines" href="/api-reference/v2/templates">
+    Criar (fácil) e as regras da Meta.
+  </Card>
+  <Card title="Webhooks" icon="bell" href="/api-reference/v2/webhooks">
+    Respostas do cliente e status de entrega.
+  </Card>
+</CardGroup>

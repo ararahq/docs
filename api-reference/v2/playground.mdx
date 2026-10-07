@@ -1,0 +1,121 @@
+---
+title: 'Playground'
+description: 'Exemplos prontos em cURL pra copiar, colar sua chave e rodar. Os casos mais comuns da API num lugar só.'
+keywords: ['playground', 'curl', 'exemplos', 'testar', 'api']
+---
+
+Copie, troque pela sua chave e rode no terminal. Todos os exemplos usam a base `https://api.ararahq.com/api` e endpoints `/v1/...`.
+
+<Tip>
+  Exporte a chave uma vez e os exemplos abaixo funcionam direto:
+  ```bash
+  export ARARA_API_KEY="ara_live_xxx"
+  ```
+</Tip>
+
+---
+
+## Enviar texto (janela 24h)
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5511987654321",
+    "body": "Oi! Tudo certo com seu pedido?"
+  }'
+```
+
+## Enviar template (com variáveis)
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5511987654321",
+    "templateName": "pedido_confirmado",
+    "templateVariables": ["João", "ARA-12345"]
+  }'
+```
+
+`templateVariables` é posicional — a ordem casa com os placeholders `{{1}}`, `{{2}}` do template.
+
+## Enviar template com mídia no header
+
+A URL da mídia vai como **primeiro elemento** de `templateVariables`:
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5511987654321",
+    "templateName": "promo_colecao",
+    "templateVariables": ["https://site.com/promo.jpg", "João"]
+  }'
+```
+
+## Enviar botões (janela 24h)
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "whatsapp:+5511987654321",
+    "interactive": {
+      "type": "button",
+      "body": "Como podemos ajudar?",
+      "buttons": [
+        { "id": "rastreio", "title": "Rastrear pedido" },
+        { "id": "humano", "title": "Falar com humano" }
+      ]
+    }
+  }'
+```
+
+## Disparar em lote (broadcast)
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/messages/batch \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: promo-junho-01" \
+  -d '{
+    "templateName": "promo_junho",
+    "messages": [
+      { "receiver": "whatsapp:+5511987654321", "templateVariables": ["João"] },
+      { "receiver": "whatsapp:+5511888888888", "templateVariables": ["Maria"] }
+    ]
+  }'
+```
+
+## Criar template (texto)
+
+```bash
+curl -X POST https://api.ararahq.com/api/v1/templates \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "pedido_confirmado",
+    "category": "UTILITY",
+    "language": "pt_BR",
+    "body": "Olá {{1}}, seu pedido {{2}} foi confirmado!",
+    "samples": { "1": "João", "2": "ARA-12345" }
+  }'
+```
+
+## Ver status de uma mensagem
+
+```bash
+curl https://api.ararahq.com/api/v1/messages/ara_msg_k9Bf2XqP \
+  -H "Authorization: Bearer $ARARA_API_KEY"
+```
+
+---
+
+<Note>
+  Em breve: uma **collection pronta** (Postman/Insomnia) pra baixar e importar com todos esses exemplos já configurados.
+</Note>
