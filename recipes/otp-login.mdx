@@ -1,0 +1,307 @@
+---
+title: 'Login com código por WhatsApp (OTP)'
+description: 'Gere, envie e valide um código de login de 6 dígitos pelo WhatsApp, com expiração, limite de tentativas e reenvio controlado.'
+keywords: ['otp', 'código de login', 'código de verificação', 'authentication', 'login whatsapp']
+---
+
+Ao final, seu backend em Node envia um código de login (OTP) pelo WhatsApp e valida o que o usuário digitou, com expiração de 5 minutos, limite de 5 tentativas e reenvio controlado.
+
+A Arara entrega a mensagem. Gerar, guardar e validar o código é do seu backend.
+
+## Antes de começar
+
+- Chave de API na variável `ARARA_API_KEY`. Ver [Autenticação](/api-reference/authentication).
+- Número conectado na organização. Ver [Números](/numbers).
+- Template da categoria `AUTHENTICATION` aprovado (o passo 1 cria). Ver [Templates](/concepts/templates).
+- Node 18 ou mais novo e `"type": "module"` no `package.json`.
+- Um segredo aleatório em `OTP_SECRET`, usado para o hash do código (`openssl rand -hex 32`).
+
+<Warning>
+  A Meta só libera template de autenticação para empresa verificada, com o número no limite de 2.000 conversas ou mais e sem restrição. Sem isso, o template volta `FAILED`. Requisitos e alternativa enquanto a categoria não é liberada em [Política de templates](/templates/policy#template-de-autenticação-código-de-verificação).
+</Warning>
+
+## Passo a passo
+
+<Steps>
+  <Step title="Crie o template de autenticação">
+    Você só escolhe o nome. O conteúdo é fixo: a Arara envia à Meta o texto `{{1}} é o seu código de verificação` com o botão **Copiar código**. `body` continua obrigatório na requisição. Não envie `buttons`.
+
+    ```bash
+    curl -X POST https://api.ararahq.com/v1/templates \
+      -H "Authorization: Bearer $ARARA_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "codigo_login",
+        "category": "AUTHENTICATION",
+        "language": "pt_BR",
+        "body": "{{1}} é o seu código de verificação"
+      }'
+    ```
+
+    Acompanhe a aprovação com `GET /v1/templates/{id}/status` (o `id` é o UUID devolvido na criação) ou pelo webhook `template.updated`. Também dá para criar pelo [painel](https://app.ararahq.com).
+  </Step>
+
+  <Step title="Guarde as tentativas de login">
+    Cada tentativa de login tem um id, o telefone, o hash do código, a expiração e os contadores. O exemplo usa `Map` em memória para deixar a interface explícita. As três operações precisam ser **atômicas**, senão duas requisições simultâneas furam as regras.
+
+    ```javascript store.js
+    const attempts = new Map();
+    const activeByPhone = new Map();
+
+    export const store = {
+      // Cria a tentativa só se o telefone não tiver outra ativa. Devolve a que valer.
+      async createIfAbsent(attempt, now) {
+        const current = attempts.get(activeByPhone.get(attempt.phone));
+        if (current && current.expiresAt > now) return { attempt: current, created: false };
+        if (current) attempts.delete(current.id);
+        attempts.set(attempt.id, attempt);
+        activeByPhone.set(attempt.phone, attempt.id);
+        return { attempt, created: true };
+      },
+      // Lê, altera e grava a tentativa de uma vez. Devolve o retorno de `mutate`, ou null se não existe.
+      async update(id, mutate) {
+        const attempt = attempts.get(id);
+        return attempt ? mutate(attempt) : null;
+      },
+      // Devolve a tentativa e apaga. Só a primeira chamada recebe o registro.
+      async consume(id) {
+        const attempt = attempts.get(id);
+        if (!attempt) return null;
+        attempts.delete(id);
+        if (activeByPhone.get(attempt.phone) === id) activeByPhone.delete(attempt.phone);
+        return attempt;
+      },
+    };
+    ```
+
+    Em produção, troque por banco ou cache compartilhado entre as instâncias:
+
+    | Operação | Postgres | Redis |
+    |---|---|---|
+    | `createIfAbsent` | `INSERT` com índice único no telefone da tentativa ativa | `SET telefone id NX PX <ttl>` |
+    | `update` | Transação com `SELECT ... FOR UPDATE` | Script Lua |
+    | `consume` | `DELETE ... RETURNING` | `GETDEL` |
+  </Step>
+
+  <Step title="Gere, envie e valide o código">
+    O código nunca é guardado em texto puro: fica só o HMAC-SHA256 dele com `OTP_SECRET`. A `Idempotency-Key` vem do id da tentativa e do número do envio, então um retry da mesma chamada não entrega o código duas vezes.
+
+    ```javascript otp.js
+    import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
+    import { store } from './store.js';
+
+    const MESSAGES_URL = 'https://api.ararahq.com/v1/messages';
+    const TEMPLATE_NAME = 'codigo_login';
+    const CODE_TTL_MS = 5 * 60 * 1000;
+    const MAX_VERIFY_TRIES = 5;
+    const MAX_SENDS = 3;
+    const RESEND_COOLDOWN_MS = 60 * 1000;
+    const SEND_TRIES = 3;
+    const SEND_TIMEOUT_MS = 10_000;
+    const BACKOFF_BASE_MS = 500;
+    const MAX_RETRY_WAIT_MS = 5_000;
+    const RATE_LIMITED = 429;
+    const SERVER_ERROR = 500;
+    const CODE_LIMIT = 1_000_000;
+    const E164 = /^\+[1-9]\d{7,14}$/;
+    const SIX_DIGITS = /^\d{6}$/;
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    function hashCode(attemptId, code) {
+      return createHmac('sha256', process.env.OTP_SECRET).update(`${attemptId}:${code}`).digest();
+    }
+
+    async function postCode(attempt, sendNumber, code) {
+      const response = await fetch(MESSAGES_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.ARARA_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `login-${attempt.id}-envio-${sendNumber}`,
+        },
+        body: JSON.stringify({ receiver: attempt.phone, templateName: TEMPLATE_NAME, templateVariables: [code] }),
+        signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+      });
+      if (response.ok) return { sent: true };
+
+      const payload = await response.json().catch(() => null);
+      const retryAfterSeconds = Number(response.headers.get('retry-after'));
+      return {
+        sent: false,
+        retriable: response.status === RATE_LIMITED || response.status >= SERVER_ERROR,
+        retryAfterMs: retryAfterSeconds > 0 ? retryAfterSeconds * 1000 : null,
+        code: payload?.error?.code ?? response.status,
+      };
+    }
+
+    // Retenta só erro de rede, 429 e 5xx, com a mesma chave. Espera o Retry-After, ou 500 ms, 1 s...
+    async function sendCode(attempt, sendNumber, code) {
+      for (let tryNumber = 1; ; tryNumber += 1) {
+        const result = await postCode(attempt, sendNumber, code)
+          .catch(() => ({ sent: false, retriable: true, retryAfterMs: null, code: 'NETWORK' }));
+        if (result.sent) return;
+
+        const waitMs = result.retryAfterMs ?? BACKOFF_BASE_MS * 2 ** (tryNumber - 1);
+        if (!result.retriable || tryNumber === SEND_TRIES || waitMs > MAX_RETRY_WAIT_MS) {
+          throw new Error(`Falha ao enviar o código de login. [attemptId=${attempt.id}, code=${result.code}]`);
+        }
+        await sleep(waitMs);
+      }
+    }
+
+    // O código novo só passa a valer depois que a API aceitou o envio.
+    async function deliverCode(attempt, sendNumber) {
+      const code = String(randomInt(0, CODE_LIMIT)).padStart(6, '0');
+      await sendCode(attempt, sendNumber, code);
+      await store.update(attempt.id, (current) => {
+        current.codeHash = hashCode(attempt.id, code);
+        current.expiresAt = Date.now() + CODE_TTL_MS;
+      });
+    }
+
+    export async function startLogin(phone) {
+      if (typeof phone !== 'string' || !E164.test(phone)) return { ok: false, reason: 'invalid_phone' };
+
+      const now = Date.now();
+      const fresh = { id: randomUUID(), phone, codeHash: null, expiresAt: now + CODE_TTL_MS, tries: 0, sends: 1, lastSentAt: now };
+      const { attempt, created } = await store.createIfAbsent(fresh, now);
+      if (!created) return { ok: true, attemptId: attempt.id };
+
+      try {
+        await deliverCode(attempt, attempt.sends);
+      } catch (error) {
+        await store.consume(attempt.id);
+        throw error;
+      }
+      return { ok: true, attemptId: attempt.id };
+    }
+
+    function claimResend(now) {
+      return (attempt) => {
+        if (attempt.expiresAt <= now) return { reason: 'expired' };
+        if (attempt.sends >= MAX_SENDS) return { reason: 'resend_limit' };
+        const waitMs = attempt.lastSentAt + RESEND_COOLDOWN_MS - now;
+        if (waitMs > 0) return { reason: 'resend_too_soon', retryInSeconds: Math.ceil(waitMs / 1000) };
+
+        attempt.sends += 1;
+        attempt.lastSentAt = now;
+        return { attempt: { id: attempt.id, phone: attempt.phone }, sendNumber: attempt.sends };
+      };
+    }
+
+    export async function resendCode(attemptId) {
+      const claim = typeof attemptId === 'string' ? await store.update(attemptId, claimResend(Date.now())) : null;
+      if (!claim) return { ok: false, reason: 'expired' };
+      if (claim.reason) return { ok: false, ...claim };
+
+      await deliverCode(claim.attempt, claim.sendNumber);
+      return { ok: true, attemptId };
+    }
+
+    function countTry(now) {
+      return (attempt) => {
+        if (attempt.expiresAt <= now) return { reason: 'expired' };
+        if (attempt.tries >= MAX_VERIFY_TRIES) return { reason: 'too_many_tries' };
+        attempt.tries += 1;
+        return { codeHash: attempt.codeHash };
+      };
+    }
+
+    export async function verifyLogin(attemptId, code) {
+      const state = typeof attemptId === 'string' ? await store.update(attemptId, countTry(Date.now())) : null;
+      if (!state) return { ok: false, reason: 'expired' };
+      if (state.reason) {
+        await store.consume(attemptId);
+        return { ok: false, reason: state.reason };
+      }
+
+      const candidate = typeof code === 'string' && SIX_DIGITS.test(code) ? code : '';
+      if (!state.codeHash || !timingSafeEqual(state.codeHash, hashCode(attemptId, candidate))) {
+        return { ok: false, reason: 'invalid_code' };
+      }
+
+      const consumed = await store.consume(attemptId);
+      return consumed ? { ok: true, phone: consumed.phone } : { ok: false, reason: 'expired' };
+    }
+    ```
+
+    O que cada parte garante:
+
+    - **Uso único.** O código vale 5 minutos. Quem acerta só é autorizado se `consume` devolver a tentativa. Duas verificações simultâneas com o código certo: uma entra, a outra recebe `expired`.
+    - **Um código por telefone.** `createIfAbsent` reserva o telefone antes do envio. Pedir login de novo, mesmo ao mesmo tempo, devolve a tentativa ativa em vez de enviar outro código.
+    - **Limite de tentativas.** A contagem acontece dentro de `update`, antes da comparação. Depois de cinco erros a tentativa é apagada e o usuário começa o login de novo.
+    - **Comparação em tempo constante.** `timingSafeEqual` compara dois hashes de mesmo tamanho, sem vazar pelo tempo de resposta quantos dígitos bateram.
+    - **Reenvio limitado.** Um reenvio por minuto, três envios por tentativa, reservados em `update` antes de chamar a API. O código anterior continua valendo até a API aceitar o novo. Se o envio for recusado (saldo, template pausado), o usuário ainda entra com o código que já recebeu. O reenvio recusado conta no limite.
+    - **Retry sem duplicar.** Só erro de rede, `429` e `5xx` são retentados, com a mesma `Idempotency-Key`, respeitando `Retry-After`. Espera acima de 5 segundos vira erro: o usuário está aguardando na tela de login.
+  </Step>
+
+  <Step title="Exponha as rotas de login">
+    ```javascript server.js
+    import { createServer } from 'node:http';
+    import { resendCode, startLogin, verifyLogin } from './otp.js';
+
+    const PORT = 3000;
+    const routes = new Map([
+      ['/login/start', (body) => startLogin(body.phone)],
+      ['/login/resend', (body) => resendCode(body.attemptId)],
+      ['/login/verify', (body) => verifyLogin(body.attemptId, body.code)],
+    ]);
+
+    async function readJson(req) {
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      const body = JSON.parse(raw || '{}');
+      return body !== null && typeof body === 'object' ? body : {};
+    }
+
+    createServer(async (req, res) => {
+      const handler = req.method === 'POST' ? routes.get(req.url) : undefined;
+      if (!handler) {
+        res.writeHead(404).end();
+        return;
+      }
+      try {
+        const result = await handler(await readJson(req));
+        res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (error) {
+        console.error(error.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, reason: 'send_failed' }));
+      }
+    }).listen(PORT);
+    ```
+
+    Rode e teste:
+
+    ```bash
+    ARARA_API_KEY=ara_live_... OTP_SECRET=$(openssl rand -hex 32) node server.js
+
+    curl -X POST http://localhost:3000/login/start -d '{ "phone": "+5511999999999" }'
+    curl -X POST http://localhost:3000/login/verify -d '{ "attemptId": "<attemptId>", "code": "<código recebido>" }'
+    ```
+
+    Quando `verifyLogin` devolve `ok: true`, crie a sessão do usuário dono daquele telefone.
+  </Step>
+</Steps>
+
+## Em produção
+
+- **Limite também por IP.** O exemplo limita por telefone e por tentativa. Aplique um limite por IP nas três rotas, senão alguém dispara códigos para vários números às suas custas.
+- **Nunca registre o código.** Nem em log, nem em URL. O exemplo loga só o id da tentativa e o código de erro da API.
+- **Trate a falha de entrega.** A API responde `202` e a entrega chega depois, pelo webhook [`message.status_updated`](/webhooks/events). Com `failed`, ofereça outro canal (SMS ou e-mail). Ver [Erros de envio](/erros-de-envio).
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Webhooks" icon="bell" href="/webhooks">
+    Receba o status de entrega do código.
+  </Card>
+  <Card title="Política de templates" icon="file-lines" href="/templates/policy">
+    Quem pode criar template de autenticação.
+  </Card>
+  <Card title="Mensagens" icon="paper-plane" href="/api-reference/messages">
+    Campos e erros do envio.
+  </Card>
+</CardGroup>

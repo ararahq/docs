@@ -1,10 +1,10 @@
 ---
 title: 'Link da automação e pagamento'
-description: 'Cada automação com gatilho webhook tem um link próprio. O mesmo link inicia a automação com a cobrança e recebe o "pagou" do seu sistema, pra automação seguir pelo caminho certo.'
+description: 'Cada automação com gatilho webhook tem um link próprio. O mesmo link inicia a automação com a cobrança e recebe o "pagou" do seu sistema, para automação seguir pelo caminho certo.'
 keywords: ['automação', 'webhook', 'link', 'hook', 'wait_payment', 'esperar pagamento', 'pix', 'charge.paid', 'n8n', 'assinatura', 'hmac']
 ---
 
-Toda automação com gatilho `webhook` tem um link só dela. O seu sistema faz `POST` nesse link pra iniciar a automação, já com a cobrança, e depois faz outro `POST` no mesmo link pra avisar se o cliente pagou.
+Toda automação com gatilho `webhook` tem um link só dela. O seu sistema faz `POST` nesse link para iniciar a automação, já com a cobrança, e depois faz outro `POST` no mesmo link para avisar se o cliente pagou.
 
 Com isso a automação sabe "pagou / não pagou" sem você mapear variáveis nem chamar outra API.
 
@@ -15,12 +15,12 @@ POST https://api.ararahq.com/hooks/a/ara_hook_…
 Copie o link pronto na tela da automação; o token tem 43 caracteres depois de `ara_hook_`.
 
 <Warning>
-O link não usa API key: o `token` na URL é a credencial. Trate o link como um segredo. Se ele vazar, gere outro no dashboard, na tela da automação. O link antigo para de funcionar na hora.
+O link não usa chave de API: o `token` na URL é a credencial. Trate o link como um segredo. Se ele vazar, gere outro no dashboard, na tela da automação. O link antigo para de funcionar na hora.
 </Warning>
 
 ## Exemplo completo
 
-Assinatura mensal por Pix. O seu sistema gera o Pix no seu PSP e entrega pra Arara; a automação cobra, espera e agradece. Se nada chegar em 1 hora, manda um lembrete.
+Assinatura mensal por Pix. O seu sistema gera o Pix no seu PSP e entrega para Arara; a automação cobra, espera e agradece. Se nada chegar em 1 hora, manda um lembrete.
 
 ```mermaid
 sequenceDiagram
@@ -43,7 +43,7 @@ sequenceDiagram
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/automations \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Cobrança do plano mensal",
@@ -79,7 +79,7 @@ curl -X POST https://api.ararahq.com/v1/automations \
   }'
 ```
 
-O primeiro template é um [template de cobrança](/cobrancas#fora-da-janela-template-de-cobrança). Como a cobrança vem no corpo do `POST`, o passo não precisa do molde `charge` com `{{variaveis}}`: ele usa a cobrança recebida.
+O primeiro template é um [template de cobrança](/cobrancas#como-faço). Como a cobrança vem no corpo do `POST`, o passo não precisa do molde `charge` com `{{variaveis}}`: ele usa a cobrança recebida.
 
 A automação nasce desligada. Ligue com `PUT /v1/automations/{id}/active` e `{ "active": true }`. Depois copie o link na tela da automação, no dashboard.
 
@@ -152,7 +152,7 @@ Resposta `202`:
 | `runId` | A execução criada. Aparece no [histórico de execuções](/automacoes-com-resposta#histórico-de-execuções). |
 | `status` | `started` ou `duplicate`. |
 
-Valem as mesmas [conferências do envio pela API](/cobrancas#o-que-a-arara-confere-antes-de-enviar). A Arara **não guarda** o código Pix nem o link depois do envio.
+Valem as mesmas [conferências do envio pela API](/cobrancas#o-pix-é-conferido-antes-de-sair). A Arara **não guarda** o código Pix nem o link depois do envio.
 
 Sem `charge`, o link só inicia a automação com as `variables`.
 
@@ -187,7 +187,7 @@ Resposta `200`:
 | `paid` | A cobrança foi paga. |
 | `unpaid` | O prazo acabou, ou a cobrança ficou `failed`, `canceled` ou `expired`. |
 
-Se a cobrança já está paga quando a execução chega no passo, ela vai direto pra `paid`.
+Se a cobrança já está paga quando a execução chega no passo, ela vai direto para `paid`.
 
 Enquanto a execução espera, as mensagens do cliente seguem o caminho normal (Brain ou caixa de entrada). O passo não consome as respostas, diferente do [`question`](/automacoes-com-resposta).
 
@@ -195,10 +195,10 @@ No histórico, a execução fica com status `WAITING_PAYMENT` e gera os eventos 
 
 ## Assinatura (opcional)
 
-Por padrão, quem tem o link consegue chamar. Pra exigir prova de que a chamada veio do seu sistema, ligue **Exigir assinatura** na tela da automação e copie o secret. Ele aparece **uma vez só**.
+Por padrão, quem tem o link consegue chamar. Para exigir prova de que a chamada veio do seu sistema, ligue **Exigir assinatura** na tela da automação e copie o secret. Ele aparece **uma vez só**.
 
 <Tip>
-Ligue a assinatura sempre que o link for usado pra marcar cobrança como paga.
+Ligue a assinatura sempre que o link for usado para marcar cobrança como paga.
 </Tip>
 
 Com a assinatura ligada, toda chamada precisa do header:
@@ -302,7 +302,7 @@ Veja a [lista de erros](/erros).
 
 ## Com n8n
 
-São dois nós **HTTP Request**, os dois apontando pro mesmo link.
+São dois nós **HTTP Request**, os dois apontando para o mesmo link.
 
 1. **Iniciar.** Depois do nó que cria o Pix no seu PSP: método `POST`, URL do link, corpo JSON com `phone`, `variables` e `charge`, preenchidos com a saída do nó do PSP. Adicione o header `Idempotency-Key` com o número do pedido.
 2. **Avisar o pagamento.** Num segundo workflow, que começa no nó **Webhook** que recebe o aviso do seu PSP: método `POST`, mesma URL, corpo `{ "referenceId": "...", "status": "paid" }`.
@@ -313,8 +313,8 @@ Guarde o link e o secret em credenciais ou variáveis do n8n, não no texto do n
 
 ## Outros caminhos
 
-- **Gatilhos `charge.paid` e `charge.expired`.** Iniciam uma automação quando **qualquer** cobrança da conta chega nesse status, venha de onde vier (conversa, template, automação ou link). A execução começa com as variáveis `reference_id`, `amount_cents` e `description`. Serve pra um pós-venda único, separado da automação que cobrou.
-- **Webhook da Arara pro seu backend.** Os eventos [`charge.*`](/webhooks/events#cobranças) avisam o seu sistema de cada mudança de status.
+- **Gatilhos `charge.paid` e `charge.expired`.** Iniciam uma automação quando **qualquer** cobrança da organização chega nesse status, venha de onde vier (conversa, template, automação ou link). A execução começa com as variáveis `reference_id`, `amount_cents` e `description`. Serve para um pós-venda único, separado da automação que cobrou.
+- **Webhook da Arara para o seu backend.** Os eventos [`charge.*`](/webhooks/events#cobranças) avisam o seu sistema de cada mudança de status.
 - **Endpoint da organização.** O [endpoint de recuperação](/recovery) com o header `X-Arara-Event` continua funcionando como antes.
 
 ## Como testar
@@ -328,4 +328,16 @@ Guarde o link e o secret em credenciais ou variáveis do n8n, não no texto do n
 7. Abra `GET /v1/automations/{id}/runs/{runId}/events` e confira a ordem: `CHARGE_SENT`, `PAYMENT_WAITING` e `PAYMENT_CONFIRMED` ou `PAYMENT_NOT_CONFIRMED`.
 8. Se ligou a assinatura, mande uma chamada sem o header e confira o `HOOK_SIGNATURE_INVALID`.
 
-Pra criar, editar e ligar a automação pela API, veja [Automações pela API](/automacoes-api).
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Automações pela API" icon="code" href="/automacoes-api">
+    Criar, editar e ligar automações.
+  </Card>
+  <Card title="Automações com resposta" icon="comments" href="/automacoes-com-resposta">
+    O passo question.
+  </Card>
+  <Card title="Cobranças" icon="receipt" href="/cobrancas">
+    Cartão de cobrança no WhatsApp.
+  </Card>
+</CardGroup>

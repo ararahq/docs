@@ -13,9 +13,9 @@ Take Blip e Arara usam a mesma WhatsApp Business Platform da Meta. A migração 
 ## Quando faz sentido migrar
 
 - Você usa a Blip principalmente pela API, e pouco do Builder.
-- Quer operar pelo terminal ([CLI](/cli)) ou por agentes de IA ([MCP server](/mcp-server)).
+- Quer operar pelo terminal ([CLI](/cli)) ou por agentes de IA como Claude e Cursor ([MCP server](/mcp-server)).
 - Quer SDKs e documentação que refletem a API real.
-- Quer um assistente de IA com actions integradas ([Brain](/brain)) na mesma plataforma.
+- Quer o [Brain](/brain), com actions integradas, na mesma plataforma.
 
 ## Quando não migrar
 
@@ -42,7 +42,7 @@ Take Blip e Arara usam a mesma WhatsApp Business Platform da Meta. A migração 
 1. Liste os **templates aprovados** que você usa na Blip (nome, categoria, idioma, texto).
 2. Liste os **números em uso**.
 3. Liste as **integrações** com a API da Blip e os fluxos do Builder.
-4. Crie a organização em https://app.ararahq.com e gere uma API key.
+4. Crie a organização em https://app.ararahq.com e gere uma chave de API.
 
 ### Fase 2: número
 
@@ -55,7 +55,7 @@ Take Blip e Arara usam a mesma WhatsApp Business Platform da Meta. A migração 
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/templates \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "pedido_confirmado",

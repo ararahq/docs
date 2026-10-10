@@ -1,16 +1,16 @@
 ---
-title: 'Marketing no WhatsApp'
-description: 'Como rodar campanhas de marketing no WhatsApp com a Arara: opt-in, template aprovado, categoria certa, contatos, campanha com A/B test e medição de clique e conversão.'
-keywords: ['marketing whatsapp', 'campanha', 'a/b test', 'segmentação', 'opt-in', 'broadcast', 'crm']
+title: 'Campanhas de marketing'
+description: 'Opt-in, frequência, teste A/B e como criar uma campanha de marketing no WhatsApp pela API.'
+keywords: ['marketing whatsapp', 'campanha', 'a/b test', 'segmentação', 'opt-in', 'crm']
 ---
 
-WhatsApp não é email. Disparo pra quem não pediu gera bloqueio e denúncia, e isso derruba a qualidade do número. Esta página resume o que importa pra rodar marketing com a Arara.
+WhatsApp não é email. Envio para quem não pediu gera bloqueio e denúncia, e isso derruba a qualidade do número. Esta página resume o que importa para rodar campanhas de marketing com a Arara.
 
 ## As 3 regras
 
 <Steps>
   <Step title="Opt-in real">
-    O cliente precisa ter aceitado receber mensagens da sua marca. Respeite quem pediu pra sair: números em opt-out (`/v1/opt-outs`) não recebem envio. Ver [Compliance](/concepts/compliance) e [Política de templates](/templates/policy).
+    O cliente precisa ter aceitado receber mensagens da sua marca. Respeite quem pediu para sair: números em opt-out (`/v1/opt-outs`) não recebem envio. Ver [Compliance](/concepts/compliance) e [Política de templates](/templates/policy).
   </Step>
   <Step title="Template aprovado fora da janela">
     Fora da janela de 24h (cliente não falou com você nas últimas 24h), só template aprovado pela Meta. Texto livre fora da janela é recusado pela API. Ver [Templates](/concepts/templates) e [Janela de 24h](/concepts/24h-window).
@@ -22,33 +22,30 @@ WhatsApp não é email. Disparo pra quem não pediu gera bloqueio e denúncia, e
 
 ## Custo
 
-A cobrança é por mensagem e depende da categoria do template e do seu plano. Consulte os valores vigentes no dashboard e em [Preços](/concepts/pricing). Antes de disparar, `GET /v1/campaigns/estimate` (ou `POST` com a lista) devolve a estimativa da campanha.
+A cobrança é por mensagem e depende da categoria do template e do seu plano. Consulte os valores vigentes no dashboard e em [Preços](/concepts/pricing). Antes de criar a campanha, `GET /v1/campaigns/estimate` (ou `POST` com a lista) devolve a estimativa da campanha.
 
 O tier do número (limite de destinatários únicos por dia) é definido pela Meta e limita **quantas** conversas você inicia, não o preço.
 
 ## Fluxo recomendado
 
 ```
-1. Segmente no seu CRM/DW                 → exporte a lista
+1. Segmente no seu CRM                    → exporte a lista
 2. Carregue contatos na Arara              → POST /v1/contacts/batch
 3. Crie o template MARKETING               → POST /v1/templates (aprovação da Meta)
 4. Crie a campanha, com A/B se quiser      → POST /v1/campaigns (abTest opcional)
 5. Acompanhe entrega e respostas           → webhooks message.status_updated e message.received
-6. Meça clique e conversão                 → Smart Links + conversões reportadas
+6. Meça clique e conversão                 → Smart Links e conversões reportadas
 ```
 
 <CardGroup cols={2}>
   <Card title="Templates" icon="file-lines" href="/concepts/templates">
     Como criar, categorizar e aprovar.
   </Card>
-  <Card title="Campanhas" icon="bullhorn" href="/api-reference/endpoint/v2/campaigns">
-    API de disparo em massa.
+  <Card title="API de campanhas" icon="bullhorn" href="/api-reference/campaigns">
+    API de envio em massa.
   </Card>
   <Card title="Receita: Black Friday" icon="vial" href="/recipes/black-friday">
-    Campanha completa com A/B test.
-  </Card>
-  <Card title="Smart Links" icon="link" href="/smart-links">
-    Link curto com contagem de cliques.
+    Campanha completa com teste A/B.
   </Card>
 </CardGroup>
 
@@ -56,7 +53,7 @@ O tier do número (limite de destinatários únicos por dia) é definido pela Me
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/contacts/batch \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '[
     { "name": "João Silva", "phone": "+5511999999999", "attributes": { "segment": "vip", "city": "SP" } },
@@ -68,20 +65,28 @@ O corpo é uma lista. `name` e `phone` (E.164) são obrigatórios; `email` e `at
 
 A campanha não filtra por atributo: você seleciona o público fora da Arara e passa a lista em `contacts` no `POST /v1/campaigns`.
 
+## Frequência
+
+Template de marketing sofre limite de frequência por destinatário na Meta, e excesso de mensagens vira bloqueio e denúncia.
+
+- Envie só para quem tem opt-in recente.
+- Envie em horário comercial.
+- Não repita a mesma oferta para a mesma pessoa em sequência.
+
 ## Segmentação que funciona
 
 - **Comportamento**: quem comprou nos últimos 30 dias, quem abandonou carrinho.
-- **Localização**: oferta de loja física só pra região atendida.
+- **Localização**: oferta de loja física só para região atendida.
 - **Valor do cliente**: clientes de maior valor recebem atendimento humano; o restante recebe template.
-- **Horário**: dispare em horário comercial. Mensagem de madrugada vira bloqueio.
+- **Horário**: mensagem de madrugada vira bloqueio.
 
-## A/B test de campanha
+## Teste A/B
 
 O A/B vai junto na criação da campanha. `templateName` é a variante A e `abTest.variantBTemplateName` é a B:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/campaigns \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: blackfriday-2026-lote-1" \
   -d '{
@@ -108,7 +113,7 @@ curl -X POST https://api.ararahq.com/v1/campaigns \
 | `samplePct` | `20` | % dos contatos que entra no teste |
 | `splitPct` | `50` | Divisão entre A e B dentro da amostra |
 | `decisionWindowMinutes` | `240` | Tempo até decidir a vencedora |
-| `autopilot` | `true` | Dispara o restante com a vencedora automaticamente |
+| `autopilot` | `true` | Envia o restante com a vencedora automaticamente |
 
 `CLICKED` conta cliques nos links curtos das mensagens (botão `SMART_LINK` ou URL em variável). `CONVERTED` conta [conversões reportadas](/smart-links/attribution).
 
@@ -121,13 +126,11 @@ Resultado e controle manual:
 
 ## Medindo resultado
 
-Links de mensagem (botão `SMART_LINK` ou URL em variável) saem como `https://ararahq.com/l/{code}`, um por mensagem, e registram cada clique. A venda é ligada à mensagem quando o seu backend reporta a conversão com o telefone do cliente.
-
-Ver [Smart Links](/smart-links) e [Atribuição de conversão](/smart-links/attribution).
+Links de mensagem saem como links curtos que registram cada clique, e a venda é ligada à mensagem quando o seu backend reporta a conversão. O que é um Smart Link e como usar está em [Smart Links](/smart-links). Para reportar vendas, veja [Atribuição de conversão](/smart-links/attribution).
 
 ## Quando não usar marketing no WhatsApp
 
-- Comunicação genérica pra base inteira, sem segmentação.
+- Comunicação genérica para a base inteira, sem segmentação.
 - Oferta de ticket muito baixo, em que o custo por mensagem come a margem.
 - Base inativa há meses sem opt-in recente. O risco de bloqueio e denúncia é alto.
 - Cobrança de inadimplência como MARKETING. Aviso de fatura é UTILITY.
@@ -135,8 +138,8 @@ Ver [Smart Links](/smart-links) e [Atribuição de conversão](/smart-links/attr
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Receita: Black Friday" icon="tag" href="/recipes/black-friday">
-    Campanha completa com A/B test.
+  <Card title="Smart Links" icon="link" href="/smart-links">
+    Link curto com contagem de cliques.
   </Card>
   <Card title="Política de templates" icon="scale-balanced" href="/templates/policy">
     O que evitar e qual categoria escolher.

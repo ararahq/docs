@@ -1,13 +1,15 @@
 ---
-title: 'Revenue Recovery'
+title: 'Recuperação de receita'
 description: 'Receba eventos de carrinho abandonado, pagamento recusado, Pix gerado e boleto a vencer da sua plataforma e dispare automaticamente um template no WhatsApp com link de retorno rastreável.'
-keywords: ['recovery', 'recuperação', 'pix', 'boleto', 'carrinho abandonado', 'pagamento recusado', 'webhook']
+keywords: ['recuperação de receita', 'recovery', 'recuperação', 'pix', 'boleto', 'carrinho abandonado', 'pagamento recusado', 'webhook']
 ---
 
-Revenue Recovery transforma eventos da sua loja ou gateway em mensagens de WhatsApp. Sua plataforma envia o evento pra um endpoint único da sua organização, e a Arara dispara o template vinculado àquele evento pro telefone do cliente, com um botão de retorno rastreável.
+Referência da recuperação de receita: contrato do endpoint, eventos, assinatura e respostas. Para o passo a passo, veja a receita [Recuperar carrinho abandonado](/recipes/abandoned-cart).
+
+Sua plataforma envia o evento para um endpoint único da sua organização, e a Arara dispara o template vinculado àquele evento para o telefone do cliente, com um botão de retorno rastreável.
 
 <Note>
-  Recovery depende do plano: os endpoints `/v1/recovery/*` respondem `403 PLAN_FEATURE_LOCKED` quando o plano não inclui o recurso. O número de automações ativas também é limitado pelo plano.
+  A recuperação de receita depende do plano: os endpoints `/v1/recovery/*` respondem `403 PLAN_FEATURE_LOCKED` quando o plano não inclui o recurso. O número de automações ativas também é limitado pelo plano.
 </Note>
 
 ## Eventos
@@ -43,21 +45,21 @@ Qualquer outro nome de evento é aceito se houver uma automação escutando ele.
   <Step title="Pegue o endpoint da sua organização">
     ```bash
     curl https://api.ararahq.com/v1/recovery/endpoint \
-      -H "Authorization: Bearer ara_live_xxx"
+      -H "Authorization: Bearer $ARARA_API_KEY"
     ```
-    Responde `{ code, hmacSecret, active, url }`. O endpoint nasce com `active: false`. Os eventos da sua plataforma vão pra `https://api.ararahq.com/l/{code}`.
+    Responde `{ code, hmacSecret, active, url }`. O endpoint nasce com `active: false`. Os eventos da sua plataforma vão para `https://api.ararahq.com/l/{code}`.
   </Step>
   <Step title="Provisione os templates padrão (opcional)">
     ```bash
     curl -X POST https://api.ararahq.com/v1/recovery/provision-defaults \
-      -H "Authorization: Bearer ara_live_xxx"
+      -H "Authorization: Bearer $ARARA_API_KEY"
     ```
     Cria os 4 templates da tabela acima na sua conta e vincula cada um ao seu evento. Responde `{ data: [{ event, templateName, status, error }] }`. Os templates precisam ser aprovados pela Meta antes do primeiro envio.
   </Step>
   <Step title="Ou vincule um template seu a um evento">
     ```bash
     curl -X PUT https://api.ararahq.com/v1/recovery/events/cart.abandoned \
-      -H "Authorization: Bearer ara_live_xxx" \
+      -H "Authorization: Bearer $ARARA_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "templateId": "3f1c2a9e-5b7d-4e8a-9c0f-1a2b3c4d5e6f",
@@ -70,11 +72,11 @@ Qualquer outro nome de evento é aceito se houver uma automação escutando ele.
   <Step title="Ative o endpoint">
     ```bash
     curl -X PATCH https://api.ararahq.com/v1/recovery/endpoint \
-      -H "Authorization: Bearer ara_live_xxx" \
+      -H "Authorization: Bearer $ARARA_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{ "active": true }'
     ```
-    Esse interruptor vale pra recuperação de um passo (evento -> template). Com ele desligado, o evento só é aproveitado por [automações](/automacoes-webhook) ativas que escutam aquele evento; sem nenhuma, a resposta vem `REJECTED` com `reason: NO_ACTIVE_AUTOMATION`.
+    Esse interruptor vale para recuperação de um passo (evento para template). Com ele desligado, o evento só é aproveitado por [automações](/automacoes-webhook) ativas que escutam aquele evento; sem nenhuma, a resposta vem `REJECTED` com `reason: NO_ACTIVE_AUTOMATION`.
   </Step>
 </Steps>
 
@@ -98,10 +100,10 @@ curl -X POST "https://api.ararahq.com/l/ara_rec_xxx" \
   }'
 ```
 
-Não precisa de API key: o endpoint é identificado pelo `code`.
+Não precisa de chave de API: o endpoint é identificado pelo `code`.
 
 <Warning>
-  O campo `url` devolvido por `GET /v1/recovery/endpoint` aponta pra `ararahq.com/l/{code}`, que só aceita `GET` (redirecionamento de links). Envie o `POST` do evento pra `https://api.ararahq.com/l/{code}`.
+  O campo `url` devolvido por `GET /v1/recovery/endpoint` aponta para `ararahq.com/l/{code}`, que só aceita `GET` (redirecionamento de links). Envie o `POST` do evento para `https://api.ararahq.com/l/{code}`.
 </Warning>
 
 | Header | Obrigatório | Descrição |
@@ -114,7 +116,7 @@ A resposta é `202` com `{ ingestId, status, reason, messageId }`.
 
 ### Assinatura
 
-A assinatura do endpoint de Recovery é calculada **só sobre o corpo bruto** (sem timestamp). Se o header vier e não bater, a resposta é `401 RECOVERY_HMAC_INVALID`. Envie sempre: é o que impede terceiros de disparar mensagens com o seu código.
+A assinatura do endpoint de recuperação é calculada **só sobre o corpo bruto** (sem timestamp). Se o header vier e não bater, a resposta é `401 RECOVERY_HMAC_INVALID`. Envie sempre: é o que impede terceiros de disparar mensagens com o seu código.
 
 ```javascript
 import crypto from 'node:crypto';
@@ -140,23 +142,23 @@ await fetch(`https://api.ararahq.com/l/${recoveryCode}`, {
 Envie exatamente a string assinada como corpo. Vazou o segredo? `POST /v1/recovery/endpoint/regenerate` gera novo `code` e novo `hmacSecret` (a URL antiga para de funcionar).
 
 <Note>
-  Os webhooks que a Arara envia pra você usam outro esquema (HMAC de `{timestamp}.{rawBody}`). Ver [Webhooks](/webhooks).
+  Os webhooks que a Arara envia para você usam outro esquema (HMAC de `{timestamp}.{rawBody}`). Ver [Webhooks](/webhooks).
 </Note>
 
 ### Variáveis
 
 - `variables.link` não entra no corpo do template: vira o destino do botão de link do template, encurtado e rastreado.
 - As demais chaves de `variables` são enviadas como variáveis do template **na ordem alfabética das chaves**.
-- `variableMapping` renomeia chaves antes dessa ordenação. Pra controlar a ordem, mapeie cada chave pra `"1"`, `"2"`, `"3"` na ordem em que aparecem no template (até 9 variáveis).
+- `variableMapping` renomeia chaves antes dessa ordenação. Pra controlar a ordem, mapeie cada chave para `"1"`, `"2"`, `"3"` na ordem em que aparecem no template (até 9 variáveis).
 
 ### Motivos de rejeição
 
 | `reason` | Significado |
 |---|---|
 | `INVALID_PHONE` | Telefone ausente ou inválido |
-| `OPTED_OUT` | O número pediu pra não receber mensagens |
+| `OPTED_OUT` | O número pediu para não receber mensagens |
 | `EVENT_DISABLED` | O evento está vinculado com `active: false` |
-| `NO_TEMPLATE` | Nenhum template vinculado nem provisionado pra esse evento |
+| `NO_TEMPLATE` | Nenhum template vinculado nem provisionado para esse evento |
 | `UNKNOWN_EVENT` | Evento fora da lista e sem automação escutando |
 | `TEMPLATE_NOT_APPROVED` | O template ainda não foi aprovado |
 
@@ -167,7 +169,7 @@ Excesso de eventos por organização responde `429 RECOVERY_RATE_LIMITED` com `R
 ```bash
 # Configs por evento
 curl https://api.ararahq.com/v1/recovery/events \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 ```json
@@ -189,28 +191,28 @@ curl https://api.ararahq.com/v1/recovery/events \
 ```bash
 # Eventos recebidos (paginado, filtros opcionais event e status)
 curl "https://api.ararahq.com/v1/recovery/ingests?page=0&size=20&event=cart.abandoned&status=FAILED" \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 
 # Reprocessar um ingest
 curl -X POST https://api.ararahq.com/v1/recovery/ingests/ara_ing_xxx/retry \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 
 # Métricas
 curl "https://api.ararahq.com/v1/recovery/stats?period=LAST_30D" \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 - `ingests` responde `{ content, totalPages, totalElements }`, com `id`, `eventType`, `phone`, `status`, `rejectReason` e `receivedAt` por item.
-- `stats` aceita `period` = `TODAY` (default), `YESTERDAY`, `LAST_7D` ou `LAST_30D` e responde `{ period, valueRecovered, valueRecoveredDelta, byEvent }`. O valor recuperado vem das conversões que você reporta (ver [Atribuição](/smart-links/attribution)).
+- `stats` aceita `period` = `TODAY` (default), `YESTERDAY`, `LAST_7D` ou `LAST_30D` e responde `{ period, valueRecovered, valueRecoveredDelta, byEvent }`. O valor recuperado vem das conversões que você reporta (ver [Atribuição de conversão](/smart-links/attribution)).
 
 ## Testando sem evento real
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/recovery/events/cart.abandoned/test \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
-Processa um payload de exemplo como se viesse da sua plataforma e **envia de verdade** pro telefone cadastrado no seu usuário. O endpoint precisa estar ativo e o template aprovado.
+Processa um payload de exemplo como se viesse da sua plataforma e **envia de verdade** para o telefone cadastrado no seu usuário. O endpoint precisa estar ativo e o template aprovado.
 
 ## Próximos passos
 
@@ -219,6 +221,6 @@ Processa um payload de exemplo como se viesse da sua plataforma e **envia de ver
     Fluxo de carrinho abandonado de ponta a ponta.
   </Card>
   <Card title="Atribuição" icon="bullseye" href="/smart-links/attribution">
-    Reporte a venda pra medir o valor recuperado.
+    Reporte a venda para medir o valor recuperado.
   </Card>
 </CardGroup>

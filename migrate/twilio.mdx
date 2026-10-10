@@ -16,12 +16,12 @@ Esta página é o roteiro técnico para trocar o Twilio WhatsApp pela Arara: o q
 |---|---|---|
 | Identificação do template no envio | `contentSid` (`HX...`) | `templateName` (nome do template) |
 | Variáveis | `contentVariables` (JSON string) | `templateVariables` (array posicional) |
-| Remetente | `from` obrigatório | `sender` opcional; sem ele, a Arara resolve o número da organização |
+| Número de origem | `from` obrigatório | `sender` opcional; sem ele, a Arara resolve o número da organização |
 | Webhooks | URL por mensagem/serviço, campos no form body | Um webhook por organização, envelope JSON `{ event, data }`, assinado |
 | Resposta ao inbound | TwiML opcional | Chamada à API (`POST /v1/messages`) |
 | Cobrança | USD | BRL, via carteira da organização |
 
-Recursos da Arara sem equivalente direto no Twilio: assistente de IA ([Brain](/brain)), [Smart Links](/smart-links), [recuperação de carrinho e pagamento](/recovery), [CLI](/cli) e [MCP server](/mcp-server). Preços em [Preços](/concepts/pricing).
+Recursos da Arara sem equivalente direto no Twilio: [Brain](/brain), [Smart Links](/smart-links), [recuperação de receita](/recovery), [CLI](/cli) e [MCP server](/mcp-server). Preços em [Preços](/concepts/pricing).
 
 ## Número e templates
 
@@ -33,7 +33,7 @@ Criar um template pela API:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/templates \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "confirmacao_pedido",
@@ -159,7 +159,7 @@ if (event === 'message.received') {
 
 Diferenças:
 - **Sem TwiML**: a resposta é uma chamada à API.
-- **Texto livre só dentro da janela de 24h** aberta pela mensagem do cliente. Fora dela, use template. Veja [Janela de 24h](/concepts/24h-window).
+- **Mensagem sem template só dentro da janela de 24h** aberta pela mensagem do cliente. Fora dela, use template. Veja [Janela de 24h](/concepts/24h-window).
 - **`data.from` vem só com dígitos**, sem `whatsapp:` e sem `+`.
 
 ## Mapeamento de campos
@@ -182,7 +182,7 @@ Diferenças:
 ### Preparação
 
 1. Liste templates e números em uso no Twilio.
-2. Crie a organização na Arara em https://app.ararahq.com e gere uma API key.
+2. Crie a organização na Arara em https://app.ararahq.com e gere uma chave de API.
 3. Recrie os templates (`POST /v1/templates`) e acompanhe a aprovação.
 4. Conecte o número em Números, no dashboard.
 
@@ -214,7 +214,7 @@ Se as mídias estão em URLs que expiram, hospede em um endereço estável ou su
 
 ### Twilio Conversations e Studio
 
-A Arara é focada em WhatsApp: outros canais do Conversations não migram. Fluxos do Studio precisam ser recriados no seu backend, em [automações](/recovery) ou no [Brain](/brain).
+A Arara é focada em WhatsApp: outros canais do Conversations não migram. Fluxos do Studio precisam ser recriados no seu backend, em [automações](/automacoes-webhook) ou no [Brain](/brain).
 
 ## Próximos passos
 
