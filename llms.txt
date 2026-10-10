@@ -247,16 +247,15 @@ Mensagem recebida do cliente (atenção: campos em snake_case, telefones só com
 
 - `GET /v1/organizations/me/business-profile` · `PATCH /v1/organizations/me/business-profile` · `POST /v1/organizations/me/business-profile/sync`
 
-## Planos (contas criadas a partir de 10/09/2026)
+## Planos
 
-- Não existe plano gratuito nem modo de teste. Contas anteriores mantêm as condições contratadas.
-- Embarque — R$ 197/mês (R$ 1.970/ano): até 10.000 mensagens enviadas/mês, 1 assento, 1 número não incluso (o seu ou alugado por R$ 49,90/mês), 3 automações ativas, sem Brain e sem lembretes, suporte por e-mail (48h úteis).
-- Essencial — R$ 597/mês (R$ 5.730/ano): até 20.000 mensagens enviadas/mês, 3 assentos, 1 número incluso, 5 automações ativas, lembretes de agendamento, suporte por e-mail (48h úteis).
-- Voo — R$ 997/mês (R$ 9.570/ano): até 50.000 mensagens enviadas/mês, 10 assentos, até 2 números (1 incluso), 10 automações, lembretes de agendamento, suporte por chat e e-mail (24h úteis).
-- Primeira Classe — sob consulta: sem teto de envio, números e WABAs sem teto (3 números inclusos), suporte por chat, e-mail e WhatsApp (4h úteis).
-- Todos os planos: caixa de entrada, campanhas, contatos, recuperação de receita, templates sem limite de quantidade (só o Free legado tem teto de 3 aprovados: `403 PLAN_LIMIT_REACHED`). Brain (IA que responde): do Essencial para cima.
+- Não existe plano gratuito nem modo de teste. Quem assinou um plano anterior (Embarque, Essencial ou outro) mantém as condições contratadas.
+- Voo — R$ 997/mês: 50.000 envios por mês, 10 pessoas, 1 número incluso, 10 automações ativas. Inclui recuperação de receita, Brain (IA que responde), teste A/B, formulários, API, SDKs, CLI e MCP. 7 dias de garantia.
+- Primeira Classe — R$ 2.900/mês, mais implantação feita pelo time (R$ 2.900, uma vez): envios, pessoas e automações ilimitados, 3 números inclusos, várias contas na Meta com trilha de auditoria, integração feita com o cliente, encontro mensal, SLA de 99,9%, contrato, DPA, fatura e boleto. Contratação com vendas.
+- Sob medida — para mais de 100 mil mensagens por mês: preço por faixa de volume em contrato, números dedicados. Contratação com vendas.
+- Em todos os planos a mensagem sai a preço de custo da Meta. Templates sem limite de quantidade (só o Free legado tem teto de 3 aprovados: `403 PLAN_LIMIT_REACHED`).
 - Teto mensal conta mensagens enviadas (API, campanha e respostas de atendente); recebidas não contam. Estourou → `403 PLAN_LIMIT_REACHED` com `details.feature = "MESSAGES_PER_MONTH"`.
-- Identificadores internos em respostas: `EMBARQUE` (Embarque), `ESSENTIAL` (Essencial), `VOO` (Voo), `VOO_ASSISTIDO` (Primeira Classe).
+- Identificadores internos em respostas: `VOO` (Voo), `VOO_ASSISTIDO` (Primeira Classe). Contas em planos anteriores trazem `EMBARQUE`, `ESSENTIAL` ou outro identificador antigo.
 - `GET /v1/organizations/me/plan` — plano atual, preço de referência por categoria e recursos (aceita chave de API)
 
 ## Wallet, preços e pagamentos
