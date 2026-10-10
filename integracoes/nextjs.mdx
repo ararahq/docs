@@ -1,32 +1,24 @@
 ---
 title: 'Next.js'
-description: 'Integre a Arara num projeto Next.js (App Router): Server Actions, route handlers, webhook com validação de assinatura e consulta de status de mensagem.'
+description: 'Envie mensagens de uma Server Action e receba os eventos da Arara num route handler do Next.js (App Router).'
 ---
 
-O SDK Node/TypeScript da Arara (`@ararahq/sdk`, versão publicada 1.8.1) roda no **runtime Node** do Next.js (route handlers, Server Actions). Esta página cobre App Router (Next 15+). Pages Router funciona de forma análoga.
+Ao final desta página, seu projeto Next.js envia um template por uma Server Action e registra o status de cada mensagem que chega pelo webhook.
+
+## Antes de começar
+
+- Node 18 ou mais novo e Next 15 ou mais novo, com App Router. No Pages Router o caminho é análogo.
+- O SDK instalado e uma chave de API em `ARARA_API_KEY`. Siga [SDK Node](/sdks/node).
+- Um template aprovado. Os exemplos usam `confirmacao_pedido`. Veja [Templates](/templates/policy).
+- Uma URL `https` pública para o webhook. Em desenvolvimento, veja [Testar localmente](/webhooks#testar-localmente).
 
 <Note>
-  **Requisitos:** Node 18+, Next 15+. Para Edge Runtime, use `fetch` direto contra a API REST (o SDK depende do `axios`, que não roda em edge).
+  O SDK roda no runtime Node do Next.js (route handlers e Server Actions). No Edge Runtime, chame a API REST com `fetch`: o SDK depende do `axios`, que não roda em edge.
 </Note>
 
-## Instalação
+## Instância do SDK
 
-```bash
-npm install @ararahq/sdk
-```
-
-## Configuração
-
-`.env.local`:
-
-```ini
-ARARA_API_KEY=ara_live_xxx
-ARARA_WEBHOOK_SECRET=whsec_xxx
-```
-
-O `ARARA_WEBHOOK_SECRET` é o secret do webhook da sua organização (quando gerado pela Arara, começa com `whsec_`). Você encontra na configuração de webhook do dashboard (https://app.ararahq.com).
-
-Crie um singleton do SDK (evita reconstruir em hot reload):
+Crie uma instância única. Em desenvolvimento, o hot reload recriaria o cliente a cada alteração.
 
 ```typescript
 // lib/arara.ts
@@ -48,7 +40,9 @@ if (process.env.NODE_ENV !== 'production') {
 }
 ```
 
-## Server Action: enviar no submit do form
+As demais opções do cliente estão em [SDK Node](/sdks/node).
+
+## Enviar numa Server Action
 
 ```typescript
 // app/checkout/actions.ts
@@ -72,9 +66,9 @@ export async function sendOrderConfirmation(orderId: string, phone: string, cust
 }
 ```
 
-A resposta é devolvida com status `202` e `status` inicial (`PENDING`, por exemplo). A entrega em si chega depois, pelo webhook.
+A API responde `202` com o `status` inicial, por exemplo `PENDING`. A entrega chega depois, pelo webhook.
 
-E no client component:
+No client component:
 
 ```tsx
 // app/checkout/page.tsx
@@ -103,68 +97,96 @@ export default function CheckoutPage() {
 }
 ```
 
-## Route Handler: webhook
+## Webhook
 
-A Arara assina cada entrega com dois headers:
+<Steps>
+  <Step title="Guarde o secret">
+    No painel, abra [Webhooks](https://app.ararahq.com/dashboard/webhooks), gere o secret e copie o valor para o `.env.local`:
 
-- `X-Arara-Timestamp`: epoch em segundos do envio.
-- `X-Arara-Signature`: `sha256=` + hex do HMAC-SHA256 de `{timestamp}.{corpo cru}` com o secret da organização.
+    ```ini
+    ARARA_WEBHOOK_SECRET=whsec_...
+    ```
+  </Step>
+  <Step title="Crie o route handler">
+    O handler lê o corpo bruto, verifica a assinatura e registra o ID e o status de cada mensagem.
 
-```typescript
-// app/api/webhooks/arara/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+    ```typescript
+    // app/api/webhooks/arara/route.ts
+    import { NextRequest, NextResponse } from 'next/server';
+    import { createHmac, timingSafeEqual } from 'node:crypto';
 
-export const runtime = 'nodejs'; // não 'edge'
-export const dynamic = 'force-dynamic';
+    export const runtime = 'nodejs';
+    export const dynamic = 'force-dynamic';
 
-const TOLERANCE_SECONDS = 300;
+    const TOLERANCE_SECONDS = 300;
 
-function isValidSignature(rawBody: string, timestamp: string, signature: string, secret: string): boolean {
-  const ts = Number(timestamp);
-  if (!Number.isInteger(ts) || Math.abs(Date.now() / 1000 - ts) > TOLERANCE_SECONDS) return false;
-  const expected = 'sha256=' + createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
-  const a = Buffer.from(expected);
-  const b = Buffer.from(signature);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+    function isValidSignature(rawBody: string, timestamp: string, signature: string, secret: string): boolean {
+      const ts = Number(timestamp);
+      if (!Number.isInteger(ts) || Math.abs(Date.now() / 1000 - ts) > TOLERANCE_SECONDS) return false;
+      const expected = 'sha256=' + createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
+      const a = Buffer.from(expected);
+      const b = Buffer.from(signature);
+      return a.length === b.length && timingSafeEqual(a, b);
+    }
 
-export async function POST(req: NextRequest) {
-  const body = await req.text();
-  const timestamp = req.headers.get('x-arara-timestamp') ?? '';
-  const signature = req.headers.get('x-arara-signature') ?? '';
+    function isRecord(value: unknown): value is Record<string, unknown> {
+      return typeof value === 'object' && value !== null;
+    }
 
-  if (!isValidSignature(body, timestamp, signature, process.env.ARARA_WEBHOOK_SECRET!)) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-  }
+    export async function POST(req: NextRequest) {
+      const secret = process.env.ARARA_WEBHOOK_SECRET;
+      if (!secret) {
+        return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
+      }
 
-  const payload = JSON.parse(body);
+      const body = await req.text();
+      const timestamp = req.headers.get('x-arara-timestamp') ?? '';
+      const signature = req.headers.get('x-arara-signature') ?? '';
 
-  switch (payload.event) {
-    case 'message.status_updated':
-      // payload.data.id = ara_msg_... ; payload.data.status: queued, sent, delivered, read, failed...
-      break;
-    case 'message.received':
-      // payload.data.from, payload.data.body, payload.data.type (text | media)
-      break;
-    case 'conversation.needs_human':
-      // o assistente de IA pediu atendimento humano: payload.data.conversationId, payload.data.reason
-      break;
-  }
+      if (!isValidSignature(body, timestamp, signature, secret)) {
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+      }
 
-  return new NextResponse(null, { status: 204 });
-}
-```
+      const payload: unknown = JSON.parse(body);
+      if (!isRecord(payload) || !isRecord(payload.data)) {
+        return new NextResponse(null, { status: 204 });
+      }
+
+      const deliveryId = req.headers.get('x-arara-delivery-id');
+      const { data } = payload;
+
+      switch (payload.event) {
+        case 'message.status_updated':
+          console.info('arara.message.status', { deliveryId, id: data.id, status: data.status });
+          break;
+        case 'message.received':
+          console.info('arara.message.received', { deliveryId, id: data.id, from: data.from, type: data.type });
+          break;
+        case 'conversation.needs_human':
+          console.info('arara.handoff', { deliveryId, conversationId: data.conversationId, reason: data.reason });
+          break;
+      }
+
+      return new NextResponse(null, { status: 204 });
+    }
+    ```
+
+    Troque os `console.info` pela gravação no seu banco. `data.id` é o mesmo ID devolvido no envio. `data.status` vem em minúsculas: `queued`, `sent`, `delivered`, `read`, `failed`.
+  </Step>
+  <Step title="Cadastre a URL">
+    Na mesma tela do painel, informe `https://seu-dominio.com/api/webhooks/arara` e dispare o evento de teste.
+  </Step>
+</Steps>
 
 <Warning>
-  O HMAC depende dos **bytes exatos** do corpo. Sempre use `req.text()` (não `req.json()`) antes de validar, senão o hash não bate.
+  A assinatura depende dos bytes exatos do corpo. Use `req.text()` antes de verificar. Com `req.json()` a conta não fecha.
 </Warning>
 
-Responda 2xx rápido. Se a entrega falhar, a Arara tenta de novo em 30s, 2min, 15min, 1h e 4h, então o handler precisa aguentar o mesmo evento duas vezes. Use o header `X-Arara-Delivery-Id` como chave de dedupe.
+Responda `2xx` rápido. Quando a entrega falha, a Arara tenta de novo, então o handler precisa aguentar o mesmo evento mais de uma vez. Use o header `X-Arara-Delivery-Id` para deduplicar. Prazos e intervalos estão em [Entrega](/webhooks#entrega).
 
-## Tipos do webhook
+### Tipos do evento
 
-O SDK exporta guards de tipo para evitar `any`:
+O SDK exporta guards de tipo para o corpo do evento:
 
 ```typescript
 import { WebhookUtils } from '@ararahq/sdk';
@@ -213,26 +235,32 @@ Aqui `status` vem em maiúsculas (`PENDING`, `SENT`, `DELIVERED`, `READ`, `FAILE
   `GET /v1/messages/{id}` só devolve mensagens enviadas pelo mesmo usuário dono da chave. Mensagem enviada por outro membro da organização responde 403. A chave também precisa da permissão `READ` (ou `ADMIN`).
 </Warning>
 
-## Produção: idempotência
+## Idempotência
 
-Em rotas que disparam envio (Server Action, handler de webhook que responde ao cliente), passe `idempotencyKey`. O SDK envia no header `Idempotency-Key`:
+Em rotas que enviam mensagem (Server Action, handler de webhook que responde ao cliente), passe `idempotencyKey`. O SDK envia no header `Idempotency-Key`:
 
 ```typescript
 await arara.messages.send(
   { receiver: 'whatsapp:+5511999999999', templateName: 'confirmacao_pedido', templateVariables: ['João', 'ARA-123'] },
-  { idempotencyKey: `order-confirmation-ARA-123` }
+  { idempotencyKey: 'order-confirmation-ARA-123' }
 );
 ```
 
-Derive a chave do seu evento (id do pedido), não de `randomUUID()`: assim um retry da função reaproveita a mesma chave. A mesma chave devolve a mensagem original sem novo envio. Em `POST /v1/messages` isso vale mesmo se o payload mudar (a API não compara destinatário nem variáveis), então nunca reaproveite a chave para outra mensagem.
+Derive a chave do seu evento (id do pedido), não de `randomUUID()`: assim uma nova tentativa da função reaproveita a mesma chave. A mesma chave devolve a mensagem original sem novo envio. Em `POST /v1/messages` isso vale mesmo se o payload mudar (a API não compara destinatário nem variáveis), então nunca reaproveite a chave para outra mensagem.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Receitas práticas" icon="book-open" href="/recipes">
-    Carrinho abandonado, confirmação de pedido, suporte.
+  <Card title="Eventos" icon="list-check" href="/webhooks/events">
+    Corpo e campos de cada evento.
   </Card>
-  <Card title="SDK Node completo" icon="node" href="/sdks/node">
+  <Card title="Webhooks" icon="webhook" href="/webhooks">
+    Retentativas, deduplicação e teste local.
+  </Card>
+  <Card title="SDK Node" icon="node" href="/sdks/node">
     Métodos disponíveis na versão publicada.
+  </Card>
+  <Card title="Receitas" icon="book-open" href="/recipes">
+    Carrinho abandonado, confirmação de pedido, suporte.
   </Card>
 </CardGroup>

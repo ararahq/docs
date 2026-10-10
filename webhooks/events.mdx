@@ -1,22 +1,23 @@
 ---
-title: 'Catálogo de eventos'
-description: 'Payload de cada evento de webhook que a Arara envia hoje: campos, tipos e exemplos.'
-keywords: ['eventos webhook', 'payload', 'message status', 'inbound', 'template', 'campanha', 'número']
+title: 'Eventos'
+description: 'Todos os eventos de webhook da Arara, com o corpo completo e os campos de cada um.'
+keywords: ['eventos webhook', 'payload', 'message status', 'message received', 'template', 'campanha', 'cobrança', 'número']
 ---
 
-Todos os eventos usam o mesmo envelope. Esta página detalha o conteúdo de `data` em cada um.
-
-<Note>
-  Configuração, headers, assinatura e retry estão em [Webhooks](/webhooks).
-</Note>
+Esta página lista cada evento que a Arara envia para o seu webhook. Para receber, verificar a assinatura e tratar retentativas, veja [Webhooks](/webhooks).
 
 ## Envelope
+
+Todo evento chega no mesmo formato. Só o conteúdo de `data` muda.
 
 ```json
 {
   "event": "message.status_updated",
   "apiVersion": "2026-05-13",
-  "data": {},
+  "data": {
+    "id": "ara_msg_k9Bf2Xq",
+    "status": "delivered"
+  },
   "timestamp": "2026-09-15T14:32:15.234Z",
   "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
@@ -25,22 +26,62 @@ Todos os eventos usam o mesmo envelope. Esta página detalha o conteúdo de `dat
 | Campo | Tipo | Descrição |
 |---|---|---|
 | `event` | string | Tipo do evento. |
-| `apiVersion` | string | Versão do contrato. Hoje `2026-05-13`. |
+| `apiVersion` | string | Versão do contrato dos payloads. Hoje `2026-05-13`. |
 | `data` | object | Conteúdo do evento. |
 | `timestamp` | string (ISO 8601) | Quando a Arara gerou o evento. |
 | `organizationId` | string (UUID) | Organização dona do evento. |
 
-Cada requisição traz `X-Arara-Signature: sha256=<hex>`, calculado sobre `"{X-Arara-Timestamp}.{corpo}"`. Ver [Webhooks](/webhooks#validar-a-assinatura).
+## Todos os eventos
+
+| Evento | Quando dispara |
+|---|---|
+| **Mensagens** | |
+| [`message.status_updated`](#message-status_updated) | O status de uma mensagem enviada mudou. |
+| [`message.received`](#message-received) | O cliente mandou mensagem para o seu número. |
+| [`message.echo`](#message-echo) | Sua equipe respondeu pelo app do WhatsApp Business. |
+| [`message.link_clicked`](#message-link_clicked) | O cliente tocou no botão de link de uma mensagem. |
+| [`message.flow_reply`](#message-flow_reply) | O cliente respondeu um formulário. |
+| **Templates** | |
+| [`template.updated`](#template-updated) | O status de um template mudou. |
+| [`template.category_changed`](#template-category_changed) | A Meta mudou a categoria de um template. |
+| [`template.quality_updated`](#template-quality_updated) | A Meta atualizou a qualidade de um template. |
+| **Campanhas** | |
+| [`campaign.completed`](#campaign-completed) | Uma campanha terminou de processar. |
+| **Conversas** | |
+| [`conversation.needs_human`](#conversation-needs_human) | O Brain passou a conversa para um atendente. |
+| **Números** | |
+| [`number.status`](#number-status) | Número banido, restringido, reabilitado ou com erro na conexão. |
+| [`number.tier_updated`](#number-tier_updated) | O limite de envio ou a qualidade do número mudou. |
+| [`number.name_status`](#number-name_status) | A Meta decidiu sobre o nome de exibição. |
+| **Conta** | |
+| [`account.review`](#account-review) | A Meta concluiu a revisão da conta WhatsApp Business. |
+| [`account.capability`](#account-capability) | Os limites da conta WhatsApp Business mudaram. |
+| **Cobranças** | |
+| [`charge.sent`](#cobranças) | Uma cobrança foi enviada ao cliente. |
+| [`charge.paid`](#cobranças) | A cobrança foi paga. |
+| [`charge.failed`](#cobranças) | O pagamento falhou. |
+| [`charge.canceled`](#cobranças) | A cobrança foi cancelada. |
+| [`charge.expired`](#cobranças) | A cobrança venceu sem pagamento. |
+| **Teste** | |
+| [`webhook.test`](#webhook-test) | Você disparou o evento de teste pelo painel. |
+
+<Warning>
+  Duas armadilhas ao escrever o handler:
+
+  - **Os nomes de campo não seguem um padrão único.** `message.received`, `message.echo`, `message.flow_reply` e `charge.*` usam snake_case (`media_url`, `sender_name`, `flow_id`, `amount_cents`). `message.status_updated` e os demais usam camelCase (`messageId`, `providerSid`, `errorDetails`). Não reaproveite o mesmo tipo para os dois.
+  - **`errorDetails` muda de tipo.** Em `message.status_updated` ele pode vir como string, como objeto ou `null`. Confira o tipo antes de ler.
+</Warning>
 
 ## Mensagens
 
 ### `message.status_updated`
 
-Toda mudança de estado de uma mensagem enviada.
+Dispara a cada mudança de status de uma mensagem que você enviou.
 
 ```json
 {
   "event": "message.status_updated",
+  "apiVersion": "2026-05-13",
   "data": {
     "id": "ara_msg_k9Bf2Xq",
     "messageId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f",
@@ -50,50 +91,76 @@ Toda mudança de estado de uma mensagem enviada.
     "receiver": "whatsapp:+5511999999999",
     "sender": "whatsapp:+5511888888888",
     "errorDetails": null
-  }
+  },
+  "timestamp": "2026-09-15T14:32:15.234Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `id` | string | ID da mensagem, o mesmo devolvido no envio. |
-| `messageId` | string (UUID) | ID interno de banco. |
+| `id` | string | ID da mensagem, o mesmo devolvido no envio. Use este. |
+| `messageId` | string (UUID) \| null | ID interno. `null` quando o envio falhou antes de virar mensagem. |
 | `internalId` | string | Igual a `id`. |
-| `providerSid` | string \| null | ID da mensagem no provedor (`wamid`). |
+| `providerSid` | string \| null | ID da mensagem na Meta (`wamid`). |
 | `status` | string | `queued`, `scheduled`, `processing`, `sent`, `delivered`, `read`, `failed` ou `canceled`. |
-| `receiver`, `sender` | string | Destinatário e remetente. |
-| `errorDetails` | string \| object \| null | Motivo da falha. Ver abaixo. |
+| `receiver` | string | Telefone do destinatário. |
+| `sender` | string | Número que enviou. Vazio quando o envio falhou antes de virar mensagem. |
+| `errorDetails` | string \| object \| null | Motivo da falha. `null` quando não houve falha. |
 
-`queued` corresponde ao `PENDING` da API. `sent` cobre também o estado técnico `SENT_TO_PROVIDER`.
+O `status` vem em minúsculas. Na API REST o mesmo status vem em maiúsculas, e `PENDING` aparece aqui como `queued`.
 
-Quando `status` é `failed`, `errorDetails` traz o motivo **traduzido pela Arara**, e não o objeto cru da Meta:
+Quando `status` é `failed`, `errorDetails` traz o motivo já traduzido pela Arara, em um de dois formatos:
 
-- Números no provedor atual (Meta via Gupshup): **string** com o que aconteceu e o que fazer.
-
-  ```json
-  { "status": "failed", "errorDetails": "Passaram-se mais de 24h desde a última mensagem do cliente. A Meta exige um Template Aprovado para reabrir a conversa. Envie um Template Message para reabrir a janela de conversa com este cliente." }
-  ```
-
-- Números legados (Twilio): **objeto** com `code`, `whatHappened` e `howToAct`.
+- **String**, com o que aconteceu e o que fazer. É o formato dos números no provedor atual.
 
   ```json
-  { "status": "failed", "errorDetails": { "code": "ararahq-invalid-number", "whatHappened": "Número inválido ou sem WhatsApp...", "howToAct": "Verifique se o número está correto..." } }
+  {
+    "status": "failed",
+    "errorDetails": "Passaram-se mais de 24h desde a última mensagem do cliente. A Meta exige um Template Aprovado para reabrir a conversa. Envie um Template Message para reabrir a janela de conversa com este cliente."
+  }
   ```
 
-Trate os dois formatos com type guard. O catálogo de motivos está em [Por que minha mensagem falhou](/erros-de-envio).
+- **Objeto**, com `code`, `whatHappened` e `howToAct`. É o formato dos números legados.
+
+  ```json
+  {
+    "status": "failed",
+    "errorDetails": {
+      "code": "ararahq-invalid-number",
+      "whatHappened": "Número inválido ou sem WhatsApp...",
+      "howToAct": "Verifique se o número está correto..."
+    }
+  }
+  ```
+
+Trate os dois:
+
+```javascript
+function failureReason(errorDetails) {
+  if (typeof errorDetails === 'string') return errorDetails;
+  if (errorDetails && typeof errorDetails === 'object') {
+    return typeof errorDetails.whatHappened === 'string' ? errorDetails.whatHappened : JSON.stringify(errorDetails);
+  }
+  return null;
+}
+```
+
+O significado de cada motivo está em [Por que minha mensagem falhou](/erros-de-envio).
 
 ### `message.received`
 
-O cliente mandou mensagem para um número próprio da organização.
+Dispara quando o cliente manda mensagem para um número próprio da organização.
 
 ```json
 {
   "event": "message.received",
+  "apiVersion": "2026-05-13",
   "data": {
     "id": "wamid.HBgL...",
     "from": "5511999999999",
     "to": "5511888888888",
-    "body": "ok, recebi",
+    "body": "Quero pagar",
     "type": "text",
     "media_url": "",
     "media_type": "text",
@@ -101,54 +168,53 @@ O cliente mandou mensagem para um número próprio da organização.
     "transcription_summary": "",
     "sender_name": "João Silva",
     "timestamp": "2026-09-15T14:36:00Z",
-    "provider": "META"
-  }
+    "provider": "META",
+    "reply": { "kind": "button", "id": "quero-pagar", "title": "Quero pagar" }
+  },
+  "timestamp": "2026-09-15T14:36:00.412Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
 
-| Campo | Descrição |
-|---|---|
-| `id` | ID da mensagem no provedor. |
-| `from` | Telefone do cliente, só dígitos (sem `+`). |
-| `to` | Seu número, só dígitos. |
-| `body` | Texto. Vazio quando é só mídia. |
-| `type` | `text` ou `media`. |
-| `media_url` | URL da mídia. Vazio quando não há. |
-| `media_type` | `text`, `audio`, `image`, `video`, `document` ou `media`. |
-| `media_content_type` | MIME da mídia. |
-| `transcription_summary` | Resumo ou transcrição da mídia, quando disponível. |
-| `sender_name` | Nome de perfil do cliente no WhatsApp. |
-| `timestamp` | Quando a Arara processou a mensagem. |
-| `provider` | `META` ou `TWILIO`. |
-| `reply` | Só aparece quando o cliente tocou num botão ou numa opção de lista. Veja abaixo. |
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | string | ID da mensagem na Meta (`wamid`). |
+| `from` | string | Telefone do cliente, só dígitos, sem `+`. |
+| `to` | string | Seu número, só dígitos. |
+| `body` | string | Texto da mensagem. Vazio quando é só mídia. |
+| `type` | string | `text` ou `media`. |
+| `media_url` | string | URL da mídia. Vazio quando não há. |
+| `media_type` | string | `text`, `audio`, `image`, `video`, `document` ou `media`. |
+| `media_content_type` | string | MIME da mídia. Vazio quando não há. |
+| `transcription_summary` | string | Resumo ou transcrição da mídia, quando disponível. |
+| `sender_name` | string | Nome de perfil do cliente no WhatsApp. Pode vir vazio. |
+| `timestamp` | string (ISO 8601) | Quando a Arara processou a mensagem. |
+| `provider` | string | `META` ou `TWILIO`. |
+| `reply` | object | Só aparece quando o cliente tocou num botão ou numa opção de lista. |
+| `reply.kind` | string | `button` (botão de mensagem interativa), `list` (opção de lista) ou `template_button` (resposta rápida de template). |
+| `reply.id` | string | O `id` que você definiu ao enviar o botão ou a opção. Em `template_button`, é o payload do botão do template. |
+| `reply.title` | string | O texto que o cliente viu. |
 
-Quando a mensagem é o toque num botão, `body` traz o texto que o cliente viu e `reply` diz qual opção foi:
+Mensagem digitada não traz `reply`. Num toque de botão, `body` repete o texto que o cliente viu. Decida pelo `reply.id`, não pelo `title`: o texto pode mudar, o `id` é seu.
 
-```json
-"reply": { "kind": "button", "id": "quero-pagar", "title": "Quero pagar" }
-```
+Este evento não dispara para:
 
-| Campo | Descrição |
-|---|---|
-| `kind` | `button` (botão de mensagem interativa), `list` (opção de lista) ou `template_button` (resposta rápida de template). |
-| `id` | O `id` que você definiu ao enviar o botão ou a opção. Em `template_button` é o payload do botão do template. |
-| `title` | O texto que o cliente viu. |
-
-Decida pelo `id`, não pelo `title`: o texto pode mudar, o `id` é seu. Mensagem digitada não traz `reply`.
-
-Não dispara para mensagem recebida no pool compartilhado, para palavras de opt-out ("SAIR", "PARAR", "STOP"...) nem para respostas de confirmação de agendamento.
+- mensagem recebida no número compartilhado da Arara;
+- palavras de opt-out ("SAIR", "PARAR", "STOP");
+- respostas a confirmações de agendamento.
 
 ### `message.echo`
 
-Mensagem que **sua equipe** mandou pelo app do WhatsApp Business num número em coexistência. Permite manter o histórico completo no seu sistema.
+Dispara quando sua equipe manda uma mensagem pelo app do WhatsApp Business, num número em coexistência. Serve para manter o histórico completo no seu sistema.
 
 ```json
 {
   "event": "message.echo",
+  "apiVersion": "2026-05-13",
   "data": {
     "id": "ara_msg_x1Y2z3W",
     "provider_id": "wamid.HBgL...",
-    "conversation_id": "3f1c9a2b-...",
+    "conversation_id": "3f1c9a2b-7d2b-4a3f-8e11-9b1f4c2d7a66",
     "from": "5511888888888",
     "to": "5511999999999",
     "direction": "outbound",
@@ -161,19 +227,70 @@ Mensagem que **sua equipe** mandou pelo app do WhatsApp Business num número em 
     "transcription_summary": "",
     "timestamp": "2026-09-15T14:37:00Z",
     "provider": "META"
-  }
+  },
+  "timestamp": "2026-09-15T14:37:02.118Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
 
-Mesmos campos de `message.received`, com o sentido invertido (`from` é o seu número) e mais `provider_id`, `conversation_id` (vazio quando não há conversa), `direction` e `source`. `timestamp` é o horário do aparelho.
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | string | ID da mensagem na Arara. |
+| `provider_id` | string | ID da mensagem na Meta (`wamid`). |
+| `conversation_id` | string | ID da conversa. Vazio quando não há conversa. |
+| `from` | string | Seu número, só dígitos. O sentido é o inverso de `message.received`. |
+| `to` | string | Telefone do cliente, só dígitos. |
+| `direction` | string | Sempre `outbound`. |
+| `source` | string | Sempre `whatsapp_app`. |
+| `body` | string | Texto da mensagem. |
+| `type` | string | `text` ou `media`. |
+| `media_url` | string | URL da mídia. Vazio quando não há. |
+| `media_type` | string | `text`, `audio`, `image`, `video`, `document` ou `media`. |
+| `media_content_type` | string | MIME da mídia. Vazio quando não há. |
+| `transcription_summary` | string | Resumo ou transcrição da mídia, quando disponível. |
+| `timestamp` | string (ISO 8601) | Horário do aparelho que enviou. |
+| `provider` | string | `META`. |
+
+### `message.link_clicked`
+
+Dispara quando o cliente toca no botão de link de uma mensagem. Vale para template com botão de link dinâmico que usa um [link curto](/smart-links) da Arara e leva o ID da mensagem no fim da URL. Você recebe um aviso por mensagem, no primeiro clique. Cliques de robôs não contam.
+
+```json
+{
+  "event": "message.link_clicked",
+  "apiVersion": "2026-05-13",
+  "data": {
+    "id": "ara_msg_k9Bf2Xq",
+    "messageId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f",
+    "internalId": "ara_msg_k9Bf2Xq",
+    "receiver": "whatsapp:+5511999999999",
+    "sender": "whatsapp:+5511888888888",
+    "linkCode": "aB3xK9",
+    "clickedAt": "2026-09-15T14:40:12.501Z"
+  },
+  "timestamp": "2026-09-15T14:40:12.530Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | string | ID da mensagem que levou o link, o mesmo devolvido no envio. |
+| `messageId` | string (UUID) | ID interno. |
+| `internalId` | string | Igual a `id`. |
+| `receiver` | string | Telefone do destinatário. |
+| `sender` | string | Número que enviou. |
+| `linkCode` | string | Código do link curto. |
+| `clickedAt` | string (ISO 8601) | Momento do clique. |
 
 ### `message.flow_reply`
 
-Resposta de um [formulário](/flows) enviado pelo cliente. As chaves de `fields` são as que você definiu ao criar o formulário e não mudam.
+Dispara quando o cliente envia a resposta de um [formulário](/flows). As chaves de `fields` são as que você definiu ao criar o formulário e não mudam.
 
 ```json
 {
   "event": "message.flow_reply",
+  "apiVersion": "2026-05-13",
   "data": {
     "id": "wamid.HBgM...",
     "from": "5588999990000",
@@ -186,249 +303,380 @@ Resposta de um [formulário](/flows) enviado pelo cliente. As chaves de `fields`
       { "key": "nome", "label": "Seu nome", "value": "Maria Souza" },
       { "key": "email", "label": "Seu melhor e-mail", "value": "maria@exemplo.com" }
     ]
-  }
+  },
+  "timestamp": "2026-09-15T14:41:00.220Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
 
-`fields` é o atalho pra ler por chave; `answers` traz a pergunta junto, na ordem do formulário. `source_message_id` é a mensagem da Arara que levou o botão (vazio quando não dá pra determinar). Na conversa, a resposta aparece como mensagem do cliente com o texto `Formulário respondido`.
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | string | ID da resposta na Meta (`wamid`). |
+| `from` | string | Telefone do cliente, só dígitos. |
+| `to` | string | Seu número, só dígitos. |
+| `flow_id` | string (UUID) | ID do formulário. |
+| `flow_name` | string | Nome do formulário. |
+| `source_message_id` | string | Mensagem da Arara que levou o botão do formulário. Vazio quando não dá para determinar. |
+| `fields` | object | Respostas por chave. É o atalho para ler um campo. |
+| `answers` | array | Respostas na ordem do formulário, com `key`, `label` (a pergunta) e `value`. |
+
+Na conversa, a resposta aparece como mensagem do cliente com o texto `Formulário respondido`.
 
 ## Templates
 
 ### `template.updated`
 
-Mudança de status de template: aprovação, reprovação, pausa ou desativação, inclusive pausa automática feita pela Arara.
+Dispara quando o status de um template muda: aprovação, reprovação, pausa ou desativação. Inclui a pausa automática feita pela Arara.
 
 ```json
 {
   "event": "template.updated",
+  "apiVersion": "2026-05-13",
   "data": {
     "templateId": "a7f3c1e2-4b5d-6789-abcd-ef0123456789",
     "name": "blackfriday_v3",
     "status": "REJECTED",
     "category": "MARKETING",
     "rejectionReason": "INVALID_FORMAT"
-  }
+  },
+  "timestamp": "2026-09-15T15:02:44.031Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
 
-`status` traz o valor do provedor (`APPROVED`, `REJECTED`, `PAUSED`, `PENDING`, `DISABLED`...). `rejectionReason` vem preenchido em reprovações.
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `templateId` | string (UUID) | ID do template. |
+| `name` | string | Nome do template. |
+| `status` | string \| null | Status na Meta: `APPROVED`, `REJECTED`, `PAUSED`, `PENDING`, `DISABLED`, entre outros. |
+| `category` | string | `MARKETING`, `UTILITY` ou `AUTHENTICATION`. |
+| `rejectionReason` | string \| null | Motivo da reprovação. `null` nos outros casos. |
 
 ### `template.category_changed`
 
-A Meta reclassificou a categoria. Pode mudar o preço por mensagem.
+Dispara quando a Meta muda a categoria de um template. A categoria define o preço por mensagem.
 
 ```json
 {
   "event": "template.category_changed",
-  "data": { "name": "aviso_pedido", "old": "UTILITY", "new": "MARKETING" }
+  "apiVersion": "2026-05-13",
+  "data": {
+    "name": "aviso_pedido",
+    "old": "UTILITY",
+    "new": "MARKETING"
+  },
+  "timestamp": "2026-09-15T15:10:03.700Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
 
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `name` | string | Nome do template. |
+| `old` | string | Categoria anterior. |
+| `new` | string | Categoria nova, em maiúsculas. |
+
 ### `template.quality_updated`
+
+Dispara quando a Meta atualiza a qualidade de um template.
 
 ```json
 {
   "event": "template.quality_updated",
-  "data": { "name": "blackfriday_v3", "quality": "LOW" }
+  "apiVersion": "2026-05-13",
+  "data": {
+    "name": "blackfriday_v3",
+    "quality": "LOW"
+  },
+  "timestamp": "2026-09-15T15:12:40.905Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `name` | string | Nome do template. |
+| `quality` | string | Qualidade informada pela Meta, em maiúsculas. |
 
 ## Campanhas
 
 ### `campaign.completed`
 
-A campanha terminou de processar todos os contatos. Não significa que todas as mensagens foram entregues.
+Dispara quando a campanha termina de processar todos os contatos. Não significa que todas as mensagens foram entregues.
 
 ```json
 {
   "event": "campaign.completed",
+  "apiVersion": "2026-05-13",
   "data": {
     "id": "7b3789fb-4c5d-6789-abcd-ef0123456789",
     "name": "Black Friday 2026",
     "status": "completed_with_errors",
     "totalMessages": 12500,
     "totalCost": 4793.75
-  }
+  },
+  "timestamp": "2026-09-15T16:20:00.000Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
 
-| Campo | Descrição |
-|---|---|
-| `status` | `completed`, `completed_with_errors` ou `failed`. Confira sempre: o nome do evento é o mesmo nos três casos. |
-| `totalMessages` | Contatos da campanha. |
-| `totalCost` | Valor debitado, em reais. |
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | string (UUID) | ID da campanha. |
+| `name` | string | Nome da campanha. |
+| `status` | string | `completed`, `completed_with_errors` ou `failed`. |
+| `totalMessages` | number | Contatos da campanha. |
+| `totalCost` | number | Valor debitado, em reais. |
 
-Enquanto a campanha está em `AB_TESTING`, o evento não dispara. Cancelamento também não dispara este evento. Para métricas detalhadas, consulte `GET /v1/campaigns/{id}`.
+<Warning>
+  O nome do evento é o mesmo quando a campanha falha. Confira sempre `data.status`.
+</Warning>
+
+O evento não dispara enquanto a campanha está em teste A/B nem quando ela é cancelada. Para métricas detalhadas, consulte `GET /v1/campaigns/{id}`.
+
+## Conversas
+
+### `conversation.needs_human`
+
+Dispara quando o [Brain](/brain) passa a conversa para um atendente.
+
+```json
+{
+  "event": "conversation.needs_human",
+  "apiVersion": "2026-05-13",
+  "data": {
+    "handoffId": "ara_hof_Hk3mP9q",
+    "conversationId": "3f1c9a2b-7d2b-4a3f-8e11-9b1f4c2d7a66",
+    "reason": "CUSTOMER_REQUEST",
+    "summary": "Cliente pediu para falar com atendente sobre troca.",
+    "createdAt": "2026-09-15T14:36:00Z"
+  },
+  "timestamp": "2026-09-15T14:36:00.310Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `handoffId` | string | ID da passagem para o atendente. |
+| `conversationId` | string (UUID) \| null | ID da conversa. Pode vir `null`. |
+| `reason` | string | Motivo. Texto livre. |
+| `summary` | string | Resumo da conversa até ali. |
+| `createdAt` | string (ISO 8601) | Quando a passagem foi criada. |
+
+Valores comuns de `reason`: `CUSTOMER_REQUEST`, `LOW_CONFIDENCE`, `MAX_MESSAGES`, `QUOTA_EXCEEDED`, `LEAD_QUALIFIED_HOT`. O Brain também pode escrever um motivo próprio, então não trate a lista como fechada.
+
+Para encerrar o atendimento: `POST /v1/brain/handoffs/{handoffId}/resolve`, com chave de API de permissão `ADMIN`.
+
+## Números
+
+### `number.status`
+
+Dispara quando a Meta bane, restringe ou reabilita um número, e quando a conexão de um número não é concluída.
+
+```json
+{
+  "event": "number.status",
+  "apiVersion": "2026-05-13",
+  "data": {
+    "status": "BANNED",
+    "reason": "Violação de política",
+    "phone": "5511888888888"
+  },
+  "timestamp": "2026-09-15T17:05:21.640Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
+}
+```
+
+Os campos mudam conforme o `status`:
+
+| `status` | Outros campos | Quando |
+|---|---|---|
+| `BANNED` | `reason`, `phone` | A Meta baniu o número. O envio por ele fica bloqueado. |
+| `RESTRICTED` | `restriction`, `phone` | A Meta restringiu o número. |
+| `ACTIVE` | `phone` | A Meta reabilitou o número. |
+| `ONBOARDING_ERROR` | `reason` | A conexão do número não foi concluída. |
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `status` | string | Um dos quatro valores acima. |
+| `phone` | string | Número afetado. |
+| `reason` | string | Motivo informado pela Meta. |
+| `restriction` | string | Tipos de restrição, separados por vírgula. |
+
+### `number.tier_updated`
+
+Dispara quando o limite de envio ou a sinalização de qualidade do número muda.
+
+```json
+{
+  "event": "number.tier_updated",
+  "apiVersion": "2026-05-13",
+  "data": {
+    "event": "upgrade",
+    "tier": "TIER_10K"
+  },
+  "timestamp": "2026-09-15T17:30:00.118Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `event` | string | Evento da Meta, em minúsculas. Contém `flagged` quando a qualidade caiu e `unflagged` quando voltou. |
+| `tier` | string | `TIER_50`, `TIER_250`, `TIER_1K`, `TIER_2K`, `TIER_10K`, `TIER_100K`, `UNLIMITED` ou vazio quando a Meta não informou. |
+
+O que cada limite significa está em [Números](/numbers).
+
+### `number.name_status`
+
+Dispara quando a Meta decide sobre o nome de exibição do número.
+
+```json
+{
+  "event": "number.name_status",
+  "apiVersion": "2026-05-13",
+  "data": {
+    "decision": "approved",
+    "reason": ""
+  },
+  "timestamp": "2026-09-15T18:00:09.450Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `decision` | string | Decisão da Meta, como ela enviou. Exemplos: `approved`, `rejected`, `declined`. Compare sem diferenciar maiúsculas. |
+| `reason` | string | Motivo. Pode vir vazio. |
+
+## Conta
+
+### `account.review`
+
+Dispara quando a Meta conclui a revisão da conta WhatsApp Business.
+
+```json
+{
+  "event": "account.review",
+  "apiVersion": "2026-05-13",
+  "data": {
+    "decision": "APPROVED"
+  },
+  "timestamp": "2026-09-15T18:20:31.002Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `decision` | string | Resultado da revisão, como a Meta enviou. |
+
+### `account.capability`
+
+Dispara quando a Meta muda os limites da conta WhatsApp Business.
+
+```json
+{
+  "event": "account.capability",
+  "apiVersion": "2026-05-13",
+  "data": {
+    "maxDailyConversationPerPhone": "1000",
+    "maxPhoneNumbersPerBusiness": "2"
+  },
+  "timestamp": "2026-09-15T18:25:47.390Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `maxDailyConversationPerPhone` | string | Conversas por dia, por número. |
+| `maxPhoneNumbersPerBusiness` | string | Quantidade de números permitida na conta. |
+
+Os dois valores vêm como string, não como número. Podem vir vazios.
 
 ## Cobranças
 
 ### `charge.sent`, `charge.paid`, `charge.failed`, `charge.canceled`, `charge.expired`
 
-Uma [cobrança](/cobrancas) foi enviada ou mudou de status, venha de onde vier: conversa, template, automação ou [link da automação](/automacoes-webhook). Os cinco eventos têm o mesmo `data`.
+Disparam quando uma [cobrança](/cobrancas) é enviada ou muda de status, venha de onde vier: conversa, template, automação ou [link da automação](/automacoes-webhook). Os cinco eventos têm o mesmo `data`.
 
 ```json
 {
   "event": "charge.paid",
+  "apiVersion": "2026-05-13",
   "data": {
     "id": "3f1c9a20-5b7d-4e8a-9c11-2d4e6f8a0b12",
     "reference_id": "pedido-1042",
-    "status": "PAID",
-    "method": "PIX",
+    "status": "paid",
+    "method": "pix",
     "amount_cents": 5990,
     "description": "Plano mensal",
     "phone": "5588999990000",
     "contact_id": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
     "automation_id": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f",
     "run_id": "7c1d2e90-4b3a-4c8e-9f21-5a6b7c8d9e01",
-    "source": "HOOK",
+    "source": "hook",
     "created_at": "2026-09-20T14:02:11Z",
     "paid_at": "2026-09-20T14:09:40Z"
-  }
+  },
+  "timestamp": "2026-09-20T14:09:41.077Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
 
-| Campo | Descrição |
-|---|---|
-| `id` | ID da cobrança na Arara. |
-| `reference_id` | O seu número da cobrança. |
-| `status` | `PENDING`, `PAID`, `FAILED`, `CANCELED` ou `EXPIRED`. |
-| `method` | `PIX` ou `PAYMENT_LINK`. |
-| `amount_cents` | Total, em centavos. |
-| `description` | Descrição da cobrança. |
-| `phone` | Telefone do cliente. |
-| `contact_id` | Contato ligado à cobrança. |
-| `automation_id`, `run_id` | Automação e execução que enviaram, quando houver. |
-| `source` | `CONVERSATION`, `TEMPLATE`, `AUTOMATION` ou `HOOK`. |
-| `created_at`, `paid_at` | Criação e pagamento. `paid_at` só vem preenchido em cobrança paga. |
-
-O código Pix e o link de pagamento **nunca** vão no evento. `charge.expired` dispara quando o `expiresAt` passa sem pagamento.
-
-## Conversas
-
-### `conversation.needs_human`
-
-O Brain passou a conversa para atendimento humano.
-
-```json
-{
-  "event": "conversation.needs_human",
-  "data": {
-    "handoffId": "ara_hof_Hk3mP9q",
-    "conversationId": "3f1c9a2b-...",
-    "reason": "CUSTOMER_REQUEST",
-    "summary": "Cliente pediu para falar com atendente sobre troca.",
-    "createdAt": "2026-09-15T14:36:00Z"
-  }
-}
-```
-
-`reason` é texto livre. Valores comuns: `CUSTOMER_REQUEST`, `LOW_CONFIDENCE`, `MAX_MESSAGES`, `QUOTA_EXCEEDED`, `LEAD_QUALIFIED_HOT`, e motivos escritos pelo próprio Brain. `conversationId` pode vir `null`.
-
-Para encerrar o atendimento: `POST /v1/brain/handoffs/{handoffId}/resolve` (chave `ADMIN`).
-
-## Número e conta WhatsApp
-
-### `number.status`
-
-```json
-{
-  "event": "number.status",
-  "data": { "status": "BANNED", "reason": "Violação de política", "phone": "5511888888888" }
-}
-```
-
-| `status` | Campos extras | Quando |
+| Campo | Tipo | Descrição |
 |---|---|---|
-| `BANNED` | `reason`, `phone` | A Meta baniu o número. Envio bloqueado. |
-| `RESTRICTED` | `restriction`, `phone` | A Meta restringiu o número. |
-| `ACTIVE` | `phone` | A Meta reabilitou o número. |
-| `ONBOARDING_ERROR` | `reason` | A conexão do número não foi concluída. |
+| `id` | string (UUID) | ID da cobrança na Arara. |
+| `reference_id` | string | O seu número da cobrança. |
+| `status` | string | `pending`, `paid`, `failed`, `canceled` ou `expired`. |
+| `method` | string | `pix`, `payment_link` ou `boleto`. |
+| `amount_cents` | number | Total, em centavos. |
+| `description` | string \| null | Descrição da cobrança. |
+| `phone` | string | Telefone do cliente. |
+| `contact_id` | string (UUID) \| null | Contato ligado à cobrança. |
+| `automation_id` | string (UUID) \| null | Automação que enviou, quando houver. |
+| `run_id` | string (UUID) \| null | Execução da automação que enviou, quando houver. |
+| `source` | string \| null | `conversation`, `template`, `automation` ou `hook`. |
+| `created_at` | string (ISO 8601) \| null | Criação da cobrança. |
+| `paid_at` | string (ISO 8601) \| null | Pagamento. Só vem preenchido em cobrança paga. |
 
-### `number.tier_updated`
+Em `charge.sent`, `status` é o status da cobrança no momento do envio, normalmente `pending`.
 
-Limite de envio ou sinalização de qualidade mudou.
+O código Pix e o link de pagamento nunca vão no evento. `charge.expired` dispara quando o `expiresAt` passa sem pagamento.
 
-```json
-{
-  "event": "number.tier_updated",
-  "data": { "event": "upgrade", "tier": "TIER_10K" }
-}
-```
-
-`event` é o evento da Meta em minúsculas (contém `flagged` quando a qualidade caiu, `unflagged` quando voltou). `tier` é `TIER_50`, `TIER_250`, `TIER_1K`, `TIER_2K`, `TIER_10K`, `TIER_100K`, `UNLIMITED` ou vazio.
-
-### `number.name_status`
-
-```json
-{
-  "event": "number.name_status",
-  "data": { "decision": "approved", "reason": "" }
-}
-```
-
-### `account.review`
-
-```json
-{
-  "event": "account.review",
-  "data": { "decision": "APPROVED" }
-}
-```
-
-### `account.capability`
-
-```json
-{
-  "event": "account.capability",
-  "data": { "maxDailyConversationPerPhone": "1000", "maxPhoneNumbersPerBusiness": "2" }
-}
-```
-
-Os valores vêm como string.
-
-## NFS-e
-
-### `nfse.invoice.authorized`, `nfse.invoice.rejected`, `nfse.invoice.cancelled`, `nfse.invoice.error`
-
-Mudança de status de nota fiscal de serviço emitida pela Arara. `data` é o objeto da nota:
-
-| Campo | Descrição |
-|---|---|
-| `id`, `emitterId` | Identificadores da nota e do emissor. |
-| `status` | `AUTHORIZED`, `REJECTED`, `CANCELLED` ou `ERROR`. |
-| `environment` | Ambiente da emissão. |
-| `dpsSeries`, `dpsNumber`, `dpsId` | Identificação da DPS. |
-| `competenceDate` | Competência. |
-| `service` | Código, descrição, valor, retenção de ISS e município. |
-| `taker` | Tomador, quando informado. |
-| `chaveAcesso` | Chave de acesso, quando autorizada. |
-| `errors` | Erros da SEFIN, quando rejeitada. |
-| `authorizedAt`, `cancelledAt`, `cancelReason` | Datas e motivo. |
-| `whatsappMessageId` | ID da mensagem de entrega da nota, quando enviada por WhatsApp. |
-| `createdAt` | Criação. |
-
-## Diagnóstico
+## Teste
 
 ### `webhook.test`
 
-Disparado pelo botão de teste na tela de Webhooks do painel. Gera uma entrega real no histórico, sem efeito em mensagens, templates ou campanhas.
+Dispara quando você usa o botão de teste na tela de [Webhooks](https://app.ararahq.com/dashboard/webhooks) do painel. Gera uma entrega real no histórico, sem efeito em mensagens, templates ou campanhas.
 
 ```json
 {
   "event": "webhook.test",
+  "apiVersion": "2026-05-13",
   "data": {
     "test": true,
     "message": "Este é um teste disparado pelo dashboard. Se você está vendo isso, sua URL funciona.",
     "dispatchedAt": "2026-09-15T17:00:00Z"
-  }
+  },
+  "timestamp": "2026-09-15T17:00:00.052Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
 }
 ```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `test` | boolean | Sempre `true`. |
+| `message` | string | Texto fixo. |
+| `dispatchedAt` | string (ISO 8601) | Quando o teste foi disparado. |
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Configurar webhook" icon="gear" href="/webhooks">
-    Assinatura, retry e dedupe.
+  <Card title="Webhooks" icon="gear" href="/webhooks">
+    Receptor, assinatura, retentativas e teste local.
   </Card>
   <Card title="Por que minha mensagem falhou" icon="triangle-exclamation" href="/erros-de-envio">
     O que cada motivo de falha significa.
