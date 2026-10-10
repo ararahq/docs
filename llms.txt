@@ -1,12 +1,189 @@
-# Arara — a operação de WhatsApp para empresas (spec para agentes de IA e integradores)
+# Arara
 
-A Arara é a operação de WhatsApp para empresas brasileiras: disparo para a base, caixa de entrada, automações e relatório do que voltou, sobre a WhatsApp Business Platform da Meta. Este arquivo é a especificação compacta, verificada contra o código do backend. Conteúdo integral da documentação: https://docs.ararahq.com/llms-full.txt
+> API de WhatsApp Business oficial para empresas brasileiras: envio por template, conversa dentro da janela de 24h, campanhas, formulários, cobranças por Pix e webhooks. Este arquivo é a especificação compacta para agentes de IA e integradores, conferida contra o código do backend. Texto integral da documentação: https://docs.ararahq.com/llms-full.txt
+
+## Caminho rápido: enviar e receber em uma leitura
+
+Antes de escrever código, saiba:
+
+- **Todo envio é real e cobrado.** Não existe modo de teste nem sandbox. Não rode um envio de exemplo sem o usuário confirmar o número de destino.
+- **Pré-requisitos da conta** (feitos pelo usuário no painel, não pela API): plano assinado, número conectado, pelo menos um template aprovado pela Meta e saldo na carteira. Sem eles o envio responde `403 ACCOUNT_NOT_ACTIVATED`, `403 NO_DEDICATED_NUMBER`, `409 CONFLICT` (template não existe) ou `402 INSUFFICIENT_FUNDS`.
+- **Chave de API**: criada em https://app.ararahq.com/dashboard/apikeys, formato `ara_live_...`, lida da variável de ambiente `ARARA_API_KEY`. Nunca no código nem no frontend.
+- **Fora da janela de 24h só template.** Texto livre (`body`) só funciona se o cliente escreveu nas últimas 24h; senão `422 CONVERSATION_WINDOW_CLOSED`.
+- **`202` não é entrega.** O envio é assíncrono: o resultado final (`delivered`, `read`, `failed`) chega pelo webhook `message.status_updated`.
+
+### 1. Enviar (cURL)
+
+```bash
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: pedido-12345-confirmacao" \
+  -d '{
+    "receiver": "+5511999999999",
+    "templateName": "pedido_confirmado",
+    "templateVariables": ["João", "12345"]
+  }'
+```
+
+`templateName` é o nome de um template aprovado da conta do usuário (pergunte qual ou liste com `GET /v1/templates?status=APPROVED`). `templateVariables` é uma lista de strings na ordem das variáveis `{{1}}`, `{{2}}` do template. Resposta `202`:
+
+```json
+{ "id": "ara_msg_2x9K4mP7qL", "status": "PENDING", "mode": "LIVE", "sender": "whatsapp:+5511888888888", "receiver": "whatsapp:+5511999999999", "body": null, "cost": 0.046, "reason": null }
+```
+
+Guarde o `id`: é ele que volta no webhook.
+
+### 2. Enviar (Node, `npm install @ararahq/sdk`, versão 2.0.0, CommonJS)
+
+```javascript
+const { NodeSDK } = require('@ararahq/sdk');
+
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY });
+
+async function enviarConfirmacao(pedido) {
+  const response = await sdk.messages.send(
+    {
+      receiver: pedido.telefone, // "+5511999999999"
+      templateName: 'pedido_confirmado',
+      templateVariables: [pedido.nomeCliente, String(pedido.id)],
+    },
+    { idempotencyKey: `pedido-${pedido.id}-confirmacao` },
+  );
+  return response.id; // ara_msg_...
+}
+```
+
+### 3. Enviar (Python, `pip install ararahq-sdk`, versão 2.0.0)
+
+```python
+from arara_api_sdk import AraraClient
+from arara_api_sdk.models.message import SendMessageRequest
+
+with AraraClient() as client:  # lê ARARA_API_KEY do ambiente
+    response = client.messages.send(SendMessageRequest(
+        receiver="+5511999999999",
+        template_name="pedido_confirmado",
+        template_variables=["João", "12345"],
+    ), idempotency_key="pedido-12345-confirmacao")
+
+print(response.id, response.status)
+```
+
+Outras linguagens (PHP, Java, Go, Ruby) e sem SDK: mesma chamada HTTP do passo 1.
+
+### 4. Receber o status (webhook)
+
+A URL e o secret (`whsec_...`) são cadastrados pelo usuário em https://app.ararahq.com/dashboard/webhooks. Não há endpoint para isso com chave de API. O seu servidor recebe um `POST` e deve: ler o corpo BRUTO, validar a assinatura, responder `2xx` em até 5 segundos e processar depois.
+
+```javascript
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+const TOLERANCE_SECONDS = 300;
+
+export function isValidArara(rawBody, headers, secret) {
+  const timestamp = headers['x-arara-timestamp'];
+  const signature = headers['x-arara-signature'];
+  if (typeof timestamp !== 'string' || typeof signature !== 'string') return false;
+  if (!/^\d+$/.test(timestamp) || !signature.startsWith('sha256=')) return false;
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > TOLERANCE_SECONDS) return false;
+
+  const expected = createHmac('sha256', secret).update(`${timestamp}.`).update(rawBody).digest('hex');
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signature.slice('sha256='.length));
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+```
+
+Evento de status (o `status` vem em minúsculas; `data.id` é o `id` do envio):
+
+```json
+{
+  "event": "message.status_updated",
+  "apiVersion": "2026-05-13",
+  "data": {
+    "id": "ara_msg_k9Bf2Xq",
+    "messageId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f",
+    "internalId": "ara_msg_k9Bf2Xq",
+    "providerSid": "wamid.HBgL...",
+    "status": "delivered",
+    "receiver": "whatsapp:+5511999999999",
+    "sender": "whatsapp:+5511888888888",
+    "errorDetails": null
+  },
+  "timestamp": "2026-09-15T14:32:15.234Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
+}
+```
+
+Quando `status` é `failed`, `errorDetails` é uma string (o motivo em texto) ou um objeto `{ code, whatHappened, howToAct }`. Trate os dois tipos.
+
+Mensagem recebida do cliente (atenção: campos em snake_case, telefones só com dígitos):
+
+```json
+{
+  "event": "message.received",
+  "apiVersion": "2026-05-13",
+  "data": {
+    "id": "wamid.HBgL...",
+    "from": "5511999999999",
+    "to": "5511888888888",
+    "body": "Quero pagar",
+    "type": "text",
+    "media_url": "",
+    "media_type": "text",
+    "media_content_type": "",
+    "transcription_summary": "",
+    "sender_name": "João Silva",
+    "timestamp": "2026-09-15T14:36:00Z",
+    "provider": "META",
+    "reply": { "kind": "button", "id": "quero-pagar", "title": "Quero pagar" }
+  },
+  "timestamp": "2026-09-15T14:36:00.412Z",
+  "organizationId": "0e4f3c1e-5b6a-4c3d-9e8f-7a6b5c4d3e2f"
+}
+```
+
+`reply` só aparece quando o cliente tocou num botão ou opção de lista. Para responder dentro da janela: `POST /v1/messages` com `{ "receiver": "+5511999999999", "body": "texto" }`.
+
+### 5. O que fazer em cada erro do envio
+
+| Resposta | Significado | Ação do seu código |
+|---|---|---|
+| `401` (corpo fora do envelope) | Chave inválida, revogada ou expirada | Não retente. Avise para trocar a chave. |
+| `403` sem `error.code` | Header `Authorization` ausente ou chave sem permissão para a rota | Não retente. Confira o header e as permissões da chave. |
+| `403 ACCOUNT_NOT_ACTIVATED` | Conta sem plano assinado | Não retente. O usuário assina no painel. |
+| `403 NO_DEDICATED_NUMBER` | Conta sem número conectado | Não retente. O usuário conecta no painel. |
+| `402 INSUFFICIENT_FUNDS` | Sem saldo | Não retente. O usuário recarrega. |
+| `409 CONFLICT` | Template com esse nome não existe na conta | Não retente. Corrija `templateName`. |
+| `422 INVALID_RECIPIENT` | Telefone inválido | Não retente. Corrija o número. |
+| `422 TEMPLATE_VARIABLES_MISMATCH` | Quantidade de variáveis diferente do template | Não retente. Corrija `templateVariables`. |
+| `422 TEMPLATE_NOT_SENDABLE` / `TEMPLATE_PAUSED` | Template não aprovado ou pausado | Não retente. Use outro template. |
+| `422 RECIPIENT_OPTED_OUT` | Destinatário pediu para não receber | Não retente nunca. |
+| `422 CONVERSATION_WINDOW_CLOSED` | Texto livre fora da janela de 24h | Envie um template no lugar. |
+| `429` com `Retry-After` | Limite de taxa | Espere o tempo do header e repita com a MESMA `Idempotency-Key`. |
+| `429 MARKETING_FREQUENCY_EXCEEDED` | Limite de marketing por destinatário (sem `Retry-After`) | Não retente no mesmo dia. |
+| `5xx` | Falha temporária | Repita com espera crescente e a MESMA `Idempotency-Key`. |
+
+### Erros que integrações geradas por IA costumam cometer
+
+- Tratar `202` como "entregue". Só o webhook diz.
+- Usar UUID aleatório como `Idempotency-Key` a cada tentativa: um retry vira mensagem duplicada e cobrada. Derive a chave do evento do sistema (id do pedido, id da tentativa de login).
+- Mandar `body` para quem não escreveu nas últimas 24h.
+- Passar `templateVariables` como objeto ou com números: é lista de strings, na ordem.
+- Ler `error.code` sem conferir o tipo: 401/403 de autenticação e 404/403 de `GET /v1/messages/{id}` não trazem o envelope `{ error: { code } }`.
+- Fazer `JSON.parse` antes de validar a assinatura do webhook: a assinatura é sobre os bytes brutos.
+- Comparar `status` do webhook com maiúsculas: no webhook vem `delivered`, no REST vem `DELIVERED`.
+- Tentar criar chave, configurar webhook, assinar plano ou recarregar pela API com chave de API: isso é só pelo painel.
+- Enviar marketing para quem não deu opt-in, ou ignorar opt-out: registre saída com `POST /v1/opt-outs`.
 
 ## Infraestrutura
 
 - Base URL: `https://api.ararahq.com` (todos os paths abaixo são relativos a ela; o prefixo `/api` também é aceito)
-- Auth: header `Authorization: Bearer ara_live_xxx`. Chave gerada no painel (https://app.ararahq.com/dashboard/apikeys). Uma chave não gerencia chaves: `/v1/api-keys` recusa chamada autenticada por chave de API. Toda chave é de produção: não existe modo de teste nem sandbox.
-- Dashboard: https://app.ararahq.com
+- Auth: header `Authorization: Bearer $ARARA_API_KEY` (formato `ara_live_...`). Chave gerada no painel (https://app.ararahq.com/dashboard/apikeys). Uma chave não gerencia chaves: `/v1/api-keys` recusa chamada autenticada por chave de API. Toda chave é de produção: não existe modo de teste nem sandbox.
+- Permissões: chave criada sem restrição tem acesso total (`ADMIN`). Com permissões restritas, escrita exige a permissão da área (`MESSAGES_SEND`, `TEMPLATES_WRITE`, `CAMPAIGNS_SEND`, `CONTACTS_WRITE`, `AUTOMATIONS_MANAGE`) e `READ` libera só `GET` em mensagens, campanhas, templates, formulários, cobranças, automações e números; as demais leituras (contatos, conversas, opt-outs, carteira, `/auth/me`) exigem `ADMIN`.
+- Rate limit por usuário dono da chave: 1.200 leituras e 3.000 escritas por minuto. Toda resposta traz `X-RateLimit-Remaining`; ao estourar, `429 RATE_LIMIT_EXCEEDED` com `Retry-After`.
+- Painel: https://app.ararahq.com
 - Content-Type: `application/json`
 - Telefones: E.164 (`+5511999999999`). `receiver` também aceita `whatsapp:+55...` e `55...`; use `+55...`.
 - Erros: `{ "error": { "code": "...", "message": "...", "details": {} } }` — 400 input inválido · 401 chave inválida, revogada ou expirada · 402 saldo insuficiente · 403 header `Authorization` ausente, chave sem permissão para a rota, ou regra de plano/conta (com `code`) · 404 não achou · 409 conflito · 422 regra de envio (com `code` específico) · 429 limite (honre `Retry-After`) · 5xx
@@ -28,7 +205,7 @@ A Arara é a operação de WhatsApp para empresas brasileiras: disparo para a ba
 
 ## Templates
 
-- `POST /v1/templates` — submete pra aprovação Meta:
+- `POST /v1/templates` — submete para aprovação da Meta:
   `{ "name": "snake_case", "category": "MARKETING|UTILITY|AUTHENTICATION", "language": "pt_BR", "body": "Oi {{1}}, pedido {{2}} pronto.", "headerType?": "text|media|document", "header?", "footer?", "buttons?": [{ "type": "QUICK_REPLY|URL|SMART_LINK|PHONE_NUMBER|COPY_CODE", "text", "url?", "phone?" }], "samples": { "1": "João", "2": "#123" }, "carouselCards?": [{ "mediaUrl", "body", "buttons?" }] }`
   Regras: exemplo obrigatório por variável; corpo não começa nem termina com variável; até 2 botões de link, 1 de telefone, texto de botão até 20 caracteres.
 - `GET /v1/templates` (paginado, `?name=&status=`) · `GET /v1/templates/{id}` · `GET /v1/templates/{id}/status` · `GET /v1/templates/{id}/analytics` · `DELETE /v1/templates/{id}`
@@ -88,17 +265,13 @@ A Arara é a operação de WhatsApp para empresas brasileiras: disparo para a ba
 - Envio que falha é estornado na carteira. Sem saldo → `402 INSUFFICIENT_FUNDS`. A mensalidade não inclui créditos; a carteira é recarregada à parte.
 - `GET /v1/pricing/current?market=BR` — preço vigente por categoria + rate card Meta por mercado · `GET /v1/wallet/calculate?amountCents=10000` — quantas mensagens o valor compra · `GET /v1/campaigns/estimate` — custo de campanha
 - `GET /v1/wallet/transactions` · `GET /v1/wallet/auto-recharge` · `PATCH /v1/wallet/auto-recharge`
-- `POST /payments/pix` · `GET /payments/pix/{id}/status` · `POST /v1/payments/create-checkout-session`
+- Recarga e assinatura são feitas só pelo painel; não há rota de pagamento para chave de API.
 
 ## Recuperação de receita (recovery)
 
 - `GET /v1/recovery/endpoint` · `PATCH /v1/recovery/endpoint` · `POST /v1/recovery/endpoint/regenerate` — endpoint de ingestão de eventos (carrinho abandonado, Pix pendente)
 - `GET /v1/recovery/events` · `PUT /v1/recovery/events/{eventType}` · `POST /v1/recovery/events/{eventType}/test`
 - `GET /v1/recovery/ingests` · `POST /v1/recovery/ingests/{id}/retry` · `GET /v1/recovery/stats`
-
-## Conversões (atribuição)
-
-- `GET /v1/conversions/endpoint` · `POST /v1/conversions/endpoint/regenerate` · `GET /v1/conversions/ingests`
 
 ## Smart Links
 
@@ -159,12 +332,11 @@ A Arara é a operação de WhatsApp para empresas brasileiras: disparo para a ba
 
 ## Mídia
 
-- `POST /v1/media/upload` — upload pra header de template / mensagem de mídia. Aceita só imagem (até 5 MB) e PDF (até 100 MB); outros tipos respondem 400. Resposta: `{ url, directUrl }`.
+- `POST /v1/media/upload` — upload para header de template / mensagem de mídia. Aceita só imagem (até 5 MB) e PDF (até 100 MB); outros tipos respondem 400. Resposta: `{ url, directUrl }`.
 
 ## Conta e sessão
 
-- `GET /auth/me` · `GET /auth/me/organizations` · `GET /v1/account/status` · `GET /v1/organizations/me/plan` · `GET /v1/plan/features`
-- OAuth device flow (CLI/MCP): `POST /oauth/device/code` · `POST /oauth/device/token` · `POST /oauth/token/refresh`
+- `GET /auth/me` · `GET /auth/me/organizations` · `GET /v1/organizations/me/plan`
 - `GET /v1/stream` — SSE de eventos da conta em tempo real
 - `GET /health` — status da API (público)
 
@@ -194,3 +366,23 @@ Assíncronos (status `FAILED` via webhook `message.status_updated`, campo `error
 - SDKs: Node `@ararahq/sdk` 2.0.0 (npm), Python `ararahq-sdk` 2.0.0 (PyPI), PHP `ararahq/sdk` 2.0.0 (Packagist), Java `com.ararahq:arara-java-sdk` 2.0.0 (GitHub Packages, exige usuário e token do GitHub; não está no Maven Central), Go `github.com/ararahq/arara-go-sdk` v1.0.0 (tag no GitHub), Ruby `ararahq` 1.0.0 (RubyGems) — https://docs.ararahq.com/sdks
 - CLI `arara` (Go): `brew install ararahq/tap/arara`; `arara login`, `arara send`, `arara listen`, `arara api` — https://docs.ararahq.com/cli
 - Coleção Postman: https://github.com/ararahq/arara-postman
+
+## Páginas da documentação em Markdown
+
+Acrescente `.md` a qualquer página de https://docs.ararahq.com para receber o texto puro.
+
+- [Envie sua primeira mensagem](https://docs.ararahq.com/quickstart.md): pré-requisitos e passo a passo em cURL, Node, Python e PHP
+- [Convenções da API](https://docs.ararahq.com/api-reference/introduction.md): base URL, telefone, idempotência por endpoint, paginação, rate limit
+- [Autenticação](https://docs.ararahq.com/api-reference/authentication.md): permissões da chave e respostas 401/403
+- [Mensagens](https://docs.ararahq.com/api-reference/messages.md): objeto, regras e endpoints
+- [Templates](https://docs.ararahq.com/api-reference/templates.md) e [Criar e aprovar um template](https://docs.ararahq.com/templates/policy.md)
+- [Webhooks](https://docs.ararahq.com/webhooks.md): receptor executável, assinatura, entrega e teste local
+- [Eventos](https://docs.ararahq.com/webhooks/events.md): payload completo de cada evento
+- [Erros](https://docs.ararahq.com/erros.md) e [Erros de envio](https://docs.ararahq.com/erros-de-envio.md)
+- [SDKs](https://docs.ararahq.com/sdks.md): Node, Python, PHP, Java, Go e Ruby
+- [Login com código por WhatsApp (OTP)](https://docs.ararahq.com/recipes/otp-login.md)
+- [Confirmação de pedido](https://docs.ararahq.com/recipes/order-confirmation.md)
+- [Carrinho abandonado](https://docs.ararahq.com/recipes/abandoned-cart.md)
+- [Formulários](https://docs.ararahq.com/flows.md) e [Cobranças](https://docs.ararahq.com/cobrancas.md)
+- [Servidor MCP](https://docs.ararahq.com/mcp-server.md): para agentes operarem a conta em linguagem natural
+- OpenAPI: https://docs.ararahq.com/openapi.yaml
