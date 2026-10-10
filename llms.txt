@@ -1,6 +1,6 @@
 # Arara
 
-> API de WhatsApp Business oficial para empresas brasileiras: envio por template, conversa dentro da janela de 24h, campanhas, formulários, cobranças por Pix e webhooks. Este arquivo é a especificação compacta para agentes de IA e integradores, conferida contra o código do backend. Texto integral da documentação: https://docs.ararahq.com/llms-full.txt
+> API de WhatsApp para empresas brasileiras, sobre a WhatsApp Business Platform da Meta: envio por template, conversa dentro da janela de 24h, campanhas, formulários, cobranças por Pix e webhooks. Este arquivo é a especificação compacta para agentes de IA e integradores, conferida contra o código do backend. Texto integral da documentação: https://docs.ararahq.com/llms-full.txt
 
 ## Caminho rápido: enviar e receber em uma leitura
 
