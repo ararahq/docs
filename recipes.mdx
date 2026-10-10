@@ -1,90 +1,48 @@
 ---
 title: 'Receitas'
-description: 'Guias práticos para os casos mais comuns: carrinho abandonado, confirmação de pedido, OTP, campanhas, atendimento com vários atendentes e operação de várias contas. Cada receita usa só endpoints e SDKs que existem hoje.'
+description: 'Guias passo a passo, com código completo, para os casos mais comuns de WhatsApp em produção.'
 keywords: ['receitas', 'cookbooks', 'casos de uso', 'exemplos', 'carrinho abandonado', 'otp', 'black friday']
 ---
 
-Cada receita resolve um problema específico de quem usa WhatsApp em produção, com os endpoints reais da API, os SDKs publicados (1.8.1) e o que ainda precisa ser feito do seu lado.
-
-A estrutura se repete: **contexto → como funciona → código → checklist de produção**.
-
-## E-commerce
+## Receitas
 
 <CardGroup cols={2}>
-  <Card title="Carrinho abandonado" icon="cart-shopping" href="/recipes/abandoned-cart">
-    Endpoint de recuperação, automação com espera entre mensagens e parada quando o cliente compra.
+  <Card title="Login com código (OTP)" icon="key" href="/recipes/otp-login">
+    Gerar, enviar e validar um código de login de 6 dígitos.
   </Card>
   <Card title="Confirmação de pedido" icon="receipt" href="/recipes/order-confirmation">
-    Templates UTILITY para pedido confirmado, enviado, entregue e falha de pagamento, com idempotência.
+    Avisar o cliente quando o pedido é confirmado, enviado ou entregue.
   </Card>
-</CardGroup>
-
-## Autenticação
-
-<CardGroup cols={2}>
-  <Card title="OTP de login" icon="key" href="/cookbooks/auth-2fa">
-    Código de verificação com template da categoria AUTHENTICATION e botão de copiar código.
+  <Card title="Carrinho abandonado" icon="cart-shopping" href="/recipes/abandoned-cart">
+    Sequência de mensagens que para quando o cliente compra.
   </Card>
-  <Card title="2FA via WhatsApp" icon="shield-halved" href="/cookbooks/auth-2fa">
-    Segunda etapa de login usando o mesmo template de autenticação.
-  </Card>
-</CardGroup>
-
-## Marketing
-
-<CardGroup cols={2}>
   <Card title="Campanha Black Friday" icon="bullhorn" href="/recipes/black-friday">
-    Campanha com A/B test, agendamento, estimativa de custo e acompanhamento do disparo.
+    Campanha agendada com A/B test e estimativa de custo.
   </Card>
-  <Card title="Smart Links com tracking" icon="link" href="/cookbooks/marketing-smartlinks">
-    Link curto com contagem de cliques por campanha.
-  </Card>
-</CardGroup>
-
-## Suporte
-
-<CardGroup cols={2}>
   <Card title="Atendimento com vários atendentes" icon="users" href="/recipes/inbox-support">
-    Conversas, janela de 24h, Brain respondendo primeiro e escalando para humano.
+    Brain responde primeiro e passa para o time.
   </Card>
-  <Card title="Suporte com Brain" icon="robot" href="/brain">
-    Assistente de IA que responde e passa a conversa para o time quando precisa.
+  <Card title="Várias organizações (agência)" icon="building" href="/recipes/multi-org">
+    Uma organização e uma chave de API por cliente.
   </Card>
 </CardGroup>
 
-## Operação
+## Guias de recurso
 
 <CardGroup cols={2}>
-  <Card title="Webhooks" icon="rotate-right" href="/webhooks">
-    Receber eventos, validar a assinatura HMAC e deduplicar entregas.
+  <Card title="Formulários" icon="list-check" href="/flows">
+    Colete dados dentro da conversa.
   </Card>
-  <Card title="Várias contas (agência)" icon="building" href="/recipes/multi-org">
-    Uma organização por cliente, chaves separadas e profiles no CLI.
+  <Card title="Cobranças" icon="money-bill" href="/cobrancas">
+    Cobre pelo WhatsApp.
   </Card>
-</CardGroup>
-
-## Migração
-
-<CardGroup cols={2}>
-  <Card title="Migrar do Twilio" icon="right-left" href="/migrate/twilio">
-    Mapeamento de campos e eventos para a API da Arara.
+  <Card title="Recuperação de receita" icon="rotate-right" href="/recovery">
+    Transforme eventos da loja ou do gateway em mensagens.
   </Card>
-  <Card title="Migrar do Z-API" icon="right-left" href="/migrate/z-api">
-    O que muda ao sair de uma conexão via WhatsApp Web para a WhatsApp Business Platform.
+  <Card title="Campanhas de marketing" icon="bullhorn" href="/marketing">
+    Envie para a sua base com consentimento.
+  </Card>
+  <Card title="Smart Links" icon="link" href="/smart-links">
+    Link curto com contagem de cliques.
   </Card>
 </CardGroup>
-
-## Integrações
-
-<CardGroup cols={2}>
-  <Card title="Laravel" icon="php" href="/integracoes/laravel">
-    Jobs de fila e controller de webhook.
-  </Card>
-  <Card title="Next.js" icon="js" href="/integracoes/nextjs">
-    Server Actions e route handlers.
-  </Card>
-</CardGroup>
-
-## Quer uma receita nova?
-
-Abra uma issue no [GitHub](https://github.com/ararahq/docs/issues) descrevendo o seu caso.

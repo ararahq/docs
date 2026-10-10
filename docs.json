@@ -2,15 +2,14 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Arara — API de WhatsApp Business",
-  "openapi": "openapi.yaml",
   "colors": {
     "primary": "#1c99a7",
     "light": "#5fbcc7",
     "dark": "#205f6a"
   },
   "appearance": {
-    "default": "dark",
-    "strict": true
+    "default": "system",
+    "strict": false
   },
   "fonts": {
     "family": "Geist"
@@ -29,16 +28,72 @@
             ]
           },
           {
-            "group": "Conceitos WhatsApp",
+            "group": "Conceitos",
             "pages": [
               "concepts/whatsapp",
               "concepts/templates",
-              "concepts/24h-window",
-              "concepts/number-quality",
-              "concepts/pricing",
-              "concepts/compliance",
               "templates/policy",
-              "numbers"
+              "concepts/24h-window",
+              "numbers",
+              "concepts/compliance",
+              "concepts/usage-policies",
+              "concepts/pricing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Guias",
+        "groups": [
+          {
+            "group": "Receitas",
+            "pages": [
+              "recipes",
+              "recipes/otp-login",
+              "recipes/order-confirmation",
+              "recipes/abandoned-cart",
+              "recipes/black-friday",
+              "recipes/inbox-support",
+              "recipes/multi-org"
+            ]
+          },
+          {
+            "group": "Recursos",
+            "pages": [
+              "flows",
+              "cobrancas",
+              "recovery",
+              "marketing",
+              "smart-links",
+              "smart-links/attribution"
+            ]
+          },
+          {
+            "group": "Automações",
+            "pages": [
+              "automacoes-com-resposta",
+              "automacoes-webhook",
+              "automacoes-api"
+            ]
+          },
+          {
+            "group": "Brain (IA)",
+            "pages": [
+              "brain",
+              "brain/actions/abacate-pix",
+              "brain/actions/cal-com",
+              "brain/actions/catalog",
+              "brain/actions/stripe"
+            ]
+          },
+          {
+            "group": "Integrações",
+            "pages": [
+              "integracoes",
+              "integracoes/laravel",
+              "integracoes/nextjs",
+              "integracoes/shopify",
+              "api-reference/events/partner-events"
             ]
           },
           {
@@ -60,39 +115,190 @@
             "pages": [
               "api-reference/introduction",
               "api-reference/authentication",
+              "api-reference/api-keys",
               "erros",
-              "erros-de-envio"
+              "erros-de-envio",
+              "status"
             ]
           },
           {
-            "group": "Endpoints",
+            "group": "Mensagens",
             "pages": [
-              "api-reference/endpoint/v2/auth",
-              "api-reference/endpoint/v2/messages",
-              "api-reference/endpoint/v2/templates",
-              "api-reference/endpoint/v2/contacts",
-              "api-reference/endpoint/v2/campaigns",
-              "api-reference/endpoint/v2/api-keys",
-              "api-reference/endpoint/v2/flows"
+              "api-reference/messages",
+              "POST /v1/messages",
+              "POST /v1/messages/batch",
+              "GET /v1/messages",
+              "GET /v1/messages/{id}",
+              "POST /v1/media/upload",
+              "GET /dashboard/messages",
+              "GET /dashboard/messages/{id}",
+              "GET /dashboard/metrics"
+            ]
+          },
+          {
+            "group": "Conversas",
+            "pages": [
+              "GET /v1/conversations",
+              "GET /v1/conversations/{conversationId}/messages",
+              "POST /v1/conversations/reply",
+              "PATCH /v1/conversations/{conversationId}/status",
+              "POST /v1/conversations/window-status"
+            ]
+          },
+          {
+            "group": "Templates",
+            "pages": [
+              "api-reference/templates",
+              "POST /v1/templates",
+              "GET /v1/templates",
+              "GET /v1/templates/{id}",
+              "DELETE /v1/templates/{id}",
+              "GET /v1/templates/{id}/status",
+              "GET /v1/templates/{id}/analytics",
+              "GET /v1/templates/analytics",
+              "GET /v1/templates/library",
+              "POST /v1/templates/library",
+              "POST /v1/templates/sync"
+            ]
+          },
+          {
+            "group": "Campanhas",
+            "pages": [
+              "api-reference/campaigns",
+              "POST /v1/campaigns",
+              "GET /v1/campaigns",
+              "GET /v1/campaigns/{id}",
+              "POST /v1/campaigns/{id}/cancel",
+              "GET /v1/campaigns/estimate",
+              "POST /v1/campaigns/estimate",
+              "POST /v1/campaigns/{campaignId}/ab-test",
+              "GET /v1/campaigns/{campaignId}/ab-test",
+              "POST /v1/campaigns/{campaignId}/ab-test/winner"
+            ]
+          },
+          {
+            "group": "Contatos",
+            "pages": [
+              "api-reference/contacts",
+              "GET /v1/contacts",
+              "POST /v1/contacts/batch",
+              "GET /v1/contacts/stats",
+              "GET /v1/contacts/{phone}",
+              "PATCH /v1/contacts/{phone}",
+              "GET /v1/contacts/{phone}/messages",
+              "GET /v1/contacts/{phone}/lgpd/export",
+              "DELETE /v1/contacts/{phone}/lgpd"
+            ]
+          },
+          {
+            "group": "Opt-out",
+            "pages": [
+              "GET /v1/opt-outs",
+              "POST /v1/opt-outs",
+              "GET /v1/opt-outs/{phone}",
+              "DELETE /v1/opt-outs/{phone}"
+            ]
+          },
+          {
+            "group": "Formulários",
+            "pages": [
+              "POST /v1/flows",
+              "GET /v1/flows",
+              "GET /v1/flows/{id}",
+              "DELETE /v1/flows/{id}",
+              "POST /v1/flows/{id}/publish",
+              "POST /v1/flows/{id}/deprecate",
+              "POST /v1/flows/{id}/test",
+              "GET /v1/flows/{id}/responses",
+              "GET /v1/flows/{id}/responses.csv"
+            ]
+          },
+          {
+            "group": "Automações",
+            "pages": [
+              "POST /v1/automations",
+              "GET /v1/automations",
+              "GET /v1/automations/{id}",
+              "PUT /v1/automations/{id}",
+              "DELETE /v1/automations/{id}",
+              "PUT /v1/automations/{id}/active",
+              "GET /v1/automations/{id}/runs",
+              "GET /v1/automations/{id}/runs/{runId}/events",
+              "GET /v1/automations/catalog",
+              "GET /v1/automations/templates",
+              "GET /v1/automations/pricing",
+              "POST /v1/automations/{id}/hook/regenerate",
+              "PUT /v1/automations/{id}/hook/signature",
+              "POST /hooks/a/{token}"
+            ]
+          },
+          {
+            "group": "Smart Links",
+            "pages": [
+              "POST /v1/smart-links/whatsapp",
+              "GET /v1/smart-links/whatsapp",
+              "PUT /v1/smart-links/whatsapp/{id}",
+              "GET /v1/smart-links/whatsapp/{id}/stats"
+            ]
+          },
+          {
+            "group": "Números",
+            "pages": [
+              "GET /v1/organizations/me/numbers",
+              "GET /v1/organizations/me/business-profile",
+              "PATCH /v1/organizations/me/business-profile",
+              "POST /v1/organizations/me/business-profile/sync"
+            ]
+          },
+          {
+            "group": "Carteira",
+            "pages": [
+              "GET /dashboard/wallet/balance",
+              "GET /v1/wallet/transactions",
+              "GET /v1/wallet/auto-recharge",
+              "PATCH /v1/wallet/auto-recharge",
+              "GET /v1/wallet/calculate",
+              "GET /v1/pricing/current"
+            ]
+          },
+          {
+            "group": "Consulta de telefone",
+            "pages": [
+              "POST /v1/phone-lookup",
+              "POST /v1/phone-lookup/batch"
+            ]
+          },
+          {
+            "group": "Recuperação",
+            "pages": [
+              "GET /v1/recovery/endpoint",
+              "PATCH /v1/recovery/endpoint",
+              "POST /v1/recovery/endpoint/regenerate",
+              "GET /v1/recovery/events",
+              "PUT /v1/recovery/events/{eventType}",
+              "POST /v1/recovery/events/{eventType}/test",
+              "POST /webhook/cart"
+            ]
+          },
+          {
+            "group": "Conta",
+            "pages": [
+              "api-reference/auth",
+              "GET /auth/me",
+              "GET /auth/me/organizations",
+              "GET /v1/organizations/me/plan",
+              "GET /health"
             ]
           },
           {
             "group": "Webhooks",
             "pages": [
               "webhooks",
-              "webhooks/events",
-              "api-reference/events/partner-events"
-            ]
-          },
-          {
-            "group": "Regras de negócio",
-            "pages": [
-              "business-rules/planos-e-limites",
-              "business-rules/template-management",
-              "business-rules/usage-policies"
+              "webhooks/events"
             ]
           }
-        ]
+        ],
+        "openapi": "openapi.yaml"
       },
       {
         "tab": "SDKs e Ferramentas",
@@ -110,15 +316,9 @@
             ]
           },
           {
-            "group": "CLI",
+            "group": "Ferramentas",
             "pages": [
-              "cli"
-            ]
-          },
-          {
-            "group": "Agentes de IA",
-            "pages": [
-              "agents",
+              "cli",
               "mcp-server",
               "mcp-tools"
             ]
@@ -126,92 +326,12 @@
         ]
       },
       {
-        "tab": "Guias",
-        "groups": [
-          {
-            "group": "Receitas",
-            "pages": [
-              "recipes",
-              "cookbooks/auth-2fa",
-              "cookbooks/marketing-smartlinks",
-              "recipes/abandoned-cart",
-              "recipes/order-confirmation",
-              "recipes/black-friday",
-              "recipes/inbox-support",
-              "recipes/multi-org"
-            ]
-          },
-          {
-            "group": "Integrações",
-            "pages": [
-              "integracoes",
-              "integracoes/laravel",
-              "integracoes/nextjs",
-              "integracoes/shopify",
-              "marketing"
-            ]
-          },
-          {
-            "group": "Smart Links",
-            "pages": [
-              "smart-links",
-              "smart-links/attribution"
-            ]
-          },
-          {
-            "group": "Formulários",
-            "pages": [
-              "flows"
-            ]
-          },
-          {
-            "group": "Cobranças",
-            "pages": [
-              "cobrancas"
-            ]
-          },
-          {
-            "group": "Automações",
-            "pages": [
-              "automacoes-com-resposta",
-              "automacoes-webhook",
-              "automacoes-api"
-            ]
-          },
-          {
-            "group": "Brain (IA)",
-            "pages": [
-              "brain",
-              "actions",
-              "brain/actions/abacate-pix",
-              "brain/actions/cal-com",
-              "brain/actions/catalog",
-              "brain/actions/stripe"
-            ]
-          },
-          {
-            "group": "Recuperação",
-            "pages": [
-              "recovery"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Sobre",
+        "tab": "Novidades",
         "groups": [
           {
             "group": "Novidades",
             "pages": [
-              "changelog",
-              "roadmap"
-            ]
-          },
-          {
-            "group": "Operação",
-            "pages": [
-              "status",
-              "contributing"
+              "changelog"
             ]
           }
         ]
@@ -239,7 +359,7 @@
     },
     {
       "source": "/api-reference/api-tokens",
-      "destination": "/api-reference/endpoint/v2/api-keys"
+      "destination": "/api-reference/api-keys"
     },
     {
       "source": "/sdks/typescript",
@@ -255,15 +375,15 @@
     },
     {
       "source": "/api-reference/endpoint/messages",
-      "destination": "/api-reference/endpoint/v2/messages"
+      "destination": "/api-reference/messages"
     },
     {
       "source": "/api-reference/endpoint/templates",
-      "destination": "/api-reference/endpoint/v2/templates"
+      "destination": "/api-reference/templates"
     },
     {
       "source": "/api-reference/endpoint/campaigns",
-      "destination": "/api-reference/endpoint/v2/campaigns"
+      "destination": "/api-reference/campaigns"
     },
     {
       "source": "/api-reference/endpoint/inbound",
@@ -271,7 +391,7 @@
     },
     {
       "source": "/api-reference/endpoint/schedule",
-      "destination": "/api-reference/endpoint/v2/messages"
+      "destination": "/api-reference/messages"
     },
     {
       "source": "/api-reference/endpoint/webhook",
@@ -284,6 +404,82 @@
     {
       "source": "/concepts/webhooks",
       "destination": "/webhooks"
+    },
+    {
+      "source": "/api-reference/endpoint/v2/auth",
+      "destination": "/api-reference/auth"
+    },
+    {
+      "source": "/api-reference/endpoint/v2/messages",
+      "destination": "/api-reference/messages"
+    },
+    {
+      "source": "/api-reference/endpoint/v2/templates",
+      "destination": "/api-reference/templates"
+    },
+    {
+      "source": "/api-reference/endpoint/v2/contacts",
+      "destination": "/api-reference/contacts"
+    },
+    {
+      "source": "/api-reference/endpoint/v2/campaigns",
+      "destination": "/api-reference/campaigns"
+    },
+    {
+      "source": "/api-reference/endpoint/v2/api-keys",
+      "destination": "/api-reference/api-keys"
+    },
+    {
+      "source": "/api-reference/endpoint/v2/flows",
+      "destination": "/flows"
+    },
+    {
+      "source": "/cookbooks/auth-2fa",
+      "destination": "/recipes/otp-login"
+    },
+    {
+      "source": "/cookbooks/marketing-smartlinks",
+      "destination": "/smart-links"
+    },
+    {
+      "source": "/business-rules/usage-policies",
+      "destination": "/concepts/usage-policies"
+    },
+    {
+      "source": "/business-rules/template-management",
+      "destination": "/templates/policy"
+    },
+    {
+      "source": "/business-rules/planos-e-limites",
+      "destination": "/concepts/pricing"
+    },
+    {
+      "source": "/concepts/number-quality",
+      "destination": "/numbers"
+    },
+    {
+      "source": "/actions",
+      "destination": "/brain"
+    },
+    {
+      "source": "/agents",
+      "destination": "/mcp-server"
+    },
+    {
+      "source": "/roadmap",
+      "destination": "/changelog"
+    },
+    {
+      "source": "/contributing",
+      "destination": "/"
+    },
+    {
+      "source": "/development",
+      "destination": "/sdks"
+    },
+    {
+      "source": "/architecture/overview",
+      "destination": "/api-reference/introduction"
     }
   ],
   "logo": {
@@ -304,13 +500,24 @@
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://ararahq.com/dashboard"
+      "href": "https://app.ararahq.com"
     }
   },
   "footer": {
     "socials": {
       "github": "https://github.com/ararahq",
       "linkedin": "https://linkedin.com/company/ararahq"
+    }
+  },
+  "api": {
+    "examples": {
+      "languages": [
+        "curl",
+        "javascript",
+        "python",
+        "php"
+      ],
+      "defaults": "required"
     }
   }
 }
