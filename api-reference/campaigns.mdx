@@ -1,0 +1,130 @@
+---
+title: 'Campanhas'
+description: 'Visão geral do recurso de campanhas: o objeto, a criação com cobrança antecipada, agendamento, teste A/B e a lista de endpoints.'
+keywords: ['campaigns', 'campanhas', 'envio em massa', 'agendamento', 'ab test', 'estimativa']
+---
+
+Uma campanha envia o mesmo template para muitos contatos. A Arara valida template e variáveis, reserva a cota do plano, **debita o custo total da carteira na criação** e processa os envios em segundo plano.
+
+<Note>
+  Para 1 mensagem, use `POST /v1/messages`. Para até 1.000 com o mesmo template, `POST /v1/messages/batch`. Acima disso, agendado ou com teste A/B, use campanha.
+</Note>
+
+## O objeto campanha
+
+| Campo | Descrição |
+|---|---|
+| `id` | UUID da campanha. |
+| `status` | `SCHEDULED`, `INGESTING`, `AB_TESTING`, `COMPLETED`, `COMPLETED_WITH_ERRORS`, `FAILED` ou `CANCELED`. |
+| `templateName` | Template enviado. |
+| `totalMessages` | Contatos da campanha. |
+| `totalCost` | Valor debitado da carteira, em reais. |
+| `sentCount`, `deliveredCount`, `readCount`, `failedCount` | Métricas de entrega. |
+| `clickedCount`, `convertedCount` | Cliques e conversões. Dependem de [Smart Links](/smart-links). |
+| `blockedCount`, `refundValue` | Contatos bloqueados no envio e o total estornado. |
+| `scheduledAt` | Horário agendado, quando houver. |
+
+## Criar uma campanha
+
+```bash
+curl -X POST https://api.ararahq.com/v1/campaigns \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Idempotency-Key: acme-campanha-8842" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Black Friday 2026",
+    "templateName": "bf_oferta_geral",
+    "contacts": [
+      { "to": "+5511999999999", "variables": ["João", "30"] },
+      { "to": "+5511888888888", "variables": ["Maria", "25"] }
+    ]
+  }'
+```
+
+Resposta `200 OK` (o `totalCost` do exemplo é ilustrativo):
+
+```json
+{
+  "id": "7b3789fb-4c5d-6789-abcd-ef0123456789",
+  "name": "Black Friday 2026",
+  "status": "INGESTING",
+  "totalMessages": 2,
+  "totalCost": 0.767,
+  "scheduledAt": null
+}
+```
+
+Acompanhe mensagem a mensagem pelo webhook `message.status_updated`. O fim da campanha gera o evento [`campaign.completed`](/webhooks/events).
+
+## Regras que valem saber
+
+- **`Idempotency-Key` é obrigatório.** Repetir a chave devolve a campanha já criada, sem cobrar de novo. Derive a chave do identificador da campanha no seu sistema e reuse nas retentativas. A unicidade é global na Arara, não por organização: inclua um prefixo só seu (`acme-campanha-8842`), nunca um valor genérico como `campanha-1`. Sem o header, a resposta hoje é `500`, e não `400`.
+- **Cobrança antecipada.** O total sai da carteira na criação. Contatos bloqueados no envio (opt-out, número inválido, limite de frequência) são estornados um a um.
+- **Pré-requisitos.** Número dedicado conectado (`403 NO_DEDICATED_NUMBER`), saldo para o total (`402 INSUFFICIENT_FUNDS`) e cota do plano (`403 PLAN_LIMIT_REACHED`).
+- **`variables` é array posicional.** `["João", "30"]`, não objeto.
+- **Estime antes.** `POST /v1/campaigns/estimate` com a lista de telefones calcula por país de destino e bate com o valor cobrado. O `GET` usa só o preço do mercado local.
+- **Cancelar estorna o que não saiu.** `POST /v1/campaigns/{id}/cancel` devolve à carteira os contatos que ainda não viraram mensagem. Mensagens já enfileiradas seguem. Campanha já finalizada responde `422`.
+- **A lista tem envelope próprio.** `GET /v1/campaigns` responde `{ content, totalPages, totalElements }`, e não `{ data, pagination }`.
+
+### Agendar
+
+Envie `scheduledAt` entre **5 minutos** e **30 dias** no futuro. A campanha nasce `SCHEDULED`, já cobrada. Fora da janela: `400 CAMPAIGN_SCHEDULE_TOO_SOON` ou `400 CAMPAIGN_SCHEDULE_TOO_FAR`.
+
+```bash
+# Amanhã, neste horário. No macOS: date -u -v+1d +%Y-%m-%dT%H:%M:%SZ
+SCHEDULED_AT=$(date -u -d '+1 day' +%Y-%m-%dT%H:%M:%SZ)
+
+curl -X POST https://api.ararahq.com/v1/campaigns \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Idempotency-Key: acme-campanha-8843" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Lembrete do evento",
+    "templateName": "lembrete_evento",
+    "scheduledAt": "'"$SCHEDULED_AT"'",
+    "contacts": [{ "to": "+5511999999999", "variables": ["João"] }]
+  }'
+```
+
+### Teste A/B
+
+Mande `abTest` junto com a criação: `templateName` é a variante A e `abTest.variantBTemplateName` é a B. Uma amostra dos contatos (`samplePct`, padrão 20%) recebe as duas variantes, e o restante espera a vencedora pela métrica escolhida (`metric`, padrão `CLICKED`). Enquanto o teste roda, a campanha fica em `AB_TESTING`.
+
+Prefira `abTest` na criação. Adicionado depois por `POST /v1/campaigns/{campaignId}/ab-test`, parte dos contatos pode já ter sido enviada sem o teste. As rotas de teste A/B respondem `404` sem corpo quando a campanha ou o teste não existe.
+
+## Endpoints
+
+| Método | Caminho | O que faz |
+|---|---|---|
+| `POST` | `/v1/campaigns` | Criar campanha |
+| `GET` | `/v1/campaigns` | Listar campanhas |
+| `GET` | `/v1/campaigns/{id}` | Consultar campanha |
+| `POST` | `/v1/campaigns/{id}/cancel` | Cancelar campanha |
+| `GET` | `/v1/campaigns/estimate` | Estimar custo por quantidade |
+| `POST` | `/v1/campaigns/estimate` | Estimar custo por lista de telefones |
+| `POST` | `/v1/campaigns/{campaignId}/ab-test` | Adicionar teste A/B |
+| `GET` | `/v1/campaigns/{campaignId}/ab-test` | Consultar teste A/B |
+| `POST` | `/v1/campaigns/{campaignId}/ab-test/winner` | Definir variante vencedora |
+
+## Erros mais comuns
+
+| HTTP | `error.code` | Quando |
+|---|---|---|
+| `400` | `VALIDATION_ERROR` | `name`, `templateName` ou `contacts` ausente ou vazio. |
+| `400` | `CAMPAIGN_SCHEDULE_TOO_SOON`, `CAMPAIGN_SCHEDULE_TOO_FAR` | `scheduledAt` fora da janela. |
+| `402` | `INSUFFICIENT_FUNDS` | Saldo menor que o total. |
+| `403` | `NO_DEDICATED_NUMBER`, `PLAN_LIMIT_REACHED` | Sem número dedicado ou sem cota. |
+| `404` | `CAMPAIGN_NOT_FOUND` | Campanha não existe. |
+| `422` | `UNPROCESSABLE_ENTITY` ou `ararahq-*` | Template não encontrado, variáveis incompatíveis ou `sender` inválido. |
+| `429` | `SEND_RATE_LIMITED` | Limite diário da chave. |
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Receita: Black Friday" icon="tag" href="/recipes/black-friday">
+    Fluxo completo de campanha sazonal.
+  </Card>
+  <Card title="Smart Links" icon="link" href="/smart-links">
+    Clique e conversão por campanha.
+  </Card>
+</CardGroup>

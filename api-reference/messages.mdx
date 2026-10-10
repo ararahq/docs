@@ -1,0 +1,129 @@
+---
+title: 'Mensagens'
+description: 'Visão geral do recurso de mensagens: o objeto, o envio, as regras que não cabem no schema e a lista de endpoints.'
+keywords: ['mensagens', 'send message', 'whatsapp', 'template', 'batch', 'conversas', 'janela 24h']
+---
+
+Uma mensagem é um envio de WhatsApp para um telefone. Você envia um template aprovado a qualquer hora, ou outro conteúdo (texto, botões, lista, formulário, localização, reação) dentro da [janela de 24h](/concepts/24h-window). O envio é assíncrono: a API aceita a mensagem e o status final chega pelo webhook.
+
+## O objeto mensagem
+
+| Campo | Descrição |
+|---|---|
+| `id` | ID público (`ara_msg_...`). Use para consultar e para casar com o webhook. |
+| `status` | `PENDING`, `SCHEDULED`, `PROCESSING`, `SENT`, `DELIVERED`, `READ`, `FAILED` ou `CANCELED`. |
+| `sender`, `receiver` | Número que enviou e número do destinatário. |
+| `body` | Conteúdo final, com as variáveis aplicadas. Pode vir `null`. |
+| `cost` | Custo em reais. Pode vir `null`. |
+| `reason` | Motivo da falha quando `status` é `FAILED`. |
+| `mode` | Sempre `LIVE` em chave de API. |
+
+## Enviar uma mensagem
+
+```bash
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: pedido-12345-confirmacao" \
+  -d '{
+    "receiver": "+5511999999999",
+    "templateName": "pedido_confirmado",
+    "templateVariables": ["João", "12345"]
+  }'
+```
+
+Resposta `202 Accepted` (o `cost` do exemplo é ilustrativo):
+
+```json
+{
+  "id": "ara_msg_k9Bf2Xq",
+  "status": "PENDING",
+  "mode": "LIVE",
+  "sender": "whatsapp:+5511888888888",
+  "receiver": "whatsapp:+5511999999999",
+  "body": "Oi João, seu pedido 12345 foi confirmado!",
+  "cost": 0.068,
+  "reason": null
+}
+```
+
+Depois disso, acompanhe pelo webhook [`message.status_updated`](/webhooks/events). Consultar `GET /v1/messages/{id}` em laço funciona, mas o webhook é o caminho para produção.
+
+## Regras que valem saber
+
+- **Um conteúdo por mensagem.** Mande exatamente um entre `templateName`, `body`, `interactive`, `location` e `reaction`. Zero ou mais de um responde `400 VALIDATION_ERROR`.
+- **Janela de 24h.** Só `templateName` passa a qualquer hora. Os outros conteúdos exigem a janela aberta; fora dela a resposta é `422 CONVERSATION_WINDOW_CLOSED`. Para checar antes, use `POST /v1/conversations/window-status`.
+- **Telefone.** Use E.164 com `+` (`+5511999999999`). Também passam `5511999999999` e `whatsapp:+5511999999999`. Inválido: `422 INVALID_RECIPIENT`.
+- **Mídia no cabeçalho.** A URL da imagem ou do PDF vai na **primeira posição** de `templateVariables`. Se o arquivo não está hospedado, suba em `POST /v1/media/upload` (imagem até 5 MB, PDF até 100 MB).
+- **Idempotência.** Com `Idempotency-Key`, a mesma chave devolve a mensagem já criada, sem reenviar nem cobrar. O corpo não é comparado: derive a chave de um evento do seu sistema (id do pedido, id da tentativa) e use uma chave por intenção de envio.
+- **Status em maiúsculas.** A API responde `PENDING`, `SENT`, `DELIVERED`. O webhook usa os mesmos estados em minúsculas, com `PENDING` virando `queued`.
+- **Consulta por dono.** `GET /v1/messages/{id}` só devolve mensagens do mesmo usuário dono da chave. Mensagem de outro membro responde `403` sem corpo, e ID inexistente responde `404` sem corpo.
+- **Lote é tudo ou nada.** Em `POST /v1/messages/batch` (até 1.000 destinatários, mesmo template), um telefone inválido ou saldo insuficiente recusa o lote inteiro com `422`. Acima de 1.000, use [Campanhas](/api-reference/campaigns).
+
+### Agendar
+
+`scheduled_at` em uma data futura deixa a mensagem em `SCHEDULED` até o horário. Data no passado envia na hora.
+
+```bash
+# Amanhã, neste horário. No macOS: date -u -v+1d +%Y-%m-%dT%H:%M:%SZ
+SCHEDULED_AT=$(date -u -d '+1 day' +%Y-%m-%dT%H:%M:%SZ)
+
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: consulta-8842-lembrete" \
+  -d '{
+    "receiver": "+5511999999999",
+    "templateName": "lembrete_consulta",
+    "templateVariables": ["amanhã às 14h"],
+    "scheduled_at": "'"$SCHEDULED_AT"'"
+  }'
+```
+
+## Endpoints
+
+| Método | Caminho | O que faz |
+|---|---|---|
+| `POST` | `/v1/messages` | Enviar mensagem |
+| `POST` | `/v1/messages/batch` | Enviar lote de mensagens |
+| `GET` | `/v1/messages` | Listar mensagens de um lote |
+| `GET` | `/v1/messages/{id}` | Consultar mensagem |
+| `POST` | `/v1/media/upload` | Enviar arquivo de mídia |
+| `GET` | `/dashboard/messages` | Listar histórico de mensagens |
+| `GET` | `/dashboard/messages/{id}` | Consultar mensagem do histórico |
+| `GET` | `/dashboard/metrics` | Consultar métricas de envio |
+
+Conversas agrupam as mensagens trocadas com um telefone e controlam a janela de 24h. Exigem plano com caixa de entrada, número dedicado e chave `ADMIN`.
+
+| Método | Caminho | O que faz |
+|---|---|---|
+| `GET` | `/v1/conversations` | Listar conversas |
+| `GET` | `/v1/conversations/{conversationId}/messages` | Listar mensagens da conversa |
+| `POST` | `/v1/conversations/reply` | Responder conversa |
+| `PATCH` | `/v1/conversations/{conversationId}/status` | Alterar status da conversa |
+| `POST` | `/v1/conversations/window-status` | Consultar janela de 24h |
+
+## Erros mais comuns
+
+| HTTP | `error.code` | Quando |
+|---|---|---|
+| `400` | `VALIDATION_ERROR` | `receiver` ausente, nenhum ou mais de um conteúdo, variável com quebra de linha. |
+| `402` | `INSUFFICIENT_FUNDS` | Saldo insuficiente. |
+| `403` | `ACCOUNT_NOT_ACTIVATED` | Conta ainda não ativada. |
+| `409` | `CONFLICT` | Template não encontrado na organização. |
+| `422` | `CONVERSATION_WINDOW_CLOSED` | Conteúdo fora de template com a janela fechada. |
+| `422` | `TEMPLATE_VARIABLES_MISMATCH` | Número de variáveis diferente do template. |
+| `429` | `SEND_RATE_LIMITED` | Teto de envio. Respeite o header `Retry-After`. |
+
+A lista completa de cada endpoint está na página dele. Códigos de falha de entrega em [Por que minha mensagem falhou](/erros-de-envio).
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Templates" icon="file-lines" href="/api-reference/templates">
+    Criar e gerenciar templates aprovados.
+  </Card>
+  <Card title="Eventos de webhook" icon="bell" href="/webhooks/events">
+    Receber `delivered`, `read` e `failed` em tempo real.
+  </Card>
+</CardGroup>

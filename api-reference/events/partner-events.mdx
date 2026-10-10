@@ -1,15 +1,17 @@
 ---
-title: 'Eventos de Parceiros'
-description: 'Rota restrita para parceiros de pagamento habilitados pela Arara enviarem eventos (carrinho abandonado, pagamento recusado, PIX criado, boleto vencendo) que viram mensagem de WhatsApp.'
+title: 'Eventos de parceiros'
+description: 'Endpoint restrito para parceiros de pagamento enviarem eventos de carrinho, pagamento, Pix e boleto que viram mensagem de WhatsApp.'
 ---
 
-Esta rota é para **parceiros de pagamento habilitados pela Arara**, não para clientes. Hoje o único parceiro é a AbacatePay. O parceiro envia um evento de negócio e a Arara dispara um template fixo para o cliente final, a partir de um número da própria Arara.
+Só para parceiros integrados. Se você é cliente da Arara, você não precisa desta página.
+
+Um parceiro de pagamento habilitado envia um evento de negócio e a Arara manda um template fixo para o cliente final, a partir de um número da própria Arara. Hoje o único parceiro é a AbacatePay.
 
 <Warning>
-  Integração restrita. A chave de parceiro é emitida pela equipe da Arara e a rota precisa ser validada com a Arara antes de ir para produção.
-
-  Se você é cliente e quer recuperar carrinho, PIX ou boleto no **seu** número e com os **seus** templates, use a [Recuperação](/recovery).
+  A chave de parceiro é emitida pela equipe da Arara. Valide a integração com a Arara antes de ir para produção.
 </Warning>
+
+Se você é cliente e quer recuperar carrinho, Pix ou boleto no seu número e com os seus templates, use a [recuperação de receita](/recovery).
 
 ## Endpoint
 
@@ -19,7 +21,7 @@ Authorization: Bearer <chave_do_parceiro>
 Content-Type: application/json
 ```
 
-A chave de parceiro não é uma API key `ara_live_...`.
+A chave de parceiro não é uma chave de API `ara_live_...`.
 
 ## Corpo
 
@@ -42,11 +44,11 @@ A chave de parceiro não é uma API key `ara_live_...`.
 | `store` | string | sim | Nome da loja. |
 | `value` | number | sim | Valor em reais (`199.90`). |
 | `url` | string | não | Link de checkout, nova tentativa ou pagamento. |
-| `code` | string | não | Código PIX copia e cola. |
+| `code` | string | não | Código Pix copia e cola. |
 
 ## Eventos e variáveis
 
-Todo evento usa um template fixo com 4 variáveis:
+Cada evento usa um template fixo com 4 variáveis:
 
 | Variável | Conteúdo |
 |---|---|
@@ -56,14 +58,14 @@ Todo evento usa um template fixo com 4 variáveis:
 | `{{4}}` | `url`; sem `url`, usa `code`; sem os dois, vazio |
 
 <Note>
-  `url` tem prioridade sobre `code`. Se enviar os dois, o código PIX é descartado.
+  `url` tem prioridade sobre `code`. Se você enviar os dois, o código Pix é descartado.
 </Note>
 
-| `event` | Uso |
+| `event` | Quando enviar |
 |---|---|
 | `cart.abandoned` | Carrinho abandonado. |
 | `payment.failed` | Pagamento não autorizado. |
-| `pix.created` | PIX gerado e aguardando pagamento. |
+| `pix.created` | Pix gerado, aguardando pagamento. |
 | `boleto.due` | Boleto vence hoje. |
 
 ## Exemplo

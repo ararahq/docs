@@ -1,22 +1,22 @@
 ---
 title: 'Erros'
-description: 'Formato de erro, códigos que a API devolve de verdade, diagnósticos de falha de entrega e como tratar cada caso no cliente.'
-keywords: ['erros', 'error codes', 'troubleshooting', 'retry', 'failure']
+description: 'Formato de erro da API, códigos de recusa e o que fazer em cada um.'
+keywords: ['erros', 'error codes', 'troubleshooting', 'retry', '401', '403', '429']
 ---
 
-A maioria dos erros da Arara sai num envelope com `code` estável. Algumas rotas ainda fogem dele; esta página diz quais e como tratar.
+A chamada foi recusada (4xx/5xx na hora)? Está aqui. A chamada foi aceita (`202`) e a mensagem falhou depois (`FAILED`)? Veja [Erros de envio](/erros-de-envio).
 
-## Formato canônico
+## Formato do erro
 
 ```json
 {
   "error": {
     "code": "PLAN_FEATURE_LOCKED",
-    "message": "Essa feature está liberada a partir do plano VOO_SOLO.",
+    "message": "Essa feature está liberada a partir do plano VOO.",
     "details": {
       "feature": "CONTACTS",
-      "currentPlan": "DECOLAGEM",
-      "upgradeTo": "VOO_SOLO"
+      "currentPlan": "ESSENTIAL",
+      "upgradeTo": "VOO"
     }
   }
 }
@@ -28,193 +28,259 @@ A maioria dos erros da Arara sai num envelope com `code` estável. Algumas rotas
 | `error.message` | string | Texto em português para exibir ou logar. Pode mudar. |
 | `error.details` | object | Contexto do código (limites, plano, campo). Sempre presente, às vezes vazio. |
 
-## Respostas fora do envelope
+Os identificadores de plano em `currentPlan` e `upgradeTo` são `EMBARQUE`, `ESSENTIAL`, `VOO` e `VOO_ASSISTIDO`. Contas antigas podem trazer `FREE`, `POC`, `DECOLAGEM`, `VOO_SOLO`, `PRO` ou `ENTERPRISE`.
 
-| Situação | Corpo |
-|---|---|
-| Falha de autenticação (`401`, e `403` sem header ou fora do escopo) | Padrão do Spring: `{ "timestamp", "status", "error", "path" }`, sem `code`. |
-| Alguns `404` (`GET /v1/messages/{id}`, conversas, A/B, smart link) e o `403` de mensagem de outro usuário | Sem corpo. |
-| Algumas validações de conversas, upload de mídia e histórico | `{ "error": "mensagem" }`, com `error` como string. |
+## Respostas fora do formato
 
-Ramifique primeiro pelo status HTTP e só depois por `error.code` quando ele existir.
+Trate primeiro pelo status HTTP. Só leia `error.code` quando `error` for um objeto.
+
+| Situação | Corpo | O que fazer |
+|---|---|---|
+| Falha de autenticação: `401`, `403` e `503` do filtro de chave de API | JSON padrão do Spring: `{ "timestamp", "status", "error", "path" }`. Aqui `error` é uma string. | Decida pelo status. Veja [Autenticação](/api-reference/authentication#erros-de-autenticação). |
+| `GET /v1/messages/{id}`: `404` e `403` (mensagem de outro usuário) | Vazio. | Confira o `id` e a chave usada. |
+| Alguns `404` de conversas, teste A/B e smart link | Vazio. | Confira o id na URL. |
+| Algumas validações de conversas, upload de mídia e histórico | `{ "error": "mensagem" }`, com `error` como string. | Leia a string e corrija a chamada. |
 
 ## Autenticação e permissão
 
-| HTTP | Código | Quando |
-|---|---|---|
-| `401` | sem `code` | Chave inexistente, formato errado, revogada, expirada ou IP fora da allowlist. |
-| `403` | sem `code` | Sem `Authorization`, rota que não aceita API key, ou chave sem permissão. |
-| `403` | `RESOURCE_FORBIDDEN` | Recurso de outra organização, ou operação que só o painel faz (ex.: gerir chaves). |
-| `403` | `FORBIDDEN` | Acesso negado por regra de segurança. |
-| `401` | `API_KEY_REQUIRED` | Rota que só aceita API key foi chamada com sessão de usuário. |
-| `403` | `VIEWER_READ_ONLY` | A chave pertence a um usuário com papel Leitor, que só acessa rotas de acompanhamento. |
+| HTTP | Código | Quando | O que fazer |
+|---|---|---|---|
+| `401` | sem `code` | Chave inexistente, revogada, expirada, que não começa com `ara_live_`, ou IP fora da allowlist. | Use uma chave válida. Confira expiração e allowlist no painel. |
+| `403` | sem `code` | Header `Authorization` ausente, Bearer que não começa com `ara_`, chave sem permissão para a rota, ou rota que não aceita chave de API. | Envie o header. Confira as [permissões](/api-reference/authentication#permissões) da chave. |
+| `503` | sem `code` | Autenticação indisponível no momento. Traz `Retry-After: 5`. | Espere e repita. |
+| `403` | `RESOURCE_FORBIDDEN` | Recurso de outra organização, ou operação que só o painel faz (ex.: gerir chaves). | Confira o id. Faça a operação pelo painel. |
+| `403` | `FORBIDDEN` | Acesso negado por regra de segurança. | Leia `message`. Não repita sem corrigir. |
+| `401` | `API_KEY_REQUIRED` | Rota que só aceita chave de API foi chamada com sessão de usuário. | Chame com chave de API. |
+| `403` | `VIEWER_READ_ONLY` | A chave pertence a um usuário com papel Leitor, que só acessa rotas de acompanhamento. | Use a chave de um usuário com permissão de escrita. |
 
 ## Plano, conta e carteira
 
-| HTTP | Código | `details` | Quando |
-|---|---|---|---|
-| `403` | `PLAN_FEATURE_LOCKED` | `feature`, `currentPlan`, `upgradeTo` | Funcionalidade fora do plano. |
-| `403` | `PLAN_LIMIT_REACHED` | `feature`, `current`, `max`, `currentPlan`, `upgradeTo` | Teto do plano (mensagens no mês, templates, automações). |
-| `402` | `PLAN_REQUIRED` | `feature` | Exige assinatura paga. |
-| `402` | `INSUFFICIENT_FUNDS` | `diagnostic` | Saldo insuficiente. |
-| `403` | `ACCOUNT_NOT_ACTIVATED` | `currentStatus` | Conta ainda não ativada. |
-| `403` | `ACCOUNT_BANNED` | — | Conta banida. |
-| `403` | `ORGANIZATION_SUSPENDED` | — | Organização suspensa (decisão administrativa ou taxa de falha alta). |
-| `403` | `NO_DEDICATED_NUMBER` | — | Operação exige número dedicado. |
-| `403` | `IP_BLOCKED` | — | IP bloqueado. |
-| `502` | `PAYMENT_PROVIDER_UNAVAILABLE` | — | Provedor de pagamento fora do ar. |
+| HTTP | Código | `details` | Quando | O que fazer |
+|---|---|---|---|---|
+| `403` | `ACCOUNT_NOT_ACTIVATED` | `reason`, `blockedAction` | `reason` = `FIRST_SUBSCRIPTION_REQUIRED`: a organização ainda não assinou um plano e tentou enviar. | Assine um plano em [Faturamento](https://app.ararahq.com/dashboard/faturamento). |
+| `403` | `ACCOUNT_NOT_ACTIVATED` | `currentStatus` | O usuário está suspenso, rejeitado ou revogado. | Fale com o suporte. |
+| `403` | `PLAN_FEATURE_LOCKED` | `feature`, `currentPlan`, `upgradeTo` | Funcionalidade fora do plano. | Mude para o plano em `upgradeTo`. |
+| `403` | `PLAN_LIMIT_REACHED` | `feature`, `current`, `max`, `currentPlan`, `upgradeTo` | Teto do plano (mensagens no mês, templates, automações). | Mude de plano ou espere a virada do período. |
+| `402` | `PLAN_REQUIRED` | `feature` | Exige assinatura paga. | Assine um plano. |
+| `402` | `INSUFFICIENT_FUNDS` | `diagnostic` | Saldo insuficiente. | Recarregue a carteira ou ligue a recarga automática. |
+| `403` | `ACCOUNT_BANNED` | vazio | Conta banida. | Fale com o suporte. |
+| `403` | `ORGANIZATION_SUSPENDED` | vazio | Organização suspensa (decisão administrativa ou taxa de falha alta). | Pare os envios e fale com o suporte. |
+| `403` | `NO_DEDICATED_NUMBER` | vazio | A organização não tem número conectado, ou a operação exige número dedicado. | Conecte um número em [Números](https://app.ararahq.com/dashboard/numeros). |
+| `403` | `IP_BLOCKED` | vazio | IP bloqueado. | Fale com o suporte. |
+| `502` | `PAYMENT_PROVIDER_UNAVAILABLE` | vazio | Provedor de pagamento fora do ar. | Tente de novo em alguns minutos. |
+
+Os planos atuais não têm limite de templates. Contas no plano Free legado têm teto de 3 templates aprovados e recebem `403 PLAN_LIMIT_REACHED` com `details.feature` = `TEMPLATES`.
 
 ## Envio
 
-Recusas antes do envio, em `POST /v1/messages`, `/v1/messages/batch` e campanhas:
+Recusas antes do envio, em `POST /v1/messages`, `POST /v1/messages/batch` e campanhas:
 
-| HTTP | Código | `details` | Quando |
-|---|---|---|---|
-| `422` | `RECIPIENT_OPTED_OUT` | `receiver` | Destinatário pediu para não receber. |
-| `422` | `INVALID_RECIPIENT` | `receiver`, `reason` | Telefone fora do E.164. |
-| `422` | `CONVERSATION_WINDOW_CLOSED` | `receiver` | Conteúdo livre com a janela de 24h fechada. |
-| `422` | `TEMPLATE_PAUSED` | `templateName`, `providerStatus` | Template pausado. Pare o disparo. |
-| `422` | `TEMPLATE_NOT_SENDABLE` | `templateName`, `providerStatus` | Template pendente, reprovado ou desativado. |
-| `422` | `TEMPLATE_VARIABLES_MISMATCH` | `templateName`, `expected`, `received` | Quantidade de variáveis diferente do template. |
-| `422` | `SENDER_NOT_ALLOWED` | `requestedSender`, `reason` | `sender` não pertence à organização ou não pode ser usado. |
-| `403` | `NUMBER_BLOCKED` | — | Destinatário falhou repetidamente (inválido ou sem WhatsApp). Remova da base. |
-| `403` | `FRAUD_SUSPECTED` | `reason` | Padrão de envio com cara de abuso. |
-| `409` | `PROVIDER_NOT_RESOLVED` | `sender` | Número remetente não está pronto. Reconecte em Números. |
-| `409` | `CONFLICT` | — | Template não encontrado na organização. |
-| `429` | `SEND_RATE_LIMITED` | `scope`, `limit` | Teto de envio (inclui limite diário da chave). Traz `Retry-After`. |
-| `429` | `MARKETING_FREQUENCY_EXCEEDED` | `receiver`, `limit`, `windowHours` | O contato já recebeu marketing demais na janela. Sem `Retry-After`. |
-| `400` | `CAMPAIGN_SCHEDULE_TOO_SOON`, `CAMPAIGN_SCHEDULE_TOO_FAR` | `scheduledAt` | Agendamento de campanha fora de 5 minutos a 30 dias. |
+| HTTP | Código | `details` | Quando | O que fazer |
+|---|---|---|---|---|
+| `422` | `INVALID_RECIPIENT` | `receiver`, `reason` | Telefone inválido. | Use `+5511999999999`, com código do país e DDD. |
+| `422` | `RECIPIENT_OPTED_OUT` | `receiver` | O destinatário pediu para não receber. | Remova o contato da lista. Não reenvie. |
+| `422` | `CONVERSATION_WINDOW_CLOSED` | `receiver` | Conteúdo livre com a janela de 24h fechada. | Envie um template. Veja [Janela de 24h](/concepts/24h-window). |
+| `422` | `TEMPLATE_PAUSED` | `templateName`, `providerStatus` | Template pausado pela Meta. | Pare a campanha e revise o conteúdo. |
+| `422` | `TEMPLATE_NOT_SENDABLE` | `templateName`, `providerStatus` | Template pendente, reprovado ou desativado. | Aguarde a aprovação ou corrija o template. |
+| `422` | `TEMPLATE_VARIABLES_MISMATCH` | `templateName`, `expected`, `received` | Quantidade de variáveis diferente do template. | Envie `expected` valores em `templateVariables`. |
+| `422` | `SENDER_NOT_ALLOWED` | `requestedSender`, `reason` | `sender` não pertence à organização ou não pode ser usado. | Use um número listado em `GET /v1/organizations/me/numbers`. |
+| `422` | `UNPROCESSABLE_ENTITY` | vazio | Regra de negócio sem código próprio. Exemplos: telefone inválido ou saldo insuficiente em `/v1/messages/batch`. | Leia `message`. |
+| `403` | `NUMBER_BLOCKED` | vazio | O destinatário falhou repetidamente (inválido ou sem WhatsApp). | Remova o contato da base. |
+| `403` | `FRAUD_SUSPECTED` | `reason` | Padrão de envio com sinal de abuso. | Pare e fale com o suporte. |
+| `409` | `CONFLICT` | vazio | Template não encontrado na organização. | Confira `templateName`. |
+| `409` | `IDEMPOTENCY_CONFLICT` | vazio | `Idempotency-Key` reutilizada com outro telefone ou outras variáveis, só nas rotas de envio por webhook. `POST /v1/messages` não compara o corpo e devolve a mensagem original. | Use uma chave por intenção de envio. |
+| `409` | `PROVIDER_NOT_RESOLVED` | `sender` | O número ainda não está pronto para enviar. | Reconecte em [Números](https://app.ararahq.com/dashboard/numeros). |
+| `429` | `SEND_RATE_LIMITED` | `scope`, `limit` | Teto de envio (inclui o limite diário da chave). Traz `Retry-After`. | Espere o `Retry-After` e repita. |
+| `429` | `BATCH_BUSY` | vazio | Há um lote em processamento. Traz `Retry-After`. | Espere o `Retry-After` e repita. |
+| `429` | `MARKETING_FREQUENCY_EXCEEDED` | `receiver`, `limit`, `windowHours` | O contato já recebeu marketing demais na janela. Não traz `Retry-After`. | Não repita. Tire o contato desta campanha. |
+| `503` | `SEND_TEMPORARILY_UNAVAILABLE` | vazio | Envio indisponível no momento. Traz `Retry-After`. | Espere o `Retry-After` e repita com a mesma `Idempotency-Key`. |
+| `400` | `CAMPAIGN_SCHEDULE_TOO_SOON`, `CAMPAIGN_SCHEDULE_TOO_FAR` | `scheduledAt` | Agendamento de campanha fora de 5 minutos a 30 dias. | Ajuste `scheduledAt`. |
 
-### Códigos de diagnóstico (`ararahq-*`)
-
-Algumas recusas de regra de negócio saem com um código de diagnóstico no lugar de `UNPROCESSABLE_ENTITY`, e `details.diagnostic` explica o que houve e o que fazer:
-
-```json
-{
-  "error": {
-    "code": "ararahq-invalid-number",
-    "message": "Números de telefone inválidos no batch (use formato E.164): 5511",
-    "details": {
-      "diagnostic": {
-        "code": "ararahq-invalid-number",
-        "whatHappened": "Número inválido ou sem WhatsApp...",
-        "howToAct": "Verifique se o número está correto no formato +55DDD9XXXXXXXX..."
-      }
-    }
-  }
-}
-```
-
-| Código | Significado |
-|---|---|
-| `ararahq-63016` | Janela de 24h fechada. |
-| `ararahq-invalid-number` | Número inválido ou sem WhatsApp. |
-| `ararahq-template-mismatch` | Variáveis não batem com o template. |
-| `ararahq-invalid-recipient` | Template não encontrado ou destinatário inválido. |
-| `ararahq-insufficient-funds` | Saldo insuficiente (dentro de `INSUFFICIENT_FUNDS`). |
+Quando a recusa vem de uma falha reconhecida do provedor, `error.code` é um código `ararahq-*` e `error.details.diagnostic` traz `whatHappened` e `howToAct`. A lista desses códigos está em [Erros de envio](/erros-de-envio#códigos-ararahq).
 
 ## Recursos
 
-| HTTP | Código | Quando |
-|---|---|---|
-| `404` | `TEMPLATE_NOT_FOUND` | Template não existe. |
-| `404` | `CAMPAIGN_NOT_FOUND` | Campanha não existe. |
-| `404` | `LINK_NOT_FOUND` | Link não existe. |
-| `404` | `NOT_FOUND` | Rota inexistente. |
-| `400` | `INVALID_PHONE` | Telefone inválido em opt-out ou LGPD. |
-| `400` | `INVALID_AB_TEST`, `INVALID_WINNER` | Configuração de A/B inválida. |
-| `400` | `INVALID_VERTICAL` | Vertical do perfil comercial fora da lista da Meta. |
-| `422` | `GUPSHUP_APP_NOT_READY` | Operação de template sem número conectado. |
+| HTTP | Código | Quando | O que fazer |
+|---|---|---|---|
+| `404` | `TEMPLATE_NOT_FOUND` | Template não existe. | Confira o id. |
+| `404` | `CAMPAIGN_NOT_FOUND` | Campanha não existe. | Confira o id. |
+| `404` | `LINK_NOT_FOUND` | Link não existe. | Confira o id. |
+| `404` | `NOT_FOUND` | Rota inexistente. | Confira o caminho e o método. |
+| `409` | `CONFLICT` | Em `POST /v1/templates`: nome duplicado na mesma conta WhatsApp Business, ou conteúdo bloqueado pela moderação. | Troque o nome ou revise o conteúdo. |
+| `400` | `INVALID_PHONE` | Telefone inválido em opt-out ou LGPD. | Use `+5511999999999`. |
+| `400` | `INVALID_AB_TEST`, `INVALID_WINNER` | Configuração de A/B inválida. | Leia `message` e corrija. |
+| `400` | `INVALID_VERTICAL` | Vertical do perfil comercial fora da lista da Meta. | Use um valor da lista. |
+| `422` | `GUPSHUP_APP_NOT_READY` | Operação de template sem número conectado. | Conecte um número antes. |
 
 ## Genéricos
 
-| HTTP | Código | Quando |
-|---|---|---|
-| `400` | `VALIDATION_ERROR` | Campo obrigatório ausente ou regra de validação do corpo. `message` traz a primeira violação. |
-| `400` | `INVALID_JSON` | JSON malformado, encoding errado, campo com tipo divergente ou obrigatório ausente. |
-| `400` | `INVALID_PATH_PARAM` | ID na URL em formato errado (ex.: nome no lugar de UUID). `details.param`. |
-| `400` | `INVALID_IDEMPOTENCY_KEY` | `Idempotency-Key` vazia, acima de 255 caracteres ou com caractere de controle. |
-| `405` | `METHOD_NOT_ALLOWED` | Método HTTP errado na rota. |
-| `409` | `CONFLICT` | Conflito de estado (nome duplicado, conteúdo bloqueado pela moderação). |
-| `409` | `CONCURRENT_MODIFICATION` | Operação simultânea no mesmo recurso. Tente de novo. |
-| `409` | `IDEMPOTENCY_CONFLICT` | Chave reutilizada com outros dados (só nas rotas de disparo por webhook). |
-| `422` | `UNPROCESSABLE_ENTITY` | Regra de negócio sem código próprio. Leia `message`. |
-| `429` | `RATE_LIMIT_EXCEEDED` | Rate limit geral. `Retry-After: 1`. |
-| `500` | `INTERNAL_SERVER_ERROR` | Erro interno. |
-| `500` | `MISSING_RATE_CARD` | Falha ao precificar. Tente de novo. |
+| HTTP | Código | Quando | O que fazer |
+|---|---|---|---|
+| `400` | `VALIDATION_ERROR` | Campo obrigatório ausente ou regra de validação do corpo. `message` traz a primeira violação. | Corrija o campo citado. |
+| `400` | `INVALID_JSON` | JSON malformado, encoding errado ou campo com tipo divergente. | Valide o JSON e os tipos. |
+| `400` | `INVALID_PATH_PARAM` | Id na URL em formato errado (ex.: nome no lugar de UUID). `details.param` diz qual. | Corrija o id. |
+| `400` | `INVALID_IDEMPOTENCY_KEY` | `Idempotency-Key` vazia, acima de 255 caracteres ou com caractere de controle. | Corrija a chave. |
+| `405` | `METHOD_NOT_ALLOWED` | Método HTTP errado na rota. | Confira o método. |
+| `409` | `CONFLICT` | Conflito de estado. | Leia `message`. |
+| `409` | `CONCURRENT_MODIFICATION` | Operação simultânea no mesmo recurso. | Tente de novo. |
+| `422` | `UNPROCESSABLE_ENTITY` | Regra de negócio sem código próprio. | Leia `message`. |
+| `429` | `RATE_LIMIT_EXCEEDED` | Rate limit geral. Traz `Retry-After` e `X-RateLimit-Remaining`. | Espere o `Retry-After` e repita. |
+| `500` | `INTERNAL_SERVER_ERROR` | Erro interno. | Repita com a mesma `Idempotency-Key`. Se persistir, abra chamado. |
+| `500` | `MISSING_RATE_CARD` | Falha ao precificar. | Tente de novo. |
 
 <Note>
-  Hoje, header ou parâmetro obrigatório ausente (`Idempotency-Key` em campanha, `count` na estimativa, `batchId`) cai no erro genérico e responde `500 INTERNAL_SERVER_ERROR`, não `400`.
+  Hoje, header ou parâmetro obrigatório ausente (`Idempotency-Key` em campanha, `count` na estimativa, `batchId`) responde `500 INTERNAL_SERVER_ERROR`, não `400`.
 </Note>
 
-### Recuperação
+## Recuperação
 
-| HTTP | Código | Quando |
-|---|---|---|
-| `404` | `RECOVERY_ENDPOINT_NOT_FOUND` | Endpoint ou ingestão não encontrado. |
-| `403` | `RECOVERY_ENDPOINT_INACTIVE` | Endpoint de conversão desativado. O endpoint de recuperação não responde mais isso: desligado, ele devolve `REJECTED` com `NO_ACTIVE_AUTOMATION` quando nenhuma automação ativa escuta o evento. |
-| `400` | `RECOVERY_EVENT_INVALID` | Tipo de evento ou período inválido. |
-| `401` | `RECOVERY_HMAC_INVALID` | Assinatura HMAC não confere. |
-| `429` | `RECOVERY_RATE_LIMITED` | Excesso de eventos. `Retry-After: 60`. |
-| `404` | `RECOVERY_CONFIG_NOT_FOUND` | Sem configuração para o evento. |
-| `412` | `RECOVERY_TEMPLATE_MISSING` | Template vinculado foi removido. |
-| `402` | `RECOVERY_FREE_CAP_REACHED` | Cota gratuita de recuperação atingida. |
+| HTTP | Código | Quando | O que fazer |
+|---|---|---|---|
+| `404` | `RECOVERY_ENDPOINT_NOT_FOUND` | Endpoint ou ingestão não encontrado. | Confira a URL do endpoint. |
+| `403` | `RECOVERY_ENDPOINT_INACTIVE` | Endpoint de conversão desativado. O endpoint de recuperação desligado não responde isso: ele devolve `REJECTED` com `NO_ACTIVE_AUTOMATION` quando nenhuma automação ativa escuta o evento. | Reative o endpoint no painel. |
+| `400` | `RECOVERY_EVENT_INVALID` | Tipo de evento ou período inválido. | Corrija o evento. |
+| `401` | `RECOVERY_HMAC_INVALID` | Assinatura HMAC não confere. | Confira o segredo e o corpo assinado. |
+| `429` | `RECOVERY_RATE_LIMITED` | Excesso de eventos. Traz `Retry-After: 60`. | Espere e repita. |
+| `404` | `RECOVERY_CONFIG_NOT_FOUND` | Sem configuração para o evento. | Configure a recuperação no painel. |
+| `412` | `RECOVERY_TEMPLATE_MISSING` | O template vinculado foi removido. | Vincule outro template. |
+| `402` | `RECOVERY_FREE_CAP_REACHED` | Cota gratuita de recuperação atingida. | Assine um plano. |
 
-## Falha depois do aceite
+## Quando repetir a chamada
 
-`202 Accepted` não garante entrega. Quando a Meta recusa depois, a mensagem vira `FAILED` e:
+| Resposta | Repetir? |
+|---|---|
+| `429` com `Retry-After` | Sim, depois do tempo indicado. |
+| `429 MARKETING_FREQUENCY_EXCEEDED` | Não. Não traz `Retry-After` e esperar alguns segundos não muda o resultado. |
+| `500`, `502`, `503` | Sim, com espera crescente. Respeite o `Retry-After` quando vier. |
+| Outros `4xx` | Não. Corrija a causa. |
 
-- `GET /v1/messages/{id}` traz o motivo em `reason`;
-- o webhook `message.status_updated` traz o motivo em `data.errorDetails`;
-- o valor da mensagem é estornado na carteira.
+Em toda repetição de envio, mande a mesma `Idempotency-Key` da primeira tentativa. Sem ela a mensagem pode sair duas vezes.
 
-O catálogo de motivos, com causa e solução, está em [Por que minha mensagem falhou](/erros-de-envio).
-
-## Retry
-
-- A Arara retenta sozinha falhas temporárias do provedor, com backoff exponencial que respeita o `Retry-After` do provedor. Você não precisa reenviar nesses casos.
-- Erro de template, variável, destinatário ou conta **não** é retentado.
-- Do seu lado: retente `429` (após `Retry-After`), `500`, `502` e `503`, sempre com `Idempotency-Key` para não duplicar envio.
-- Não retente `4xx` que não sejam `429`: corrija a causa.
+Depois do `202`, a Arara repete sozinha as falhas temporárias do provedor. Você não precisa reenviar nesses casos.
 
 ## Tratamento no cliente
 
-```typescript
-const res = await fetch('https://api.ararahq.com/v1/messages', { method: 'POST', headers, body });
+Arquivo completo para Node 18 ou superior, sem dependências. Ele trata corpo vazio, corpo fora do formato e `Retry-After`.
 
-if (res.ok) return res.json();
+```javascript
+// arara.js
+const API_URL = 'https://api.ararahq.com/v1/messages';
+const MAX_ATTEMPTS = 4;
 
-const payload = await res.json().catch(() => null);
-const code = typeof payload?.error === 'object' ? payload.error.code : undefined;
-
-switch (true) {
-  case res.status === 401:
-    throw new Error('API key inválida ou revogada');
-  case res.status === 403 && !code:
-    throw new Error('API key sem permissão para esta rota');
-  case res.status === 429:
-    await sleep(Number(res.headers.get('Retry-After') ?? 1) * 1000);
-    return retry();
-  case code === 'RECIPIENT_OPTED_OUT' || code === 'NUMBER_BLOCKED':
-    return removeFromList();
-  case code === 'TEMPLATE_PAUSED':
-    return pauseCampaign();
-  case code === 'INSUFFICIENT_FUNDS':
-    return notifyFinance();
-  case res.status >= 500:
-    return retryWithSameIdempotencyKey();
-  default:
-    throw new Error(payload?.error?.message ?? `HTTP ${res.status}`);
+class AraraError extends Error {
+  constructor(status, code, message, details) {
+    super(message);
+    this.name = 'AraraError';
+    this.status = status;
+    this.code = code; // undefined quando a resposta não segue o formato padrão
+    this.details = details;
+  }
 }
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function readError(res) {
+  const text = await res.text();
+  let payload = null;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    payload = null;
+  }
+
+  const error = payload && payload.error;
+  if (error && typeof error === 'object') {
+    return new AraraError(res.status, error.code, error.message || `HTTP ${res.status}`, error.details || {});
+  }
+  const message = typeof error === 'string' ? error : `HTTP ${res.status}`;
+  return new AraraError(res.status, undefined, message, {});
+}
+
+function shouldRetry(res, error) {
+  if (error.code === 'MARKETING_FREQUENCY_EXCEEDED') return false;
+  return res.status === 429 || res.status >= 500;
+}
+
+function retryDelayMs(res, attempt) {
+  const retryAfter = Number(res.headers.get('Retry-After'));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) return retryAfter * 1000;
+  return 500 * 2 ** attempt;
+}
+
+// idempotencyKey: derive de um id do seu sistema, ex.: `pedido-${order.id}-confirmacao`.
+async function sendMessage(body, idempotencyKey) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.ARARA_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) return res.json();
+
+    const error = await readError(res);
+    const lastAttempt = attempt === MAX_ATTEMPTS - 1;
+    if (!shouldRetry(res, error) || lastAttempt) throw error;
+
+    await sleep(retryDelayMs(res, attempt));
+  }
+  throw new Error('unreachable');
+}
+
+module.exports = { sendMessage, AraraError };
+```
+
+Quem chama decide o que fazer com cada código:
+
+```javascript
+// confirmar-pedido.js
+const { sendMessage, AraraError } = require('./arara');
+
+async function confirmarPedido(order) {
+  try {
+    return await sendMessage(
+      {
+        receiver: order.phone, // +5511999999999
+        templateName: 'pedido_confirmado',
+        templateVariables: [order.customerName, String(order.id)],
+      },
+      `pedido-${order.id}-confirmacao`,
+    );
+  } catch (err) {
+    if (!(err instanceof AraraError)) throw err;
+
+    if (err.status === 401) throw new Error('Chave de API inválida, revogada ou expirada');
+    if (err.status === 403 && !err.code) throw new Error('Chave de API sem permissão para esta rota');
+
+    switch (err.code) {
+      case 'RECIPIENT_OPTED_OUT':
+      case 'NUMBER_BLOCKED':
+      case 'INVALID_RECIPIENT':
+        console.warn(`Remova ${order.phone} da lista: ${err.code}`);
+        return null;
+      case 'INSUFFICIENT_FUNDS':
+      case 'ACCOUNT_NOT_ACTIVATED':
+        throw new Error(`Envios parados: ${err.message}`);
+      default:
+        throw err;
+    }
+  }
+}
+
+module.exports = { confirmarPedido };
 ```
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Por que minha mensagem falhou" icon="triangle-exclamation" href="/erros-de-envio">
-    Motivos de falha de entrega, causa e solução.
+  <Card title="Erros de envio" icon="triangle-exclamation" href="/erros-de-envio">
+    A mensagem foi aceita e falhou depois: causa e solução.
   </Card>
   <Card title="Eventos de webhook" icon="bell" href="/webhooks/events">
-    Falha de envio em tempo real.
+    Receba a falha de envio em tempo real.
   </Card>
 </CardGroup>

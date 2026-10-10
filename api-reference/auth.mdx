@@ -1,0 +1,94 @@
+---
+title: 'Identidade da chave'
+description: 'Descubra a qual usuário e a quais organizações uma chave de API pertence, para validar a chave no início da integração.'
+---
+
+Dois endpoints de leitura respondem com a identidade do usuário dono da chave. Use para conferir se a chave configurada é a esperada antes de começar a enviar. Os dois pedem chave com permissão `ADMIN`.
+
+<Note>
+  O login do painel (email, link mágico, OAuth e WhatsApp) é interno e não faz parte da API pública. Integrações usam só [chave de API](/api-reference/authentication).
+</Note>
+
+## Conferir a chave
+
+```bash
+curl https://api.ararahq.com/auth/me \
+  -H "Authorization: Bearer $ARARA_API_KEY"
+```
+
+Resposta `200 OK`:
+
+```json
+{
+  "name": "Maria Silva",
+  "email": "maria@exemplo.com.br",
+  "role": null,
+  "emailPending": false
+}
+```
+
+Hoje `role` vem sempre `null` e `emailPending` sempre `false` nesta rota.
+
+## Organizações do usuário
+
+```bash
+curl https://api.ararahq.com/auth/me/organizations \
+  -H "Authorization: Bearer $ARARA_API_KEY"
+```
+
+```json
+{
+  "data": [
+    {
+      "id": "7f8a1c2d-4e5f-6789-abcd-ef0123456789",
+      "slug": "minha-empresa",
+      "name": "Minha Empresa",
+      "role": "OWNER",
+      "mode": "live"
+    }
+  ]
+}
+```
+
+| Campo | Descrição |
+|---|---|
+| `id` | UUID da organização. |
+| `slug` | Identificador legível. Pode vir `null`. |
+| `name` | Nome exibido. |
+| `role` | Papel do usuário naquela organização. |
+| `mode` | `live` quando a conta do usuário está ativa; `test` enquanto não está. |
+
+## Regras que valem saber
+
+- **A chave age sobre uma organização só.** É sempre a organização principal do usuário dono da chave, mesmo que ele participe de outras.
+- **A lista vem na ordem de entrada.** A primeira é a organização em que o usuário entrou primeiro.
+
+## Endpoints
+
+| Método | Caminho | O que faz |
+|---|---|---|
+| `GET` | `/auth/me` | Consultar usuário da chave |
+| `GET` | `/auth/me/organizations` | Listar organizações da chave |
+| `GET` | `/v1/organizations/me/plan` | Consultar plano |
+| `GET` | `/health` | Verificar status da API |
+
+## Erros
+
+As falhas de autenticação voltam no formato padrão do Spring (`timestamp`, `status`, `error`, `path`), sem `error.code`.
+
+| HTTP | Quando |
+|---|---|
+| `401` | Chave inexistente, revogada, expirada, com prefixo errado ou vinda de IP fora da lista permitida. |
+| `403` | Header `Authorization` ausente, ou chave sem permissão `ADMIN`. |
+| `503` | A chave não pôde ser conferida agora. Espere o `Retry-After` e repita. |
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Autenticação" icon="key" href="/api-reference/authentication">
+    Permissões por rota e erros de autenticação.
+  </Card>
+  <Card title="Chaves de API" icon="lock" href="/api-reference/api-keys">
+    Criar, rotacionar e revogar pelo painel.
+  </Card>
+</CardGroup>

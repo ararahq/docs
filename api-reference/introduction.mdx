@@ -1,10 +1,10 @@
 ---
-title: 'Referência da API'
-description: 'Base URL, autenticação, formatos de resposta, paginação, idempotência e rate limits. O que vale para todos os endpoints.'
+title: 'Convenções da API'
+description: 'O que vale para todos os endpoints: base URL, autenticação, telefone, idempotência, paginação, rate limit e formato de erro.'
 keywords: ['api reference', 'base url', 'autenticação', 'paginação', 'idempotência', 'rate limit']
 ---
 
-A API da Arara é REST, JSON na entrada e na saída, com autenticação Bearer por API key. Esta página cobre as convenções gerais. Cada grupo de endpoints tem sua página, e a especificação completa fica na OpenAPI do projeto (`openapi.yaml`).
+A API da Arara é REST, com JSON na entrada e na saída. Esta página declara as convenções uma única vez. Para os campos de cada rota, veja a referência de cada endpoint no menu ao lado.
 
 ## Base URL
 
@@ -16,30 +16,50 @@ Não há versão no host. Os paths de negócio começam em `/v1`. O prefixo `/ap
 
 ## Autenticação
 
+Envie a chave de API no header `Authorization`:
+
 ```
-Authorization: Bearer ara_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer ara_live_...
 ```
 
-A chave é criada no painel. Chave sem permissões explícitas tem acesso total; chave restrita só alcança as rotas do seu escopo. Detalhes em [Autenticação](/api-reference/authentication).
+Crie a chave em [Chaves de API](https://app.ararahq.com/dashboard/apikeys). Permissões, expiração e erros estão em [Autenticação](/api-reference/authentication).
 
-## O que a API key alcança
+## Telefone
+
+O formato canônico é E.164 com `+`: `+5511999999999`. Use esse formato em corpo, path e query.
+
+No envio de mensagem a API também aceita `5511999999999` e `whatsapp:+5511999999999`. Ela remove o prefixo e o `+` e exige de 7 a 15 dígitos. Fora disso responde `422 INVALID_RECIPIENT`.
+
+`POST /v1/conversations/window-status` não faz essa normalização. Mande só dígitos com DDI, com ou sem `+` (`+5511999999999` ou `5511999999999`). A busca tolera o `+` e o nono dígito de celular brasileiro. Com `whatsapp:`, espaços, parênteses ou hífens o telefone não casa com a conversa e a janela volta como fechada.
+
+## O que a chave de API alcança
 
 | Grupo | Rotas principais | Página |
 |---|---|---|
-| Mensagens | `POST /v1/messages`, `POST /v1/messages/batch`, `GET /v1/messages/{id}` | [Mensagens](/api-reference/endpoint/v2/messages) |
-| Conversas | `GET /v1/conversations`, `POST /v1/conversations/reply`, `POST /v1/conversations/window-status` | [Mensagens](/api-reference/endpoint/v2/messages#conversas) |
-| Mídia | `POST /v1/media/upload` | [Mensagens](/api-reference/endpoint/v2/messages#upload-de-mídia) |
-| Templates | `/v1/templates`, `/v1/templates/library`, `/v1/templates/sync` | [Templates](/api-reference/endpoint/v2/templates) |
-| Campanhas | `/v1/campaigns`, `/v1/campaigns/estimate`, `/v1/campaigns/{id}/ab-test` | [Campanhas](/api-reference/endpoint/v2/campaigns) |
-| Contatos, opt-out e LGPD | `/v1/contacts`, `/v1/opt-outs`, `/v1/contacts/{phone}/lgpd` | [Contatos](/api-reference/endpoint/v2/contacts) |
-| Identidade da chave | `GET /auth/me`, `GET /auth/me/organizations` | [Identidade](/api-reference/endpoint/v2/auth) |
-| Smart links, números, carteira, preços, perfil comercial, recuperação | `/v1/smart-links/whatsapp`, `/v1/organizations/me/numbers`, `/dashboard/wallet/balance`, `/v1/pricing/current`, `/v1/recovery/*` | `openapi.yaml` |
+| Mensagens | `POST /v1/messages`, `POST /v1/messages/batch`, `GET /v1/messages/{id}` | [Mensagens](/api-reference/messages) |
+| Conversas | `GET /v1/conversations`, `POST /v1/conversations/reply`, `POST /v1/conversations/window-status` | [Mensagens](/api-reference/messages#endpoints) |
+| Mídia | `POST /v1/media/upload` | [Mensagens](/api-reference/messages#endpoints) |
+| Templates | `/v1/templates`, `/v1/templates/library`, `/v1/templates/sync` | [Templates](/api-reference/templates) |
+| Campanhas | `/v1/campaigns`, `/v1/campaigns/estimate`, `/v1/campaigns/{id}/ab-test` | [Campanhas](/api-reference/campaigns) |
+| Contatos, opt-out e LGPD | `/v1/contacts`, `/v1/opt-outs`, `/v1/contacts/{phone}/lgpd` | [Contatos](/api-reference/contacts) |
+| Identidade da chave | `GET /auth/me`, `GET /auth/me/organizations` | [Identidade](/api-reference/auth) |
+| Formulários | `/v1/flows` | [Formulários](/flows) |
+| Automações | `/v1/automations` | [Automações pela API](/automacoes-api) |
+| Smart links, números, carteira, preços, perfil comercial, recuperação | `/v1/smart-links/whatsapp`, `/v1/organizations/me/numbers`, `/dashboard/wallet/balance`, `/v1/pricing/current`, `/v1/recovery/*` | Referência no menu ao lado |
 
-Gestão de chaves, configuração do webhook, pagamentos e perfil pessoal são operações do painel e **não** aceitam API key.
+Gestão de chaves, pagamentos e perfil pessoal são operações do painel e não aceitam chave de API.
+
+O webhook também é configurado só pelo painel, em [Webhooks](https://app.ararahq.com/dashboard/webhooks). URL, lista de entregas, reenvio e teste não funcionam com chave de API. Veja [Webhooks](/webhooks).
 
 ## Formato de resposta
 
-Sempre JSON. Datas em ISO 8601 (UTC).
+Toda resposta com corpo é JSON. Datas em ISO 8601 (UTC).
+
+Exceções:
+
+- `204 No Content` não tem corpo (por exemplo, cancelar campanha).
+- `GET /v1/messages/{id}` responde `403` e `404` sem corpo.
+- `401` e `403` de autenticação trazem o JSON padrão do servidor, fora do envelope de erro. Veja [Autenticação](/api-reference/authentication#erros-de-autenticação).
 
 ### Objeto único
 
@@ -49,7 +69,7 @@ Sempre JSON. Datas em ISO 8601 (UTC).
   "status": "PENDING",
   "mode": "LIVE",
   "sender": "whatsapp:+5511888888888",
-  "receiver": "whatsapp:+5511999999999",
+  "receiver": "+5511999999999",
   "body": null,
   "cost": 0.3835,
   "reason": null
@@ -58,7 +78,7 @@ Sempre JSON. Datas em ISO 8601 (UTC).
 
 ### Listas
 
-O envelope padrão é `{ data, pagination }`:
+O envelope mais comum é `{ data, pagination }`:
 
 ```json
 {
@@ -68,7 +88,7 @@ O envelope padrão é `{ data, pagination }`:
 ```
 
 <Warning>
-  Nem toda lista segue o padrão ainda. Confira o envelope de cada rota:
+  O envelope de lista muda por rota. Confira antes de ler a resposta:
 
   | Rota | Envelope |
   |---|---|
@@ -92,7 +112,7 @@ O envelope padrão é `{ data, pagination }`:
 }
 ```
 
-Falha de autenticação e alguns `404` fogem desse formato. Lista completa em [Erros](/erros).
+Trate pelo status HTTP e depois por `error.code`. Falha de autenticação e alguns `404` saem fora desse formato. Códigos e exceções em [Erros](/erros).
 
 ## Paginação
 
@@ -103,8 +123,10 @@ Falha de autenticação e alguns `404` fogem desse formato. Lista completa em [E
 
 ```bash
 curl "https://api.ararahq.com/v1/templates?page=1&size=50" \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
+
+Os parâmetros são os mesmos em todas as listas paginadas. O nome dos campos da resposta muda por rota, como mostra a tabela em [Listas](#listas). `GET /v1/opt-outs` não tem paginação.
 
 ## Idempotência
 
@@ -114,15 +136,16 @@ curl "https://api.ararahq.com/v1/templates?page=1&size=50" \
 | `POST /v1/messages/batch` | opcional | Mesma chave: devolve o lote original. |
 | `POST /v1/campaigns` | **obrigatório** | Mesma chave: devolve a campanha já criada. |
 
-Regras que valem hoje:
+Regras:
 
 - A chave tem de 1 a 255 caracteres, sem caracteres de controle. Fora disso: `400 INVALID_IDEMPOTENCY_KEY`.
 - A chave não expira.
-- O corpo **não** é comparado: reusar a chave com outro destinatário devolve a mensagem antiga, sem erro. Gere uma chave por intenção de envio.
+- Derive a chave de um evento do seu sistema (id do pedido, id da tentativa). Não gere um valor novo a cada chamada, senão a retentativa duplica o envio.
+- Em `POST /v1/messages` o corpo não é comparado: reusar a chave com outro destinatário devolve a mensagem antiga, sem erro. Use uma chave por intenção de envio.
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/messages \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Idempotency-Key: pedido-12345-confirmacao" \
   -H "Content-Type: application/json" \
   -d '{ "receiver": "+5511999999999", "templateName": "pedido_confirmado", "templateVariables": ["João", "12345"] }'
@@ -153,7 +176,20 @@ X-RateLimit-Remaining: 0
 }
 ```
 
-Além disso, o envio tem travas próprias: `SEND_RATE_LIMITED` (com `Retry-After`) e `MARKETING_FREQUENCY_EXCEEDED`. Ver [Erros](/erros#envio).
+### Quais respostas trazem `Retry-After`
+
+| Resposta | `Retry-After` |
+|---|---|
+| `429 RATE_LIMIT_EXCEEDED` | Sim, junto com `X-RateLimit-Remaining`. |
+| `429 SEND_RATE_LIMITED` | Sim. |
+| `429 BATCH_BUSY` | Sim. |
+| `429 RECOVERY_RATE_LIMITED` | Sim, 60 segundos. |
+| `429` nos hooks de automação | Sim. |
+| `429 MARKETING_FREQUENCY_EXCEEDED` | Não. Esperar não resolve: o contato já recebeu marketing demais na janela. |
+| `503 SEND_TEMPORARILY_UNAVAILABLE` | Sim. |
+| `503` de autenticação (banco indisponível) | Sim, 5 segundos. |
+
+Quando o header vier, espere o tempo indicado e repita a chamada com a mesma `Idempotency-Key`.
 
 ## Status HTTP
 
@@ -166,22 +202,29 @@ Além disso, o envio tem travas próprias: `SEND_RATE_LIMITED` (com `Retry-After
 | `400` | Payload ou parâmetro inválido |
 | `401` | Chave inválida, revogada, expirada ou IP fora da allowlist |
 | `402` | Saldo insuficiente |
-| `403` | Sem `Authorization`, chave fora do escopo, plano ou conta sem permissão |
+| `403` | Sem `Authorization`, chave sem permissão para a rota, plano ou conta sem permissão |
 | `404` | Recurso não existe |
 | `409` | Conflito de estado |
 | `422` | Regra de negócio (opt-out, janela fechada, template não enviável) |
 | `429` | Rate limit |
 | `500` | Erro interno |
 | `502` | Provedor externo indisponível |
-| `503` | Serviço indisponível |
+| `503` | Serviço indisponível. Traz `Retry-After` |
 
-## Convenções
+## Status e enums
 
-### Telefone
+Enums vêm em maiúsculas (`LIVE`, `MARKETING`, `APPROVED`).
 
-Envie em E.164. No envio de mensagem, `+5511999999999`, `5511999999999` e `whatsapp:+5511999999999` são aceitos. Em path (`/v1/contacts/{phone}`, `/v1/opt-outs/{phone}`) use sempre `+5511999999999`.
+O status da mensagem tem duas grafias:
 
-### IDs
+| Onde | Valores |
+|---|---|
+| REST (`POST /v1/messages`, `GET /v1/messages/{id}`) | `PENDING`, `SCHEDULED`, `PROCESSING`, `SENT`, `DELIVERED`, `READ`, `FAILED`, `CANCELED` |
+| Webhook `message.status_updated` | `queued`, `scheduled`, `processing`, `sent`, `delivered`, `read`, `failed`, `canceled` |
+
+`PENDING` no REST é `queued` no webhook.
+
+## IDs
 
 | Recurso | Formato |
 |---|---|
@@ -190,28 +233,24 @@ Envie em E.164. No envio de mensagem, `+5511999999999`, `5511999999999` e `whats
 
 Rota que espera UUID e recebe outra coisa responde `400 INVALID_PATH_PARAM`.
 
-### Valores monetários
+## Valores monetários
 
 Custos e saldos (`cost`, `totalCost`, `balance`, `threshold`, `amount`) vêm em **reais, decimal** (`0.3835`). Campos com sufixo `Cents` (`amountCents`, `monthlyPriceCents`) vêm em centavos inteiros.
 
-### Enums
-
-Em maiúsculas (`LIVE`, `MARKETING`, `APPROVED`), exceto no webhook `message.status_updated`, que usa minúsculas.
-
 ## CORS
 
-A API só libera CORS para domínios da Arara. Chamada direta do navegador do seu cliente é bloqueada, e a chave nunca deve ir para o frontend: chame a API a partir do seu backend.
+A API só libera CORS para domínios da Arara. Chamada direta do navegador é bloqueada. Chame a API a partir do seu backend.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Autenticação" icon="key" href="/api-reference/authentication">
-    Formato da chave, permissões, allowlist.
+    Como enviar a chave, permissões e erros.
   </Card>
   <Card title="Erros" icon="circle-exclamation" href="/erros">
     Códigos e como tratar cada um.
   </Card>
-  <Card title="Mensagens" icon="paper-plane" href="/api-reference/endpoint/v2/messages">
+  <Card title="Mensagens" icon="paper-plane" href="/api-reference/messages">
     O endpoint mais usado.
   </Card>
   <Card title="Webhooks" icon="bell" href="/webhooks">

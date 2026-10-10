@@ -1,0 +1,108 @@
+---
+title: 'Templates'
+description: 'Visão geral do recurso de templates: o objeto, a criação, as regras de aprovação que afetam a API e a lista de endpoints.'
+keywords: ['templates', 'hsm', 'meta approval', 'utility', 'marketing', 'authentication', 'carousel', 'biblioteca']
+---
+
+Um template é uma mensagem aprovada pela Meta, a única que pode ser enviada fora da [janela de 24h](/concepts/24h-window). Você cria pela API, a Meta revisa, e depois de aprovado você envia pelo nome em `POST /v1/messages`. Categorias e regras de aprovação ficam em [Templates](/concepts/templates) e [Política de templates](/templates/policy).
+
+## O objeto template
+
+| Campo | Descrição |
+|---|---|
+| `id` | UUID do template. |
+| `name` | Nome usado no envio (`templateName`). Único por conta WhatsApp Business. |
+| `category` | `UTILITY`, `MARKETING` ou `AUTHENTICATION`. A Meta pode mudar na revisão; a categoria pedida fica em `originalCategory`. |
+| `providerStatus` | `PENDING`, `APPROVED`, `REJECTED`, `PAUSED` ou `DISABLED`. |
+| `rejectionReason` | Motivo da Meta quando `REJECTED`. |
+| `availableForSending` | `false` quando o template foi aprovado em um número que a organização não usa mais. |
+| `bodyPreview` | Corpo com os marcadores `{{1}}`, `{{2}}`. |
+
+## Criar um template
+
+```bash
+curl -X POST https://api.ararahq.com/v1/templates \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "pedido_confirmado",
+    "category": "UTILITY",
+    "language": "pt_BR",
+    "body": "Oi {{1}}, seu pedido {{2}} foi confirmado. Total: R$ {{3}}.",
+    "footer": "Acompanhe pelo nosso site",
+    "samples": { "1": "João", "2": "12345", "3": "147,90" }
+  }'
+```
+
+Resposta `201 Created` (resumida):
+
+```json
+{
+  "id": "a7f3c1e2-4b5d-6789-abcd-ef0123456789",
+  "name": "pedido_confirmado",
+  "category": "UTILITY",
+  "language": "pt_BR",
+  "providerStatus": "PENDING",
+  "rejectionReason": null,
+  "availableForSending": true,
+  "bodyPreview": "Oi {{1}}, seu pedido {{2}} foi confirmado. Total: R$ {{3}}.",
+  "createdAt": "2026-09-15T14:30:00Z"
+}
+```
+
+`providerStatus` fica em `PENDING` até a Meta decidir. O resultado chega pelo webhook [`template.updated`](/webhooks/events), sem precisar consultar em laço.
+
+## Regras que valem saber
+
+- **Aprovação é por conta WhatsApp Business.** Trocou de número ou de conexão, o template aprovado fica na conta antiga e aparece com `availableForSending: false`. Recrie no número ativo.
+- **Nome repetido responde `409 CONFLICT`.** O mesmo código vale para conteúdo bloqueado pela moderação da Arara.
+- **Corpo não começa nem termina com variável.** Mande um exemplo por variável em `samples` (objeto, não array): a Meta usa na revisão.
+- **`AUTHENTICATION` tem conteúdo fixo.** A Arara envia à Meta o texto `{{1}} é o seu código de verificação` com um botão de copiar código, em `pt_BR`. `body`, `buttons` e `language` enviados não mudam o template. No envio, passe o código como única variável.
+- **Botões.** Até 10, texto de até 20 caracteres, no máximo 2 de link (`URL` e `SMART_LINK`) e 1 de telefone. O tipo `FLOW` abre um [formulário](/flows) e o tipo `CHARGE` leva uma [cobrança](/cobrancas).
+- **Carrossel.** De 2 a 10 cards, cada um com mídia, texto e até 2 botões, todos com a mesma estrutura de botões.
+- **Biblioteca da Meta.** `POST /v1/templates/library` cria um template `UTILITY` que já nasce aprovado. Exige número conectado (`422 GUPSHUP_APP_NOT_READY` sem ele).
+- **`id` é UUID.** Passar o nome em `GET /v1/templates/{id}` responde `400 INVALID_PATH_PARAM`. Para buscar por nome, use `GET /v1/templates?name=`.
+- **Template pausado não envia.** `PAUSED` responde `422 TEMPLATE_PAUSED` no envio; `DISABLED` e não aprovado respondem `422 TEMPLATE_NOT_SENDABLE`.
+- **Apagar é irreversível.** A Arara apaga primeiro na Meta; se a Meta recusar, nada é apagado.
+- **Conta ativa.** Todas as rotas exigem conta ativada (`403 ACCOUNT_NOT_ACTIVATED`).
+
+### Limite de templates
+
+Os planos atuais não têm limite de templates. Contas no plano Free legado têm teto de 3 templates aprovados e recebem `403 PLAN_LIMIT_REACHED`.
+
+## Endpoints
+
+| Método | Caminho | O que faz |
+|---|---|---|
+| `POST` | `/v1/templates` | Criar template |
+| `GET` | `/v1/templates` | Listar templates |
+| `GET` | `/v1/templates/{id}` | Consultar template |
+| `DELETE` | `/v1/templates/{id}` | Apagar template |
+| `GET` | `/v1/templates/{id}/status` | Consultar status de aprovação |
+| `GET` | `/v1/templates/{id}/analytics` | Consultar métricas do template |
+| `GET` | `/v1/templates/analytics` | Listar métricas dos templates |
+| `GET` | `/v1/templates/library` | Listar biblioteca de templates |
+| `POST` | `/v1/templates/library` | Criar template da biblioteca |
+| `POST` | `/v1/templates/sync` | Sincronizar templates |
+
+## Erros mais comuns
+
+| HTTP | `error.code` | Quando |
+|---|---|---|
+| `400` | `VALIDATION_ERROR` | `name`, `category` ou `body` em branco. |
+| `400` | `INVALID_JSON` | JSON malformado, ou `samples` enviado como array. |
+| `403` | `ACCOUNT_NOT_ACTIVATED` | Conta ainda não ativada. |
+| `404` | `TEMPLATE_NOT_FOUND` | Template não existe. |
+| `409` | `CONFLICT` | Nome já existe na conta WhatsApp Business, ou conteúdo bloqueado pela moderação. |
+| `422` | `UNPROCESSABLE_ENTITY` | Categoria inválida, variável no começo ou fim do corpo, botões ou carrossel fora dos limites. |
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Política de templates" icon="scale-balanced" href="/templates/policy">
+    O que a Meta aprova e reprova.
+  </Card>
+  <Card title="Por que minha mensagem falhou" icon="triangle-exclamation" href="/erros-de-envio">
+    Erros de template no envio.
+  </Card>
+</CardGroup>
