@@ -1,13 +1,14 @@
 ---
 title: 'Cal.com'
-description: 'Deixe o Brain consultar horários livres e criar agendamentos no Cal.com direto pelo WhatsApp.'
+description: 'Configure o Brain para consultar horários livres e criar agendamentos no Cal.com pelo WhatsApp.'
 ---
 
-A Action `CAL_COM_BOOKING` liga um event type do Cal.com ao Brain. O cliente pergunta "tem horário amanhã?", o Brain consulta os horários livres do dia, o cliente escolhe e o Brain cria o agendamento.
+Ao final deste guia, o Brain consulta horários livres do Cal.com e cria o agendamento pelo WhatsApp, pela Action `CAL_COM_BOOKING`. O cliente pergunta "tem horário amanhã?", o Brain lista os horários do dia, o cliente escolhe e o Brain agenda.
 
-<Note>
-  Você precisa de uma conta [Cal.com](https://cal.com) com pelo menos um event type. A disponibilidade é a que o Cal.com enxerga, incluindo os calendários conectados a ele (Google, Outlook).
-</Note>
+## Antes de começar
+
+- Conta [Cal.com](https://cal.com) com pelo menos um event type. A disponibilidade é a que o Cal.com enxerga, incluindo os calendários conectados a ele (Google, Outlook).
+- [Brain](/brain) configurado, com plano que inclui Brain e número dedicado.
 
 ## Quando o Brain usa
 
@@ -20,10 +21,10 @@ A Action tem duas operações:
 | `list_slots` | `date` (`YYYY-MM-DD`) | Busca os horários livres do dia e mostra até 6 |
 | `book_slot` | `date`, `slot_start` (ISO com fuso), `attendee_name`, `attendee_email` (opcional) | Cria o agendamento |
 
-## Setup
+## Passos
 
 <Steps>
-  <Step title="Gere uma API key no Cal.com">
+  <Step title="Gere uma chave de API no Cal.com">
     Em **Settings → Developer → API Keys**.
   </Step>
   <Step title="Descubra o id do event type">
@@ -32,7 +33,7 @@ A Action tem duas operações:
   <Step title="Habilite na Arara">
     ```bash
     curl -X POST https://api.ararahq.com/v1/brain/actions \
-      -H "Authorization: Bearer ara_live_xxx" \
+      -H "Authorization: Bearer $ARARA_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "actionType": "CAL_COM_BOOKING",
@@ -74,11 +75,13 @@ Brain:     "Agendamento confirmado pra 16/09 às 10h00, Ana.
 - **Email**: sem `attendee_email`, o agendamento é criado com um email interno e o cliente não recebe convite. O Brain é instruído a pedir o email antes.
 - **Sem cobrança**: se o evento exige pagamento, use a Action [Stripe](/brain/actions/stripe) ou [AbacatePay](/brain/actions/abacate-pix) separadamente.
 
+## Próximos passos
+
 <CardGroup cols={2}>
-  <Card title="Receita: atendimento no inbox" icon="calendar-check" href="/recipes/inbox-support">
-    Fluxo de atendimento com o Brain.
+  <Card title="AbacatePay (Pix)" icon="qrcode" href="/brain/actions/abacate-pix">
+    Cobrança Pix dentro da conversa.
   </Card>
-  <Card title="Brain" icon="sliders" href="/brain">
-    Configuração, regras e pré-requisitos.
+  <Card title="Voltar ao Brain" icon="brain" href="/brain">
+    Configuração, Actions disponíveis e regras.
   </Card>
 </CardGroup>

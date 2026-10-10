@@ -3,6 +3,8 @@ title: 'SDK Java / Kotlin'
 description: 'SDK Java oficial da Arara (com.ararahq:arara-java-sdk): Java 17+, OkHttp, builders Lombok, retry automático. Distribuído pelo GitHub Packages e compatível com Kotlin e Spring Boot.'
 ---
 
+## Instalar
+
 Versão publicada: **1.8.1**, no **GitHub Packages** (não está no Maven Central). O GitHub Packages exige autenticação até para leitura: use seu usuário do GitHub e um personal access token com escopo `read:packages`.
 
 ```kotlin
@@ -41,7 +43,7 @@ dependencies {
 
 Requer Java 17+. Dependências transitivas: OkHttp 4, Jackson 2.18 e SLF4J 2. Funciona igual em Kotlin.
 
-## Setup
+## Configurar
 
 ```java
 import com.ararahq.arara.sdk.Arara;
@@ -67,141 +69,7 @@ val arara = Arara.builder()
     .build()
 ```
 
-## Recursos disponíveis (1.8.1)
-
-| Recurso | Acesso | Métodos |
-|---|---|---|
-| Messages | `arara.getMessages()` | `send(SendMessageRequest)` |
-| Templates | `arara.getTemplates()` | `create(CreateTemplateRequest)`, `getById(UUID)`, `getStatus(UUID)`, `delete(UUID)` |
-| Users | `arara.getUsers()` | `me()`, `updateMe(UpdateUserRequest)` |
-| Campaigns | `arara.getCampaigns()` | `getById(UUID)` |
-
-`getTemplates().list` e `getCampaigns().create` existem, mas falham contra a API atual. Detalhes em **Limitações conhecidas**, no fim da página.
-
-<Note>
-  A branch `main` do repositório já tem `getContacts()`, `getConversations()`, `getWallet()`, `getNumbers()`, `getSmartLinks()`, `getApiKeys()` e `getOrganizations()`, mas essa versão ainda não foi publicada.
-</Note>
-
-## Enviar mensagem
-
-```java
-import com.ararahq.arara.sdk.models.MessageResponse;
-import com.ararahq.arara.sdk.models.SendMessageRequest;
-import java.util.List;
-
-MessageResponse response = arara.getMessages().send(
-    SendMessageRequest.builder()
-        .receiver("whatsapp:+5511999999999")
-        .templateName("confirmacao_pedido")
-        .templateVariables(List.of(
-            "https://meusite.com/nota/123.pdf", // header (mídia opcional)
-            "João",                              // {{1}}
-            "ARA-12345"                          // {{2}}
-        ))
-        .build()
-);
-
-System.out.println(response.getId());     // ara_msg_...
-System.out.println(response.getStatus()); // status inicial da mensagem
-```
-
-O `receiver` precisa começar com `whatsapp:+`. Fora disso o SDK lança `AraraException` sem chamar a API.
-
-**Mensagem de sessão (texto livre, dentro da janela de 24h):**
-
-```java
-arara.getMessages().send(
-    SendMessageRequest.builder()
-        .receiver("whatsapp:+5511999999999")
-        .body("Oi! Vi sua dúvida e respondo já já.")
-        .build()
-);
-```
-
-O SDK não aceita chave de idempotência no envio e não consulta mensagem depois do envio. O status chega pelo webhook `message.status_updated`.
-
-## Templates
-
-```java
-import com.ararahq.arara.sdk.models.CreateTemplateRequest;
-import com.ararahq.arara.sdk.models.TemplateResponse;
-import com.ararahq.arara.sdk.models.TemplateStatusResponse;
-import java.util.Map;
-
-TemplateResponse template = arara.getTemplates().create(
-    CreateTemplateRequest.builder()
-        .name("promo_natal")
-        .category("MARKETING")
-        .language("pt_BR")
-        .body("Oi {{1}}, oferta de Natal: {{2}}% off até {{3}}.")
-        .samples(Map.of("1", "João", "2", "30", "3", "sexta"))
-        .build()
-);
-
-TemplateStatusResponse status = arara.getTemplates().getStatus(template.getId());
-System.out.println(status.getStatus() + " " + status.getRejectionReason());
-
-arara.getTemplates().delete(template.getId());
-```
-
-## Campanhas
-
-```java
-import com.ararahq.arara.sdk.models.CampaignResponse;
-import java.util.UUID;
-
-CampaignResponse campaign = arara.getCampaigns().getById(UUID.fromString("..."));
-System.out.println(campaign.getStatus() + " " + campaign.getTotalMessages());
-```
-
-Para criar campanha, use a API direto por enquanto (ver limitações).
-
-## Erros
-
-```java
-import com.ararahq.arara.sdk.exceptions.AraraApiException;
-import com.ararahq.arara.sdk.exceptions.AraraAuthException;
-import com.ararahq.arara.sdk.exceptions.AraraException;
-import com.ararahq.arara.sdk.exceptions.AraraNetworkException;
-import com.ararahq.arara.sdk.exceptions.AraraRateLimitException;
-
-try {
-    arara.getMessages().send(request);
-} catch (AraraRateLimitException e) {
-    System.err.println("Tente de novo em " + e.getRetryAfter()); // Duration, pode ser null
-} catch (AraraApiException e) {
-    System.err.println("HTTP " + e.getStatusCode());
-    if (e.getErrorDetails() != null) {
-        System.err.println(e.getErrorDetails().getCode() + ": " + e.getErrorDetails().getMessage());
-    }
-} catch (AraraAuthException e) {
-    System.err.println("Chave inválida ou sem permissão: " + e.getMessage());
-} catch (AraraNetworkException e) {
-    System.err.println("Falha de rede: " + e.getMessage());
-} catch (AraraException e) {
-    System.err.println(e.getMessage());
-}
-```
-
-| Exceção | Quando |
-|---|---|
-| `AraraAuthException` | 401 ou 403. Só traz a mensagem; o `error.code` se perde. |
-| `AraraRateLimitException` | 429. Estende `AraraApiException`; `getRetryAfter()` devolve `Duration`. |
-| `AraraApiException` | Qualquer outro 4xx/5xx. `getStatusCode()` e `getErrorDetails()` (`code`, `message`, `details`). |
-| `AraraNetworkException` | Falha de rede, timeout ou resposta que não deu para desserializar. |
-| `AraraException` | Base de todas (unchecked). Também usada para validação local. |
-
-A API responde 403 (não 401) para chave inválida, e também para bloqueios de plano. Lista de códigos em [Erros](/erros).
-
-## Retry
-
-Um interceptor OkHttp retenta até `maxRetries` vezes em falha de rede, 429 e qualquer 5xx. Respeita `Retry-After` (segundos ou data HTTP); sem ele, espera 500ms e dobra a cada tentativa, até 8s. Para desligar: `.maxRetries(0)`.
-
-<Warning>
-  O retry reenvia `POST /v1/messages` em 5xx e o SDK não manda chave de idempotência. Se duplicar mensagem for inaceitável, use `.maxRetries(0)`.
-</Warning>
-
-## Spring Boot
+### Spring Boot
 
 ```java
 @Configuration
@@ -240,7 +108,78 @@ public class OrderService {
 
 Evite chamar a classe de configuração de `AraraConfig`: o SDK já tem `com.ararahq.arara.sdk.config.AraraConfig`.
 
-## Kotlin coroutines
+## Enviar a primeira mensagem
+
+Você precisa de plano assinado, número conectado, um template aprovado e saldo. Veja [Antes de começar](/quickstart#antes-de-começar). Troque `pedido_confirmado` pelo nome do seu template.
+
+Salve como `Main.java`:
+
+```java
+import com.ararahq.arara.sdk.Arara;
+import com.ararahq.arara.sdk.models.MessageResponse;
+import com.ararahq.arara.sdk.models.SendMessageRequest;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        Arara arara = Arara.builder()
+            .apiKey(System.getenv("ARARA_API_KEY"))
+            .build();
+
+        MessageResponse response = arara.getMessages().send(
+            SendMessageRequest.builder()
+                .receiver("whatsapp:+5511999999999")
+                .templateName("pedido_confirmado")
+                .templateVariables(List.of("João", "12345"))
+                .build()
+        );
+
+        System.out.println(response.getId());     // ara_msg_...
+        System.out.println(response.getStatus()); // status inicial da mensagem
+    }
+}
+```
+
+Rode, com o plugin `application` do Gradle configurado com `mainClass = "Main"`:
+
+```bash
+ARARA_API_KEY=ara_live_... ./gradlew run
+```
+
+O `receiver` precisa começar com `whatsapp:+`. Fora disso o SDK lança `AraraException` sem chamar a API.
+
+Com variáveis no corpo do template e mídia no header:
+
+```java
+import java.util.List;
+
+arara.getMessages().send(
+    SendMessageRequest.builder()
+        .receiver("whatsapp:+5511999999999")
+        .templateName("confirmacao_pedido")
+        .templateVariables(List.of(
+            "https://meusite.com/nota/123.pdf", // header (mídia opcional)
+            "João",                              // {{1}}
+            "ARA-12345"                          // {{2}}
+        ))
+        .build()
+);
+```
+
+Para responder dentro da janela de 24h, mande `body` em vez de `templateName`:
+
+```java
+arara.getMessages().send(
+    SendMessageRequest.builder()
+        .receiver("whatsapp:+5511999999999")
+        .body("Oi! Vi sua dúvida e respondo já já.")
+        .build()
+);
+```
+
+O SDK não consulta mensagem depois do envio. O status chega pelo webhook `message.status_updated`.
+
+### Kotlin coroutines
 
 As chamadas são bloqueantes. Em coroutines, rode no dispatcher de IO:
 
@@ -250,6 +189,148 @@ suspend fun sendAsync(req: SendMessageRequest): MessageResponse = withContext(Di
 }
 ```
 
+## Templates
+
+```java
+import com.ararahq.arara.sdk.models.CreateTemplateRequest;
+import com.ararahq.arara.sdk.models.TemplateResponse;
+import com.ararahq.arara.sdk.models.TemplateStatusResponse;
+import java.util.Map;
+
+TemplateResponse template = arara.getTemplates().create(
+    CreateTemplateRequest.builder()
+        .name("promo_natal")
+        .category("MARKETING")
+        .language("pt_BR")
+        .body("Oi {{1}}, oferta de Natal: {{2}}% off até {{3}}.")
+        .samples(Map.of("1", "João", "2", "30", "3", "sexta"))
+        .build()
+);
+
+TemplateStatusResponse status = arara.getTemplates().getStatus(template.getId());
+System.out.println(status.getStatus() + " " + status.getRejectionReason());
+
+arara.getTemplates().delete(template.getId());
+```
+
+## Tratar erros
+
+```java
+import com.ararahq.arara.sdk.exceptions.AraraApiException;
+import com.ararahq.arara.sdk.exceptions.AraraAuthException;
+import com.ararahq.arara.sdk.exceptions.AraraException;
+import com.ararahq.arara.sdk.exceptions.AraraNetworkException;
+import com.ararahq.arara.sdk.exceptions.AraraRateLimitException;
+
+try {
+    arara.getMessages().send(request);
+} catch (AraraRateLimitException e) {
+    System.err.println("Tente de novo em " + e.getRetryAfter()); // Duration, pode ser null
+} catch (AraraApiException e) {
+    System.err.println("HTTP " + e.getStatusCode());
+    if (e.getErrorDetails() != null) {
+        System.err.println(e.getErrorDetails().getCode() + ": " + e.getErrorDetails().getMessage());
+    }
+} catch (AraraAuthException e) {
+    System.err.println("Chave inválida ou sem permissão: " + e.getMessage());
+} catch (AraraNetworkException e) {
+    System.err.println("Falha de rede: " + e.getMessage());
+} catch (AraraException e) {
+    System.err.println(e.getMessage());
+}
+```
+
+| Exceção | Quando |
+|---|---|
+| `AraraAuthException` | 401 ou 403. Só traz a mensagem; o `error.code` se perde. |
+| `AraraRateLimitException` | 429. Estende `AraraApiException`; `getRetryAfter()` devolve `Duration`. |
+| `AraraApiException` | Qualquer outro 4xx/5xx. `getStatusCode()` e `getErrorDetails()` (`code`, `message`, `details`). |
+| `AraraNetworkException` | Falha de rede, timeout ou resposta que não deu para desserializar. |
+| `AraraException` | Base de todas (unchecked). Também usada para validação local. |
+
+A API responde 401 para chave inválida, revogada ou expirada, e 403 quando o header `Authorization` está ausente ou a chave não tem permissão para a rota. Lista de códigos em [Erros](/erros).
+
+## Retentativas e idempotência
+
+Um interceptor OkHttp retenta até `maxRetries` vezes em falha de rede, 429 e qualquer 5xx. Respeita `Retry-After` (segundos ou data HTTP); sem ele, espera 500ms e dobra a cada tentativa, até 8s. Para desligar: `.maxRetries(0)`.
+
+<Warning>
+  O retry reenvia `POST /v1/messages` em 5xx e o SDK não aceita chave de idempotência no envio. Se duplicar mensagem for inaceitável, use `.maxRetries(0)`.
+</Warning>
+
+## Webhooks
+
+O SDK não tem helper de webhook. Valide a assinatura antes de processar, com o corpo cru da requisição (bytes exatamente como chegaram). A string assinada é `"{X-Arara-Timestamp}.{corpo cru}"`:
+
+```java
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.HexFormat;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+public final class AraraSignature {
+    private static final long TOLERANCE_SECONDS = 300;
+    private static final int MAX_TIMESTAMP_DIGITS = 12;
+    private static final String PREFIX = "sha256=";
+    private static final String HMAC_ALGORITHM = "HmacSHA256";
+
+    private AraraSignature() {}
+
+    public static boolean isValid(byte[] rawBody, String timestamp, String signature, String secret)
+            throws GeneralSecurityException {
+        if (timestamp == null || signature == null || !signature.startsWith(PREFIX)) {
+            return false;
+        }
+        if (!timestamp.matches("\\d{1," + MAX_TIMESTAMP_DIGITS + "}")) {
+            return false;
+        }
+        long age = Math.abs(Instant.now().getEpochSecond() - Long.parseLong(timestamp));
+        if (age > TOLERANCE_SECONDS) {
+            return false;
+        }
+
+        Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
+        mac.update((timestamp + ".").getBytes(StandardCharsets.UTF_8));
+        mac.update(rawBody);
+
+        String expected = HexFormat.of().formatHex(mac.doFinal());
+        String received = signature.substring(PREFIX.length());
+        return MessageDigest.isEqual(
+            expected.getBytes(StandardCharsets.UTF_8),
+            received.getBytes(StandardCharsets.UTF_8));
+    }
+}
+```
+
+`timestamp` e `signature` vêm dos headers `X-Arara-Timestamp` e `X-Arara-Signature`. Use `MessageDigest.isEqual`, nunca `equals`. Depois de validar, trate o evento pelo campo `event`. Detalhes e catálogo em [Webhooks](/webhooks).
+
+## Recursos disponíveis
+
+| Recurso | Acesso | Métodos |
+|---|---|---|
+| Messages | `arara.getMessages()` | `send(SendMessageRequest)` |
+| Templates | `arara.getTemplates()` | `create(CreateTemplateRequest)`, `getById(UUID)`, `getStatus(UUID)`, `delete(UUID)` |
+| Users | `arara.getUsers()` | `me()`, `updateMe(UpdateUserRequest)` |
+| Campaigns | `arara.getCampaigns()` | `getById(UUID)` |
+
+`getTemplates().list` e `getCampaigns().create` existem, mas falham contra a API atual. Detalhes em **Limitações conhecidas**. Para criar campanha, use a API direto por enquanto.
+
+```java
+import com.ararahq.arara.sdk.models.CampaignResponse;
+import java.util.UUID;
+
+CampaignResponse campaign = arara.getCampaigns().getById(UUID.fromString("..."));
+System.out.println(campaign.getStatus() + " " + campaign.getTotalMessages());
+```
+
+<Note>
+  A branch `main` do repositório já tem `getContacts()`, `getConversations()`, `getWallet()`, `getNumbers()`, `getSmartLinks()`, `getApiKeys()` e `getOrganizations()`, mas essa versão ainda não foi publicada.
+</Note>
+
 ## Limitações conhecidas
 
 | Método | Problema |
@@ -258,17 +339,15 @@ suspend fun sendAsync(req: SendMessageRequest): MessageResponse = withContext(Di
 | `getTemplates().list()` | A API responde `{ data, pagination }` e o SDK espera um array: lança `AraraNetworkException` ao desserializar. |
 | `getCampaigns().create(request)` | Não envia o header `Idempotency-Key`, obrigatório na API: 400. |
 
-## Source
-
-GitHub: [github.com/ararahq/arara-java-sdk](https://github.com/ararahq/arara-java-sdk) · MIT
-
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="API Reference" icon="code" href="/api-reference/introduction">
     Endpoints REST por baixo do SDK.
   </Card>
-  <Card title="MCP Server" icon="server" href="/mcp-server">
-    Conecte agentes de IA à mesma conta.
+  <Card title="Webhooks" icon="bell" href="/webhooks">
+    Eventos, payload e validação de assinatura.
   </Card>
 </CardGroup>
+
+Código-fonte: [github.com/ararahq/arara-java-sdk](https://github.com/ararahq/arara-java-sdk) (MIT).

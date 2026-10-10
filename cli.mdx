@@ -8,6 +8,10 @@ O `arara` é a CLI da Arara. Binário único em Go para macOS, Linux e Windows (
 
 Serve para ver a API funcionando antes de escrever código e para a operação do dia a dia: conferir status de mensagem, acompanhar eventos, depurar webhook.
 
+<Note>
+  O `arara mcp` da CLI é um servidor MCP local e enxuto, separado do pacote `@ararahq/mcp`. Para conectar Claude, Cursor ou outro agente, use o [MCP Server](/mcp-server).
+</Note>
+
 ```bash
 # Autenticar (abre o navegador)
 arara login
@@ -69,7 +73,7 @@ arara doctor
 arara login
 ```
 
-Por padrão o login usa o OAuth Device Flow: a CLI mostra um código e um link, você aprova no navegador com a sua conta da Arara e a CLI guarda o token. Credenciais ficam no keyring do sistema (Keychain no macOS, Secret Service no Linux, Credential Manager no Windows), com fallback para `~/.arara/config.yaml` (permissão 600).
+Por padrão o login usa o OAuth Device Flow: a CLI mostra um código e um link, você aprova no navegador com a sua conta da Arara e a CLI guarda as credenciais. Elas ficam no keyring do sistema (Keychain no macOS, Secret Service no Linux, Credential Manager no Windows), com fallback para `~/.arara/config.yaml` (permissão 600).
 
 Para automação (CI, servidor), autentique com uma chave de API. Prefira passar a chave por stdin, que não fica no histórico do shell nem na lista de processos:
 
@@ -278,7 +282,7 @@ arara mcp --dry-run                      # lista as ferramentas sem subir o serv
 arara mcp --dry-run --allow-write-tools
 ```
 
-Para agentes de IA, o caminho recomendado é o pacote [`@ararahq/mcp`](/mcp-server), com login OAuth próprio e ferramentas pensadas para operação em linguagem natural.
+Este servidor é diferente do `@ararahq/mcp`, que tem login OAuth próprio e ferramentas pensadas para operação em linguagem natural. Para agentes de IA, use o [MCP Server](/mcp-server).
 
 ## CI/CD
 
@@ -311,7 +315,7 @@ A URL da API é configurada por perfil (`arara config set api-url <url>`). O pad
 
 <CardGroup cols={2}>
   <Card title="MCP Server" icon="server" href="/mcp-server">
-    Conecte Claude, Cursor ou ChatGPT à sua conta.
+    Conecte Claude, Cursor ou outro cliente MCP à sua conta.
   </Card>
   <Card title="API Reference" icon="code" href="/api-reference/introduction">
     A API REST por baixo dos comandos.

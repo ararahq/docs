@@ -1,17 +1,18 @@
 ---
 title: 'AbacatePay (Pix)'
-description: 'Deixe o Brain gerar cobrança Pix na sua conta AbacatePay e enviar o link e o código copia-e-cola direto no WhatsApp.'
+description: 'Configure o Brain para gerar cobrança Pix na sua conta AbacatePay e enviar o link e o copia-e-cola no WhatsApp.'
 ---
 
-A Action `ABACATE_PIX` permite que o Brain crie uma cobrança Pix na **sua** conta AbacatePay e envie o link de pagamento e o código copia-e-cola na conversa.
+Ao final deste guia, o Brain cria uma cobrança Pix na **sua** conta AbacatePay e envia o link de pagamento e o código copia-e-cola na conversa, pela Action `ABACATE_PIX`.
 
-<Note>
-  Exige uma conta no [AbacatePay](https://abacatepay.com) com API key ativa. O dinheiro cai direto na sua conta AbacatePay.
-</Note>
+## Antes de começar
+
+- Conta no [AbacatePay](https://abacatepay.com) com chave de API ativa. O dinheiro cai direto na sua conta AbacatePay.
+- [Brain](/brain) configurado, com plano que inclui Brain e número dedicado.
 
 ## Quando o Brain usa
 
-Quando o cliente pede pra pagar, finalizar a compra ou receber o Pix **e o valor está claro**. Se o valor não estiver claro, o Brain é instruído a perguntar antes de gerar.
+Quando o cliente pede para pagar, finalizar a compra ou receber o Pix **e o valor está claro**. Se o valor não estiver claro, o Brain é instruído a perguntar antes de gerar.
 
 Parâmetros que o Brain preenche:
 
@@ -21,17 +22,17 @@ Parâmetros que o Brain preenche:
 | `description` | Sim | Descrição da cobrança, até 100 caracteres |
 | `customer_name` | Não | Nome do cliente |
 
-## Setup
+## Passos
 
 <Steps>
-  <Step title="Pegue sua API key no AbacatePay">
+  <Step title="Pegue sua chave de API no AbacatePay">
     No painel do AbacatePay, em configurações de API.
   </Step>
   <Step title="Habilite na Arara">
     No dashboard em **Brain**, ou via API:
     ```bash
     curl -X POST https://api.ararahq.com/v1/brain/actions \
-      -H "Authorization: Bearer ara_live_xxx" \
+      -H "Authorization: Bearer $ARARA_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "actionType": "ABACATE_PIX",
@@ -62,16 +63,18 @@ A cobrança é criada com validade fixa de 1 hora. O valor máximo aceito é R$ 
 
 ## Limitações
 
-- **Sem confirmação automática de pagamento**: a Action gera a cobrança, mas a Arara não recebe o webhook de pagamento da sua conta AbacatePay. Pra confirmar no chat, trate o webhook do AbacatePay no seu sistema e responda a conversa (dentro da janela de 24h, `POST /v1/conversations/reply`).
-- **Só Pix**: pra cartão, use a Action [Stripe](/brain/actions/stripe).
+- **Sem confirmação automática de pagamento**: a Action gera a cobrança, mas a Arara não recebe o webhook de pagamento da sua conta AbacatePay. Para confirmar no chat, trate o webhook do AbacatePay no seu sistema e responda a conversa (dentro da janela de 24h, `POST /v1/conversations/reply`).
+- **Só Pix**: para cartão, use a Action [Stripe](/brain/actions/stripe).
 - **Validade fixa**: 1 hora, não configurável.
 - **Sem split**: o pagamento vai inteiro pra conta AbacatePay configurada.
 
+## Próximos passos
+
 <CardGroup cols={2}>
-  <Card title="Brain Actions" icon="bolt" href="/actions">
-    Todas as Actions e como configurar.
+  <Card title="Stripe" icon="credit-card" href="/brain/actions/stripe">
+    Cobrança com cartão, em BRL, USD ou EUR.
   </Card>
-  <Card title="Revenue Recovery" icon="rotate-right" href="/recovery">
-    Reabordagem de Pix pendente, carrinho e pagamento recusado.
+  <Card title="Voltar ao Brain" icon="brain" href="/brain">
+    Configuração, Actions disponíveis e regras.
   </Card>
 </CardGroup>

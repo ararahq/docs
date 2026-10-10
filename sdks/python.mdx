@@ -3,6 +3,8 @@ title: 'SDK Python'
 description: 'SDK Python oficial da Arara (ararahq-sdk): cliente síncrono e assíncrono com httpx, modelos Pydantic v2 e retry com tenacity.'
 ---
 
+## Instalar
+
 ```bash
 pip install ararahq-sdk
 ```
@@ -11,77 +13,83 @@ pip install ararahq-sdk
 
 Versão publicada: **1.8.1**. Python 3.8+. Dependências: `httpx`, `pydantic` v2, `pydantic-settings` e `tenacity`. O pacote instala como `ararahq-sdk` e importa como `arara_api_sdk`.
 
-## Setup
+## Configurar
 
 ```python
+import os
 from arara_api_sdk import AraraClient
 
 client = AraraClient(
-    api_key="ara_live_xxx",              # ou variável ARARA_API_KEY
-    base_url="https://api.ararahq.com",  # opcional, este é o default
-    timeout=30.0,                        # opcional, em segundos
-    max_retries=3,                       # opcional
+    api_key=os.environ["ARARA_API_KEY"],  # ou omita: o SDK lê ARARA_API_KEY do ambiente
+    base_url="https://api.ararahq.com",   # opcional, este é o default
+    timeout=30.0,                         # opcional, em segundos
+    max_retries=3,                        # opcional
 )
 
 # Fecha as conexões ao sair
-with AraraClient() as client:  # lê ARARA_API_KEY do ambiente
+with AraraClient() as client:
     ...
 ```
 
 Todas as opções também podem vir do ambiente: `ARARA_API_KEY`, `ARARA_BASE_URL`, `ARARA_TIMEOUT`, `ARARA_MAX_RETRIES`.
 
-## Recursos disponíveis (1.8.1)
+## Enviar a primeira mensagem
 
-Todo método síncrono tem uma variante `_async` com a mesma assinatura.
+Você precisa de plano assinado, número conectado, um template aprovado e saldo. Veja [Antes de começar](/quickstart#antes-de-começar). Troque `pedido_confirmado` pelo nome do seu template.
 
-| Recurso | Acesso | Métodos que funcionam |
-|---|---|---|
-| Messages | `client.messages` | `send(request)` |
-| Templates | `client.templates` | `get(template_id)`, `get_status(template_id)`, `delete(template_id)` |
-| Users | `client.users` | `me()`, `update(request)` |
-| Organizations | `client.organizations` | `get_webhook()`, `update_webhook(request)`, `get_brain_config()`, `update_brain_config(request)`, `invite_user(request)`, `list_members()`, `list_numbers()`, `update_number(number_id, request)` |
-
-`client.campaigns`, `client.brain` e `client.payments` existem no pacote, mas nenhum método deles funciona contra a API atual. Detalhes em **Limitações conhecidas**, no fim da página.
-
-<Note>
-  A branch `main` do repositório já tem `contacts`, `conversations`, `wallet`, `numbers`, `smart_links`, `api_keys`, retry em 429 e o campo `code` nas exceções, mas essa versão ainda não foi publicada no PyPI.
-</Note>
-
-## Enviar mensagem
+Salve como `enviar.py`:
 
 ```python
 from arara_api_sdk import AraraClient
 from arara_api_sdk.models.message import SendMessageRequest
 
-with AraraClient(api_key="ara_live_xxx") as client:
+with AraraClient() as client:  # lê ARARA_API_KEY do ambiente
     response = client.messages.send(SendMessageRequest(
         receiver="whatsapp:+5511999999999",
-        template_name="confirmacao_pedido",
-        template_variables=[
-            "https://meusite.com/nota/123.pdf",  # header (mídia opcional)
-            "João",                               # {{1}}
-            "ARA-12345",                          # {{2}}
-        ],
+        template_name="pedido_confirmado",
+        template_variables=["João", "12345"],
     ))
 
 print(response.id)      # ara_msg_...
 print(response.status)  # status inicial da mensagem
 ```
 
-`SendMessageRequest` rejeita variáveis com quebra de linha ou tab (`ValidationError` do Pydantic, antes de chamar a API).
+Rode:
 
-**Mensagem de sessão (texto livre, dentro da janela de 24h):**
+```bash
+ARARA_API_KEY=ara_live_... python enviar.py
+```
+
+Com variáveis no corpo do template e mídia no header:
 
 ```python
-response = client.messages.send(SendMessageRequest(
+client.messages.send(SendMessageRequest(
+    receiver="whatsapp:+5511999999999",
+    template_name="confirmacao_pedido",
+    template_variables=[
+        "https://meusite.com/nota/123.pdf",  # header (mídia opcional)
+        "João",                               # {{1}}
+        "ARA-12345",                          # {{2}}
+    ],
+))
+```
+
+`SendMessageRequest` rejeita variáveis com quebra de linha ou tab (`ValidationError` do Pydantic, antes de chamar a API).
+
+Para responder dentro da janela de 24h, mande `body` em vez de `template_name`:
+
+```python
+client.messages.send(SendMessageRequest(
     receiver="whatsapp:+5511999999999",
     body="Oi! Vi sua dúvida e respondo já já.",
 ))
 ```
 
-O SDK não aceita chave de idempotência no envio e não tem método para consultar uma mensagem depois (o status chega pelo webhook `message.status_updated`).
+Para consultar depois, use `client.messages.get(id)`. Ele só devolve mensagens do mesmo usuário dono da chave (ver **Limitações conhecidas**). Em produção, acompanhe o status pelo webhook `message.status_updated`.
 
-## Async
+### Async
+
+Todo método síncrono tem uma variante `_async` com a mesma assinatura.
 
 ```python
 import asyncio
@@ -89,7 +97,7 @@ from arara_api_sdk import AraraClient
 from arara_api_sdk.models.message import SendMessageRequest
 
 async def main():
-    async with AraraClient(api_key="ara_live_xxx") as client:
+    async with AraraClient() as client:
         return await asyncio.gather(*[
             client.messages.send_async(SendMessageRequest(
                 receiver=phone,
@@ -122,19 +130,7 @@ client.templates.delete(template_id)
 
 Para criar e listar templates, use a API direto por enquanto (ver limitações).
 
-## Usuário e organização
-
-```python
-from arara_api_sdk.models.organization import UpdateWebhookRequest
-
-me = client.users.me()
-print(me.email)
-
-client.organizations.update_webhook(UpdateWebhookRequest(url="https://meusite.com/webhooks/arara"))
-config = client.organizations.get_webhook()
-```
-
-## Erros
+## Tratar erros
 
 ```python
 import time
@@ -167,17 +163,60 @@ except AraraError as e:
 | `AraraConnectionError` / `AraraTimeoutError` | falha de rede / timeout |
 | `AraraError` | qualquer outro status, incluindo 403 |
 
-Na 1.8.1, as exceções expõem `status_code`, `response_body` (o JSON da resposta) e a mensagem em `str(e)`. O código de erro da API fica em `e.response_body["error"]["code"]`. A API responde 403 (não 401) para chave inválida, então esse caso cai em `AraraError`. Lista de códigos em [Erros](/erros).
+Na 1.8.1, as exceções expõem `status_code`, `response_body` (o JSON da resposta) e a mensagem em `str(e)`. O código de erro da API fica em `e.response_body["error"]["code"]`, mas só quando o corpo segue o envelope de erro. Em 401 e 403 de autenticação `error` é uma string, e o corpo pode vir vazio: confira `isinstance(body, dict) and isinstance(body.get("error"), dict)` antes de ler o código. A API responde 401 para chave inválida, revogada ou expirada, e 403 quando o header `Authorization` está ausente ou a chave não tem permissão para a rota. Lista de códigos em [Erros](/erros).
 
-## Retry
+## Retentativas e idempotência
 
 Na 1.8.1, o SDK retenta 5xx, erro de conexão e timeout, com espera exponencial entre 2s e 10s, até `max_retries` vezes. **429 não é retentado**: trate `AraraRateLimitError`.
 
 Hoje `max_retries=0` no construtor é ignorado (o default 3 continua valendo). Para desligar o retry, use a variável de ambiente `ARARA_MAX_RETRIES=0`.
 
 <Warning>
-  O retry reenvia `POST /v1/messages` em 5xx e o SDK não manda chave de idempotência. Se duplicar mensagem for inaceitável, desligue o retry.
+  O retry reenvia `POST /v1/messages` em 5xx e o SDK não aceita chave de idempotência no envio. Se duplicar mensagem for inaceitável, desligue o retry.
 </Warning>
+
+## Webhooks
+
+O SDK não tem helper de webhook. Valide a assinatura antes de processar, com o corpo cru da requisição (os bytes exatamente como chegaram, antes de qualquer parse). A string assinada é `"{X-Arara-Timestamp}.{corpo cru}"`:
+
+```python
+import hashlib
+import hmac
+import time
+
+TOLERANCE_SECONDS = 300
+
+def is_valid_arara(raw_body: bytes, headers: dict, secret: str) -> bool:
+    timestamp = headers.get("X-Arara-Timestamp")
+    signature = headers.get("X-Arara-Signature")
+    if not isinstance(timestamp, str) or not isinstance(signature, str):
+        return False
+    if not signature.startswith("sha256=") or not timestamp.isdigit():
+        return False
+    if abs(time.time() - int(timestamp)) > TOLERANCE_SECONDS:
+        return False
+    expected = hmac.new(secret.encode(), timestamp.encode() + b"." + raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature[len("sha256="):])
+```
+
+Use `hmac.compare_digest`, nunca `==`. Depois de validar, trate o evento pelo campo `event`. Detalhes e catálogo em [Webhooks](/webhooks).
+
+A URL do webhook é cadastrada pelo [painel](https://app.ararahq.com/dashboard/webhooks). A API não aceita essa configuração com chave de API.
+
+## Recursos disponíveis
+
+| Recurso | Acesso | Métodos que funcionam |
+|---|---|---|
+| Messages | `client.messages` | `send(request)`, `get(internal_id)` |
+| Templates | `client.templates` | `get(template_id)`, `get_status(template_id)`, `delete(template_id)` |
+| Users | `client.users` | `me()`, `update(request)` |
+| Organizations | `client.organizations` | `get_webhook()` e `update_webhook(request)` (não funcionam com chave de API; configure o webhook pelo painel), `get_brain_config()`, `update_brain_config(request)`, `invite_user(request)`, `list_members()`, `list_numbers()`, `update_number(number_id, request)` |
+
+`client.campaigns`, `client.brain` e `client.payments` existem no pacote, mas nenhum método deles funciona contra a API atual. Detalhes em **Limitações conhecidas**.
+
+<Note>
+  A branch `main` do repositório já tem `contacts`, `conversations`, `wallet`, `numbers`, `smart_links`, `api_keys`, retry em 429 e o campo `code` nas exceções, mas essa versão ainda não foi publicada no PyPI.
+</Note>
 
 ## Limitações conhecidas
 
@@ -186,15 +225,11 @@ Hoje `max_retries=0` no construtor é ignorado (o default 3 continua valendo). P
 | `messages.get` | Funciona, mas a API só devolve mensagens enviadas pela mesma chave/usuário; mensagem de outro membro da organização responde 403. |
 | `templates.list` | A API responde `{ data, pagination }` e o SDK espera uma lista: falha ao validar. |
 | `templates.create` | O modelo `CreateTemplateRequest` exige `structure_json` e não envia `body`, que a API exige: 400. |
-| `campaigns.create` | Não envia o header `Idempotency-Key`, obrigatório na API: 400. |
+| `campaigns.create` | Não envia o header `Idempotency-Key`, obrigatório na API: a resposta hoje é 500. |
 | `brain.prompt` | Chama `POST /v1/brain`, rota que não existe na API. |
 | `payments.create_pix` | Envia `amount`, a API lê `amountCentavos`: 400. |
 | `payments.checkout` | Chama `POST /payments/checkout`, rota que não existe na API. |
 | `scheduled_at` em `SendMessageRequest` | O `datetime` não é serializado para JSON; o envio quebra antes de chegar na API. |
-
-## Source
-
-GitHub: [github.com/ararahq/arara-python-sdk](https://github.com/ararahq/arara-python-sdk) · MIT
 
 ## Próximos passos
 
@@ -206,3 +241,5 @@ GitHub: [github.com/ararahq/arara-python-sdk](https://github.com/ararahq/arara-p
     Eventos, payload e validação de assinatura.
   </Card>
 </CardGroup>
+
+Código-fonte: [github.com/ararahq/arara-python-sdk](https://github.com/ararahq/arara-python-sdk) (MIT).

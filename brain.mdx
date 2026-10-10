@@ -1,10 +1,10 @@
 ---
-title: 'Brain — o motor de IA da Arara'
-description: 'Agente de IA hospedado pela Arara. Atende no WhatsApp com base no conhecimento do seu negócio, executa ações (Pix, agendamento, link de pagamento, catálogo) e encaminha pra humano quando precisa.'
-keywords: ['brain', 'ia', 'agente', 'whatsapp', 'chatbot', 'rag', 'knowledge base', 'eval']
+title: 'Brain'
+description: 'O Brain atende conversas no WhatsApp com o conhecimento do seu negócio, executa Actions e encaminha para um atendente quando precisa.'
+keywords: ['brain', 'ia', 'whatsapp', 'chatbot', 'rag', 'knowledge base', 'eval', 'actions', 'pix', 'cal.com', 'stripe', 'catálogo']
 ---
 
-O **Brain** é o agente de IA da Arara. Ele responde conversas do WhatsApp usando a base de conhecimento da sua organização, pode executar [Actions](/actions) (Pix no AbacatePay, agendamento no Cal.com, link de pagamento Stripe, card do catálogo Meta) e encaminha a conversa pra um humano quando não deve responder sozinho.
+O **Brain** é a IA da Arara para atendimento no WhatsApp. Ele responde conversas com a base de conhecimento da sua organização, executa Actions (Pix no AbacatePay, agendamento no Cal.com, link de pagamento Stripe, card do catálogo Meta) e encaminha a conversa para um atendente quando não deve responder sozinho.
 
 <Note>
   O acesso ao Brain depende do plano. Os endpoints que executam trabalho do Brain (alterar config, ingerir conteúdo, configurar Actions, testar) respondem `403` com `PLAN_FEATURE_LOCKED` quando o plano não inclui Brain, e `403` com `NO_DEDICATED_NUMBER` quando a organização não tem número WhatsApp dedicado.
@@ -17,17 +17,17 @@ O **Brain** é o agente de IA da Arara. Ele responde conversas do WhatsApp usand
     Usa a personalidade, as regras e o conhecimento configurados pra sua organização.
   </Card>
   <Card title="Executa ações" icon="bolt">
-    Gera Pix, lista e reserva horários, cria link de pagamento, envia card de produto. Ver [Actions](/actions).
+    Gera Pix, lista e reserva horários, cria link de pagamento, envia card de produto. Ver a seção Actions disponíveis, abaixo.
   </Card>
-  <Card title="Encaminha pra humano" icon="user-plus">
+  <Card title="Encaminha para um atendente" icon="user-plus">
     Abre um handoff com motivo e resumo e dispara o evento de webhook `conversation.needs_human`.
   </Card>
   <Card title="Aprende do seu conteúdo" icon="brain">
-    Você adiciona texto, uma URL ou um PDF. O conteúdo é indexado pra consulta nas respostas.
+    Você adiciona texto, uma URL ou um PDF. O conteúdo é indexado para consulta nas respostas.
   </Card>
 </CardGroup>
 
-## Como começa
+## Como configurar
 
 <Steps>
   <Step title="Confira os pré-requisitos">
@@ -40,7 +40,7 @@ O **Brain** é o agente de IA da Arara. Ele responde conversas do WhatsApp usand
     Texto, URL ou PDF. Ver [Knowledge base](#knowledge-base).
   </Step>
   <Step title="Configure Actions">
-    [AbacatePay](/brain/actions/abacate-pix), [Cal.com](/brain/actions/cal-com), [Catálogo Meta](/brain/actions/catalog), [Stripe](/brain/actions/stripe). O encaminhamento pra humano (`HANDOFF_TO_HUMAN`) já vem habilitado quando o Brain é ligado.
+    Veja a seção Actions disponíveis, abaixo. O encaminhamento para um atendente (`HANDOFF_TO_HUMAN`) já vem habilitado quando o Brain é ligado.
   </Step>
   <Step title="Teste com a eval suite">
     Cadastre perguntas com o que a resposta deve e não deve conter e rode a suite. Ver [Eval suite](#eval-suite).
@@ -50,14 +50,14 @@ O **Brain** é o agente de IA da Arara. Ele responde conversas do WhatsApp usand
   </Step>
 </Steps>
 
-Todos os exemplos usam `Authorization: Bearer ara_live_...`. Não há modo de teste.
+Os exemplos usam a chave de API na variável de ambiente `ARARA_API_KEY` (`ara_live_...`). Não há modo de teste.
 
 ## Knowledge base
 
 ```bash
 # Texto
 curl -X POST https://api.ararahq.com/v1/brain/knowledge \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "type": "FAQ",
@@ -66,13 +66,13 @@ curl -X POST https://api.ararahq.com/v1/brain/knowledge \
 
 # URL (lê a página informada)
 curl -X POST https://api.ararahq.com/v1/brain/ingest-url \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "url": "https://meusite.com.br/ajuda/devolucao" }'
 
 # PDF (multipart, campo file)
 curl -X POST https://api.ararahq.com/v1/brain/ingest-pdf \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -F "file=@manual.pdf"
 ```
 
@@ -87,7 +87,7 @@ Cada caso tem uma pergunta e, opcionalmente, um texto que a resposta deve conter
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/brain/eval/cases \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "question": "Quero devolver um produto que comprei semana passada",
@@ -109,13 +109,71 @@ curl -X POST https://api.ararahq.com/v1/brain/eval/cases \
 
 Cada caso retornado traz `lastResponse`, `lastPassed`, `judgeScore`, `judgeReasoning` e `hallucinationDetected`.
 
+## Actions disponíveis
+
+Actions são integrações que o Brain invoca durante a conversa. O cliente pede para pagar, o Brain gera o Pix no AbacatePay e manda o link. Pede um horário, o Brain consulta o Cal.com e confirma. Actions só rodam com o Brain ligado.
+
+| `actionType` | O que faz | Config | Guia |
+|---|---|---|---|
+| `ABACATE_PIX` | Gera cobrança Pix no AbacatePay e envia link e copia-e-cola | `apiKey` | [AbacatePay (Pix)](/brain/actions/abacate-pix) |
+| `CAL_COM_BOOKING` | Lista horários livres e cria agendamento no Cal.com | `apiKey`, `eventTypeId` | [Cal.com](/brain/actions/cal-com) |
+| `STRIPE_CHECKOUT` | Cria um Payment Link na sua conta Stripe | `secretKey` (ou `apiKey`) | [Stripe](/brain/actions/stripe) |
+| `META_CATALOG_SEND` | Envia o card de um produto do catálogo Meta na conversa | `catalogId`, `phoneNumberId` | [Catálogo Meta](/brain/actions/catalog) |
+| `HANDOFF_TO_HUMAN` | Encaminha a conversa para um atendente | nenhuma (habilitada por padrão) | [Handoff](#handoff-para-um-atendente) |
+
+### Como uma Action funciona
+
+<Steps>
+  <Step title="Você habilita a Action">
+    No dashboard em **Brain**, ou via `POST /v1/brain/actions`.
+  </Step>
+  <Step title="O Brain decide quando chamar">
+    Cada Action descreve para o modelo o que faz, quando usar e quais parâmetros precisa. Só Actions habilitadas entram no prompt.
+  </Step>
+  <Step title="A Arara executa">
+    A chamada ao provedor roda no backend da Arara com as credenciais da sua organização. Toda execução fica registrada.
+  </Step>
+  <Step title="O Brain responde no WhatsApp">
+    Com o link, o horário ou a confirmação que a Action devolveu.
+  </Step>
+</Steps>
+
+### Configurar via API
+
+```bash
+curl -X POST https://api.ararahq.com/v1/brain/actions \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "actionType": "ABACATE_PIX",
+    "enabled": true,
+    "config": {
+      "apiKey": "sua_chave_abacatepay"
+    }
+  }'
+```
+
+Responde `204`. O mesmo endpoint cria ou atualiza (uma linha por `actionType`).
+
+- Para ligar ou desligar sem reenviar a chave, mande `enabled` com `config` vazio: a config salva é preservada.
+- Valores sensíveis são criptografados antes de gravar.
+
+Para listar o estado de todas as Actions:
+
+```bash
+curl https://api.ararahq.com/v1/brain/actions \
+  -H "Authorization: Bearer $ARARA_API_KEY"
+```
+
+Cada item traz `type`, `displayName`, `description`, `parameters`, `enabled`, `configured`, `config` (com segredos mascarados) e `invocations30d`.
+
 ## Regras (guardrails)
 
 As regras entram no prompt do Brain. Todas vêm ligadas por padrão:
 
 ```bash
 curl -X PATCH https://api.ararahq.com/v1/brain/config \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "guardrails": {
@@ -129,7 +187,7 @@ curl -X PATCH https://api.ararahq.com/v1/brain/config \
   }'
 ```
 
-Além das regras, a resposta passa por uma moderação antes de sair: bloqueia CPF, RG ou número de cartão no texto, URL fora das fontes conhecidas e menções ao próprio prompt. Resposta bloqueada é trocada por encaminhamento pra humano.
+Além das regras, a resposta passa por uma moderação antes de sair: bloqueia CPF, RG ou número de cartão no texto, URL fora das fontes conhecidas e menções ao próprio prompt. Resposta bloqueada é trocada por encaminhamento para um atendente.
 
 ## Modo de operação
 
@@ -137,7 +195,7 @@ Além das regras, a resposta passa por uma moderação antes de sair: bloqueia C
 
 | Valor | Comportamento |
 |---|---|
-| `COPILOT` (default) | O Brain sugere resposta pro atendente (`POST /v1/brain/suggest-reply`) |
+| `COPILOT` (default) | O Brain sugere resposta para o atendente (`POST /v1/brain/suggest-reply`) |
 | `AUTO` | O Brain responde sozinho |
 | `OFF` | Desligado |
 
@@ -145,7 +203,7 @@ Além das regras, a resposta passa por uma moderação antes de sair: bloqueia C
 
 ```bash
 curl https://api.ararahq.com/v1/brain/metrics \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 ```json
@@ -162,15 +220,15 @@ curl https://api.ararahq.com/v1/brain/metrics \
 }
 ```
 
-`topHandoffReasons` mostra o que mais vai pra humano. É o melhor ponto de partida pra adicionar conhecimento. Uso do mês contra o limite do plano: `GET /v1/brain/usage`.
+`topHandoffReasons` mostra o que mais vai para atendente. É o melhor ponto de partida para adicionar conhecimento. Uso do mês contra o limite do plano: `GET /v1/brain/usage`.
 
-## Handoff pra humano
+## Handoff para um atendente
 
 Quando o Brain encaminha, a Arara cria um handoff e envia o webhook `conversation.needs_human` com `handoffId`, `conversationId`, `reason`, `summary` e `createdAt`.
 
 ```bash
 curl "https://api.ararahq.com/v1/brain/handoffs?resolved=false&page=0&size=20" \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 A resposta é `{ content, totalPages, totalElements }`. Cada item traz `id`, `conversationId`, `reason`, `summary`, `briefing`, `createdAt`, `resolvedAt` e `resolvedByUserId`.
@@ -178,10 +236,10 @@ A resposta é `{ content, totalPages, totalElements }`. Cada item traz `id`, `co
 - `POST /v1/brain/handoffs/{id}/resolve` marca como resolvido.
 - `POST /v1/brain/handoffs/{id}/return-to-brain` devolve a conversa pro Brain.
 
-## Quando não usar o Brain em modo `AUTO`
+### Quando não usar o modo `AUTO`
 
-- Conversas com alto risco financeiro ou jurídico. Use `COPILOT`: o Brain sugere, o humano envia.
-- Setores regulados (saúde, financeiro, jurídico) em que a política interna exige humano no processo.
+- Conversas com alto risco financeiro ou jurídico. Use `COPILOT`: o Brain sugere, o atendente envia.
+- Setores regulados (saúde, financeiro, jurídico) em que a política interna exige atendente no processo.
 
 ## Referência de endpoints
 
@@ -197,17 +255,23 @@ A resposta é `{ content, totalPages, totalElements }`. Cada item traz `id`, `co
 | `POST /v1/brain/templates/apply` | Aplica um preset (`{ "templateId": "..." }`) |
 | `POST /v1/brain/test` | Testa uma resposta (`{ "prompt": "...", "conversationHistory": [] }`) |
 | `POST /v1/brain/cost-estimate` | Estimativa de custo (`{ "monthlyConversations": 1000 }`) |
-| `GET /v1/brain/actions` / `POST /v1/brain/actions` | Lista e configura [Actions](/actions) |
+| `GET /v1/brain/actions` / `POST /v1/brain/actions` | Lista e configura Actions |
 | `GET /v1/brain/handoffs` | Handoffs |
 | `POST /v1/brain/handoffs/{id}/resolve` | Resolve um handoff |
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Actions disponíveis" icon="bolt" href="/actions">
-    O que o Brain pode executar.
+  <Card title="AbacatePay (Pix)" icon="qrcode" href="/brain/actions/abacate-pix">
+    Cobrança Pix dentro da conversa.
   </Card>
-  <Card title="Posicionamento" icon="lightbulb" href="/agents">
-    Brain, MCP e SDK: qual usar quando.
+  <Card title="Cal.com" icon="calendar-check" href="/brain/actions/cal-com">
+    Agendamento pelo WhatsApp.
+  </Card>
+  <Card title="Atendimento no inbox" icon="headset" href="/recipes/inbox-support">
+    Fluxo de atendimento com handoff.
+  </Card>
+  <Card title="MCP e SDKs" icon="plug" href="/mcp-server">
+    Quando usar Brain, MCP ou SDK.
   </Card>
 </CardGroup>

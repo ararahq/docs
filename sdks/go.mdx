@@ -1,20 +1,23 @@
 ---
 title: 'SDK Go'
-description: 'SDK Go oficial da Arara (github.com/ararahq/arara-go-sdk): só biblioteca padrão, context.Context em toda chamada, retry automático e erro tipado.'
+description: 'SDK Go oficial da Arara (github.com/ararahq/arara-go-sdk): só biblioteca padrão, context.Context em toda chamada, retry automático e erro tipado. Pré-lançamento, sem tag de release.'
 ---
+
+## Instalar
 
 ```bash
 go get github.com/ararahq/arara-go-sdk@main
 ```
 
-O módulo ainda **não tem tag de release**: o `go get` resolve uma pseudo-versão do último commit da `main` (hoje `v0.0.0-20260716035048-88895cf1cf93`). Fixe essa versão no seu `go.mod` para builds reprodutíveis.
+O módulo ainda **não tem tag de release** (pré-lançamento): o `go get` resolve uma pseudo-versão do último commit da `main` (hoje `v0.0.0-20260716035048-88895cf1cf93`). Fixe essa versão no seu `go.mod` para builds reprodutíveis.
 
 Requer Go 1.22+. Sem dependências externas (`net/http`, `encoding/json`, `context`).
 
-## Setup
+## Configurar
 
 ```go
 import (
+    "log"
     "os"
     "time"
 
@@ -34,30 +37,57 @@ if err != nil {
 
 `arara.WithHTTPClient(hc)` substitui o `*http.Client` inteiro (transporte e timeout).
 
-## Recursos disponíveis
+## Enviar a primeira mensagem
 
-Todo método recebe `context.Context` como primeiro argumento.
+Você precisa de plano assinado, número conectado, um template aprovado e saldo. Veja [Antes de começar](/quickstart#antes-de-começar). Troque `pedido_confirmado` pelo nome do seu template.
 
-| Recurso | Acesso | Métodos |
-|---|---|---|
-| Messages | `client.Messages` | `Send` |
-| Templates | `client.Templates` | `List`, `Create`, `Get`, `GetStatus`, `Delete` |
-| Campaigns | `client.Campaigns` | `Create`, `List`, `Estimate`, `Get`, `Cancel` |
-| Contacts | `client.Contacts` | `List`, `ImportBatch`, `Stats`, `ReactivationCandidates`, `ListTags`, `Get`, `Update`, `Messages` |
-| Conversations | `client.Conversations` | `List`, `LeadStats`, `Messages`, `Reply`, `UpdateStatus`, `WindowStatus` |
-| Wallet | `client.Wallet` | `Transactions`, `GetAutoRecharge`, `UpdateAutoRecharge` |
-| Numbers | `client.Numbers` | `List`, `Update`, `Delete`, `Request`, `ListRequests`, `Sync`, `Warming` |
-| Smart links | `client.SmartLinks` | `Create`, `Update`, `List`, `Stats` |
-| Users | `client.Users` | `GetMe`, `Update` |
-| Organizations | `client.Organizations` | `GetWebhook`, `UpdateWebhook` |
-| API Keys | `client.APIKeys` | `List`, `Create` (ver limitações) |
-
-## Enviar mensagem
+Salve como `main.go`:
 
 ```go
-ctx := context.Background()
+package main
 
-resp, err := client.Messages.Send(ctx, &arara.SendMessageRequest{
+import (
+    "context"
+    "fmt"
+    "log"
+    "os"
+
+    arara "github.com/ararahq/arara-go-sdk"
+)
+
+func main() {
+    client, err := arara.NewClient(os.Getenv("ARARA_API_KEY"))
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    orderID := "12345" // id do evento no seu sistema
+
+    resp, err := client.Messages.Send(context.Background(), &arara.SendMessageRequest{
+        Receiver:          "whatsapp:+5511999999999",
+        TemplateName:      "pedido_confirmado",
+        TemplateVariables: []string{"João", orderID},
+    }, arara.SendOptions{IdempotencyKey: "hello-" + orderID})
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Println(resp.ID, resp.Status) // ara_msg_... e status inicial
+}
+```
+
+Rode:
+
+```bash
+go mod init exemplo
+go get github.com/ararahq/arara-go-sdk@main
+ARARA_API_KEY=ara_live_... go run .
+```
+
+Com variáveis no corpo do template e mídia no header:
+
+```go
+_, err = client.Messages.Send(ctx, &arara.SendMessageRequest{
     Receiver:     "whatsapp:+5511999999999",
     TemplateName: "confirmacao_pedido",
     TemplateVariables: []string{
@@ -66,14 +96,9 @@ resp, err := client.Messages.Send(ctx, &arara.SendMessageRequest{
         "ARA-12345",                         // {{2}}
     },
 }, arara.SendOptions{IdempotencyKey: "pedido-12345"})
-if err != nil {
-    log.Fatal(err)
-}
-
-fmt.Println(resp.ID, resp.Status) // ara_msg_... e status inicial
 ```
 
-**Mensagem de sessão (texto livre, dentro da janela de 24h):**
+Para responder dentro da janela de 24h, mande `Body` em vez de `TemplateName`:
 
 ```go
 _, err = client.Messages.Send(ctx, &arara.SendMessageRequest{
@@ -82,7 +107,7 @@ _, err = client.Messages.Send(ctx, &arara.SendMessageRequest{
 })
 ```
 
-`SendOptions` é opcional. Repetir a mesma `IdempotencyKey` devolve a mensagem original. A API não compara o corpo nem expira a chave: com destinatário ou variáveis diferentes, a resposta continua sendo a mensagem original. O SDK não tem método para consultar a mensagem depois; use `GET /v1/messages/{id}` direto ou o webhook `message.status_updated`.
+O SDK não tem método para consultar a mensagem depois; use `GET /v1/messages/{id}` direto ou o webhook `message.status_updated`.
 
 ## Templates
 
@@ -106,38 +131,7 @@ if err == nil {
 }
 ```
 
-## Campanhas
-
-`Create` gera um `Idempotency-Key` (UUID v4) quando você não passa um. Passe o seu para que um retry do seu lado não crie campanha duplicada.
-
-```go
-campaign, err := client.Campaigns.Create(ctx, &arara.CampaignRequest{
-    Name:         "blackfriday-2026",
-    TemplateName: "bf_oferta_geral",
-    Contacts: []arara.CampaignContactRequest{
-        {To: "whatsapp:+5511999999999", Variables: []string{"João", "30"}},
-        {To: "whatsapp:+5511888888888", Variables: []string{"Maria", "25"}},
-    },
-}, arara.CampaignCreateOptions{IdempotencyKey: "bf-2026-lote-1"})
-if err != nil {
-    log.Fatal(err)
-}
-
-detail, err := client.Campaigns.Get(ctx, campaign.ID)
-```
-
-## Contatos e conversas
-
-```go
-contacts, err := client.Contacts.List(ctx, arara.ContactListParams{Page: 0, Size: 20, Lifecycle: "ENGAGED"})
-
-_, err = client.Conversations.Reply(ctx, &arara.ConversationReplyRequest{
-    ConversationID: "3f1e...",
-    Body:           "Seu pedido saiu para entrega.",
-})
-```
-
-## Erros
+## Tratar erros
 
 Toda falha devolve `*arara.Error`:
 
@@ -162,9 +156,9 @@ if errors.As(err, &apiErr) {
 | `Details` | `error.details` da API. |
 | `RetryAfter` | Segundos do header `Retry-After`, quando houver. |
 
-A API responde 403 (não 401) para chave inválida. Lista de códigos em [Erros](/erros).
+A API responde 401 para chave inválida, revogada ou expirada, e 403 quando o header `Authorization` está ausente ou a chave não tem permissão para a rota. Lista de códigos em [Erros](/erros).
 
-## Retry
+## Retentativas e idempotência
 
 O SDK retenta até `WithMaxRetries` vezes em falha de rede, 429 e qualquer 5xx. Respeita `Retry-After` (até 30s); sem ele, espera 500ms e dobra a cada tentativa, até 30s. Cancelar o `context` interrompe a espera. Para desligar: `arara.WithMaxRetries(0)`.
 
@@ -172,9 +166,58 @@ O SDK retenta até `WithMaxRetries` vezes em falha de rede, 429 e qualquer 5xx. 
   O retry reenvia `POST /v1/messages` em 5xx. Passe `SendOptions{IdempotencyKey: ...}` em todo envio.
 </Warning>
 
+`SendOptions` é opcional. Derive a chave de um id do seu sistema (id do pedido, id da tentativa), não de um valor novo a cada chamada. Repetir a mesma `IdempotencyKey` devolve a mensagem original. A API não compara o corpo nem expira a chave: com destinatário ou variáveis diferentes, a resposta continua sendo a mensagem original.
+
+`Campaigns.Create` gera um `Idempotency-Key` (UUID v4) quando você não passa um. Passe o seu para que um retry do seu lado não crie campanha duplicada:
+
+```go
+campaign, err := client.Campaigns.Create(ctx, &arara.CampaignRequest{
+    Name:         "blackfriday-2026",
+    TemplateName: "bf_oferta_geral",
+    Contacts: []arara.CampaignContactRequest{
+        {To: "whatsapp:+5511999999999", Variables: []string{"João", "30"}},
+        {To: "whatsapp:+5511888888888", Variables: []string{"Maria", "25"}},
+    },
+}, arara.CampaignCreateOptions{IdempotencyKey: "bf-2026-lote-1"})
+if err != nil {
+    log.Fatal(err)
+}
+
+detail, err := client.Campaigns.Get(ctx, campaign.ID)
+```
+
 ## Webhooks
 
 O SDK não tem helper de webhook. Valide `X-Arara-Signature` com `crypto/hmac` sobre `"{X-Arara-Timestamp}.{corpo cru}"` e compare com `hmac.Equal`. Detalhes em [Webhooks](/webhooks).
+
+## Recursos disponíveis
+
+Todo método recebe `context.Context` como primeiro argumento.
+
+| Recurso | Acesso | Métodos |
+|---|---|---|
+| Messages | `client.Messages` | `Send` |
+| Templates | `client.Templates` | `List`, `Create`, `Get`, `GetStatus`, `Delete` |
+| Campaigns | `client.Campaigns` | `Create`, `List`, `Estimate`, `Get`, `Cancel` |
+| Contacts | `client.Contacts` | `List`, `ImportBatch`, `Stats`, `ReactivationCandidates`, `ListTags`, `Get`, `Update`, `Messages` |
+| Conversations | `client.Conversations` | `List`, `LeadStats`, `Messages`, `Reply`, `UpdateStatus`, `WindowStatus` |
+| Wallet | `client.Wallet` | `Transactions`, `GetAutoRecharge`, `UpdateAutoRecharge` |
+| Numbers | `client.Numbers` | `List`, `Update`, `Delete`, `Request`, `ListRequests`, `Sync`, `Warming` |
+| Smart links | `client.SmartLinks` | `Create`, `Update`, `List`, `Stats` |
+| Users | `client.Users` | `GetMe`, `Update` |
+| Organizations | `client.Organizations` | `GetWebhook`, `UpdateWebhook` (não funcionam com chave de API; configure o webhook pelo painel) |
+| API Keys | `client.APIKeys` | `List`, `Create` (ver limitações) |
+
+Exemplo de contatos e conversas:
+
+```go
+contacts, err := client.Contacts.List(ctx, arara.ContactListParams{Page: 0, Size: 20, Lifecycle: "ENGAGED"})
+
+_, err = client.Conversations.Reply(ctx, &arara.ConversationReplyRequest{
+    ConversationID: "3f1e...",
+    Body:           "Seu pedido saiu para entrega.",
+})
+```
 
 ## Limitações conhecidas
 
@@ -182,11 +225,7 @@ O SDK não tem helper de webhook. Valide `X-Arara-Signature` com `crypto/hmac` s
 |---|---|
 | `Templates.List` | A API responde `{ data, pagination }` e o SDK decodifica em `[]Template`: erro `DECODE_ERROR`. |
 | `Templates.Get/GetStatus/Delete` | Precisam do id (UUID). Com o nome a API responde 400. |
-| `APIKeys.*` | A API recusa gestão de chaves autenticada por API key (403). Crie e revogue chaves pelo dashboard. |
-
-## Source
-
-GitHub: [github.com/ararahq/arara-go-sdk](https://github.com/ararahq/arara-go-sdk)
+| `APIKeys.*` | A API recusa gestão de chaves autenticada por API key (403). Crie e revogue chaves pelo painel. |
 
 ## Próximos passos
 
@@ -198,3 +237,5 @@ GitHub: [github.com/ararahq/arara-go-sdk](https://github.com/ararahq/arara-go-sd
     Envio e escuta de webhooks pelo terminal.
   </Card>
 </CardGroup>
+
+Código-fonte: [github.com/ararahq/arara-go-sdk](https://github.com/ararahq/arara-go-sdk).
