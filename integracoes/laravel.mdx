@@ -59,34 +59,35 @@ public function store(Request $request, Arara $sdk)
     $order = Order::create($request->validated());
 
     $sdk->messages->send(
-        receiver: 'whatsapp:' . $order->customer->phone,
+        receiver: $order->customer->phone,
         templateName: 'confirmacao_pedido',
         variables: [
             $order->customer->first_name,
             $order->code,
             $order->total_formatted,
-        ]
+        ],
+        idempotencyKey: "order-confirmation-{$order->id}",
     );
 
     return response()->json($order, 201);
 }
 ```
 
-O `receiver` precisa estar no formato `whatsapp:+<DDI><número>`. Fora disso o SDK lança `Arara\Exceptions\ValidationException` antes de chamar a API. `send` devolve um `array` com `id` (`ara_msg_...`) e `status` inicial.
+O `receiver` aceita `+5511999999999`, `whatsapp:+5511999999999` ou só os dígitos; a API valida o número. `send` devolve um `array` com `id` (`ara_msg_...`) e `status` inicial.
 
 ## Enviar de um job em fila
 
-Em produção, envie de um job. Um cuidado: `send` do SDK 1.8.1 não aceita `Idempotency-Key`, e tanto a retentativa do SDK (em 5xx) quanto a do job podem reenviar a mesma mensagem. Para jobs, chame a API pelo `Http` do Laravel com uma chave derivada do pedido:
+Em produção, envie de um job. O `send` do SDK sempre manda `Idempotency-Key` e reaproveita a mesma chave nas retentativas do SDK (em 5xx). Passe `idempotencyKey:` derivada do pedido para que uma nova tentativa do job também não duplique a mensagem:
 
 ```php
 // app/Jobs/SendOrderConfirmation.php
 namespace App\Jobs;
 
 use App\Models\Order;
+use Arara\Arara;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Support\Facades\Http;
 
 class SendOrderConfirmation implements ShouldQueue
 {
@@ -96,23 +97,20 @@ class SendOrderConfirmation implements ShouldQueue
 
     public function __construct(public int $orderId) {}
 
-    public function handle(): void
+    public function handle(Arara $sdk): void
     {
         $order = Order::with('customer')->findOrFail($this->orderId);
 
-        Http::withToken(config('services.arara.key'))
-            ->withHeaders(['Idempotency-Key' => "order-confirmation-{$order->id}"])
-            ->timeout(10)
-            ->post('https://api.ararahq.com/v1/messages', [
-                'receiver' => 'whatsapp:' . $order->customer->phone,
-                'templateName' => 'confirmacao_pedido',
-                'templateVariables' => [
-                    $order->customer->first_name,
-                    $order->code,
-                    $order->total_formatted,
-                ],
-            ])
-            ->throw();
+        $sdk->messages->send(
+            receiver: $order->customer->phone,
+            templateName: 'confirmacao_pedido',
+            variables: [
+                $order->customer->first_name,
+                $order->code,
+                $order->total_formatted,
+            ],
+            idempotencyKey: "order-confirmation-{$order->id}",
+        );
     }
 
     public function backoff(): array
@@ -229,7 +227,7 @@ A API responde `202`. Repetir a mesma `Idempotency-Key` devolve a mensagem origi
 </Steps>
 
 <Warning>
-  O `WebhookUtils::verifySignature()` do SDK 1.8.1 não inclui o timestamp e nunca confere. Verifique manualmente, como acima. `hash_equals` compara em tempo constante. Não use `==`.
+  Na 2.0.0 do SDK, `WebhookUtils::verifySignature($body, $signature, $secret, $timestamp)` faz a mesma conferência (assinatura sobre `timestamp.corpo` e janela anti-replay) e pode substituir o código manual acima. Se mantiver o manual, compare com `hash_equals`, que é em tempo constante. Nunca use `==`. Quem está na 1.8.1 deve atualizar: lá a função não inclui o timestamp e nunca confere.
 </Warning>
 
 Responda `2xx` rápido. Quando a entrega falha, a Arara tenta de novo, então o controller precisa aguentar o mesmo evento mais de uma vez. Use o header `X-Arara-Delivery-Id` para deduplicar. Prazos e intervalos estão em [Entrega](/webhooks#entrega).

@@ -8,36 +8,38 @@ Os SDKs são open source no [GitHub](https://github.com/ararahq) e falam com `ht
 
 ## Catálogo
 
-| Linguagem | Pacote | Instalar | Status |
+| Linguagem | Pacote | Instalar | Versão e registro |
 |---|---|---|---|
-| [Node.js / TypeScript](/sdks/node) | `@ararahq/sdk` | `npm install @ararahq/sdk` | Publicado no npm, 1.8.1 |
-| [Python](/sdks/python) | `ararahq-sdk` (import `arara_api_sdk`) | `pip install ararahq-sdk` | Publicado no PyPI, 1.8.1 |
-| [PHP / Laravel](/sdks/php) | `ararahq/sdk` | `composer require ararahq/sdk` | Publicado no Packagist, 1.8.1 |
-| [Java / Kotlin](/sdks/java) | `com.ararahq:arara-java-sdk` | `implementation("com.ararahq:arara-java-sdk:1.8.1")` | Publicado no GitHub Packages (não está no Maven Central), 1.8.1 |
-| [Go](/sdks/go) | `github.com/ararahq/arara-go-sdk` | `go get github.com/ararahq/arara-go-sdk@main` | Pré-lançamento: sem tag de release, instala da `main` |
-| [Ruby](/sdks/ruby) | `ararahq` | `gem "ararahq", git: "https://github.com/ararahq/arara-ruby-sdk"` | Pré-lançamento: fora do RubyGems, instala pelo GitHub |
+| [Node.js / TypeScript](/sdks/node) | `@ararahq/sdk` | `npm install @ararahq/sdk` | 2.0.0, npm |
+| [Python](/sdks/python) | `ararahq-sdk` (import `arara_api_sdk`) | `pip install ararahq-sdk` | 2.0.0, PyPI |
+| [PHP / Laravel](/sdks/php) | `ararahq/sdk` | `composer require ararahq/sdk` | 2.0.0, Packagist |
+| [Java / Kotlin](/sdks/java) | `com.ararahq:arara-java-sdk` | `implementation("com.ararahq:arara-java-sdk:2.0.0")` | 2.0.0, GitHub Packages (não está no Maven Central; exige usuário e token do GitHub) |
+| [Go](/sdks/go) | `github.com/ararahq/arara-go-sdk` | `go get github.com/ararahq/arara-go-sdk@latest` | v1.0.0, tag no GitHub |
+| [Ruby](/sdks/ruby) | `ararahq` | `gem "ararahq"` | 1.0.0, RubyGems |
 
 Cada página de linguagem traz instalação, o primeiro envio, tratamento de erros, retentativas, webhooks e limitações.
 
 ## Recursos por SDK
 
-Recursos expostos pela versão que você instala hoje (Node, Python, PHP e Java na 1.8.1; Go e Ruby na `main`). O código na `main` de alguns repositórios já tem mais recursos do que a versão publicada; a página de cada SDK avisa quando é o caso.
+Recursos expostos pela versão publicada de cada SDK. Contatos, conversas, carteira, opt-outs e `auth.me` exigem chave de API com permissão ADMIN.
 
 | Recurso | Node | Python | PHP | Java | Go | Ruby |
 |---|---|---|---|---|---|---|
 | Enviar mensagem | Sim | Sim | Sim | Sim | Sim | Sim |
-| Templates | Sim | Só consultar status e remover | Sim | Sem listar | Sem listar | Sim |
-| Campanhas | — | Falha: não envia `Idempotency-Key` | — | Só consultar por id | Sim | Sim |
-| Contatos | — | — | — | — | Sim | Sim |
-| Conversas | — | — | — | — | Sim | Sim |
-| Carteira | — | — | — | — | Sim | Sim |
-| Números | — | Listar e atualizar | — | — | Sim | Sim |
-| Smart links | — | — | — | — | Sim | Sim |
-| Usuário (`/users/me`) | Sim | Sim | Falha: rota errada | Sim | Sim | Sim |
-| Webhook da organização | Indisponível | Indisponível | Indisponível | — | Indisponível | Indisponível |
-| Header de idempotência no envio | Sim | — | — | — | Sim | Sim |
+| Consultar mensagem por id | Sim | Sim | Sim | Sim | Sim | Sim |
+| Envio em lote | Sim | Sim | Sim | Sim | Sim | Sim |
+| `Idempotency-Key` no envio | Sim | Sim | Sim | Sim | Sim | Sim |
+| Templates | Sim | Sim | Sim | Sim | Sim | Sim |
+| Campanhas | Sim | Sim | Sim | Sim | Sim | Sim |
+| Contatos | Sim | Sim | Sim | Sim | Sim | Sim |
+| Conversas | Sim | Sim | Sim | Sim | Sim | Sim |
+| Carteira | Sim | Sim | Sim | Sim | Sim | Sim |
+| Números | Sim | Sim | Sim | Sim | Sim | Sim |
+| Smart links | Sim | Sim | Sim | Sim | Sim | Sim |
+| Opt-outs | Sim | Sim | Sim | Sim | Sim | Sim |
+| Usuário atual (`auth.me`) | Sim | Sim | Sim | Sim | Sim | Sim |
 
-Webhook da organização: os SDKs têm os métodos, mas a API não aceita essa configuração com chave de API. Configure pelo [painel](https://app.ararahq.com/dashboard/webhooks).
+Webhook da organização e chaves de API: nenhum SDK gerencia, porque a API recusa esses endpoints com chave de API. Configure pelo [painel](https://app.ararahq.com/dashboard/webhooks).
 
 O detalhe de cada limitação está na seção **Limitações conhecidas** da página de cada SDK. Para um recurso fora do SDK, chame a API direto com o mesmo header de autenticação.
 

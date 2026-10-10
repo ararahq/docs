@@ -91,69 +91,52 @@ Ao final, seu backend envia uma mensagem a cada etapa do pedido (confirmado, env
 
     ```python Python
     # notify_order.py
-    import os
+    from arara_api_sdk import AraraClient
+    from arara_api_sdk.models.message import SendMessageRequest
 
-    import httpx
-
-    API_URL = "https://api.ararahq.com/v1/messages"
-    TIMEOUT_SECONDS = 10.0
+    client = AraraClient()  # lê ARARA_API_KEY do ambiente
 
 
-    def notify_order_confirmed(order) -> dict:
-        response = httpx.post(
-            API_URL,
-            headers={
-                "Authorization": f"Bearer {os.environ['ARARA_API_KEY']}",
-                "Idempotency-Key": f"order-confirmed-{order.id}",
-            },
-            json={
-                "receiver": order.phone,
-                "templateName": "pedido_confirmado",
-                "templateVariables": [
+    def notify_order_confirmed(order):
+        return client.messages.send(
+            SendMessageRequest(
+                receiver=order.phone,
+                template_name="pedido_confirmado",
+                template_variables=[
                     order.id,
                     order.total_formatted,
                     order.payment_method,
                     order.estimated_delivery,
                 ],
-            },
-            timeout=TIMEOUT_SECONDS,
+            ),
+            idempotency_key=f"order-confirmed-{order.id}",
         )
-        response.raise_for_status()
-        return response.json()
     ```
 
     ```php PHP
     <?php
     // notify_order.php
-    use GuzzleHttp\Client;
+    use Arara\Arara;
+    use Arara\Config;
 
     function notifyOrderConfirmed(object $order): array
     {
-        $http = new Client(['base_uri' => 'https://api.ararahq.com', 'timeout' => 10]);
+        $sdk = new Arara(new Config(apiKey: getenv('ARARA_API_KEY')));
 
-        $response = $http->post('/v1/messages', [
-            'headers' => [
-                'Authorization' => 'Bearer ' . getenv('ARARA_API_KEY'),
-                'Idempotency-Key' => "order-confirmed-{$order->id}",
+        return $sdk->messages->send(
+            receiver: $order->phone,
+            templateName: 'pedido_confirmado',
+            variables: [
+                $order->id,
+                $order->total_formatted,
+                $order->payment_method,
+                $order->estimated_delivery,
             ],
-            'json' => [
-                'receiver' => $order->phone,
-                'templateName' => 'pedido_confirmado',
-                'templateVariables' => [
-                    $order->id,
-                    $order->total_formatted,
-                    $order->payment_method,
-                    $order->estimated_delivery,
-                ],
-            ],
-        ]);
-
-        return json_decode((string) $response->getBody(), true);
+            idempotencyKey: "order-confirmed-{$order->id}",
+        );
     }
     ```
     </CodeGroup>
-
-    Os exemplos em Python e PHP chamam a API direto porque os SDKs dessas linguagens não enviam `Idempotency-Key`. Ver [SDK Python](/sdks/python) e [SDK PHP](/sdks/php).
 
     A API responde `202` com `{ id, status, mode, sender, receiver, body, cost, reason }`. Guarde o `id` (`ara_msg_...`) junto do pedido para casar com o webhook.
 

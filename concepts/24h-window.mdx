@@ -110,14 +110,14 @@ async function reply(phone: string, text: string) {
 
   if (item?.isWindowOpen) {
     return sdk.messages.send({
-      receiver: `whatsapp:${phone}`,
+      receiver: phone,
       body: text,
     });
   }
 
   // Janela fechada: envia template de retomada e guarda o texto para quando o cliente responder
   await sdk.messages.send({
-    receiver: `whatsapp:${phone}`,
+    receiver: phone,
     templateName: 'retomada_atendimento',
     templateVariables: ['Olá'],
   });

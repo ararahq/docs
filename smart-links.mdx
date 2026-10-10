@@ -62,23 +62,23 @@ No envio, dois campos opcionais de `POST /v1/messages` controlam o destino:
 | `smartLinkParam` | Adiciona `slp={valor}` na URL de destino (ex.: id do pedido ou do cliente) |
 
 ```typescript
-const response = await fetch('https://api.ararahq.com/v1/messages', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${process.env.ARARA_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    receiver: 'whatsapp:+5511999999999',
+import { NodeSDK } from '@ararahq/sdk';
+
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
+
+await sdk.messages.send(
+  {
+    receiver: '+5511999999999',
     templateName: 'produto_quente',
     templateVariables: ['João'],
     smartLinkUrl: 'https://meusite.com.br/produto/camiseta-basica?utm_source=whatsapp',
     smartLinkParam: 'cliente-8812',
-  }),
-});
+  },
+  { idempotencyKey: 'produto-quente-cliente-8812' },
+);
 ```
 
-O tipo `SendMessageRequest` do SDK Node 1.8.1 não declara `smartLinkUrl` nem `smartLinkParam`, por isso o exemplo usa `fetch`.
+O tipo `SendMessageRequest` do SDK Node declara `smartLinkUrl` e `smartLinkParam`, tanto no envio único quanto nos itens do lote.
 
 `POST /v1/messages/batch` aceita `smartLinkUrl` e `smartLinkParam` por item.
 
@@ -92,7 +92,7 @@ import { NodeSDK } from '@ararahq/sdk';
 const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
 
 await sdk.messages.send({
-  receiver: 'whatsapp:+5511999999999',
+  receiver: '+5511999999999',
   templateName: 'oferta_verao_texto',
   templateVariables: ['João', 'https://sualoja.com/produto/camisa-azul?ref=ads'],
 });

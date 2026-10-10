@@ -30,7 +30,7 @@ Take Blip e Arara usam a mesma WhatsApp Business Platform da Meta. A migração 
 | Foco | Multicanal | WhatsApp |
 | Builder visual de fluxos | Sim (Blip Builder) | Não. Automações por gatilho no dashboard, Brain para IA, ou código |
 | API REST | Sim | Sim |
-| SDKs | Consulte a Blip | Node, Python e PHP (1.8.1 nos registries), Java (GitHub Packages), Go (sem release, via `@main`) e Ruby (via git, fora do RubyGems). Veja [SDKs](/sdks) |
+| SDKs | Consulte a Blip | Node, Python, PHP, Java, Go e Ruby. Veja [SDKs](/sdks) |
 | CLI | Consulte a Blip | Sim, binário `arara` |
 | MCP para agentes de IA | Consulte a Blip | Sim, `@ararahq/mcp` |
 | Preço | Conforme contrato | Plano + uso, em BRL. Veja [Preços](/concepts/pricing) |
@@ -111,7 +111,7 @@ const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
 
 await sdk.messages.send(
   {
-    receiver: 'whatsapp:+5511999999999',
+    receiver: '+5511999999999',
     templateName: 'pedido_confirmado',
     templateVariables: ['João', 'ARA-123'],
   },
@@ -121,7 +121,7 @@ await sdk.messages.send(
 </CodeGroup>
 
 Diferenças:
-- **Sem identificador de gateway** (`@wa.gw.msging.net`): o destinatário vai como `whatsapp:+<DDI><número>`.
+- **Sem identificador de gateway** (`@wa.gw.msging.net`): o destinatário vai como `+<DDI><número>`.
 - **Sem namespace**: o template é identificado pelo nome.
 - **Sem `components`**: variáveis em array posicional. Se o template tem header de mídia, a URL vai na primeira posição.
 

@@ -70,7 +70,7 @@ const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
 
 await sdk.messages.send(
   {
-    receiver: 'whatsapp:+5511999999999',
+    receiver: '+5511999999999',
     templateName: 'confirmacao_pedido',
     templateVariables: ['João', 'ARA-123'],
   },
@@ -152,7 +152,7 @@ if (event === 'message.received') {
   const phone = data.from; // só dígitos, ex.: 5511999999999
   const text = data.body;
   // Resposta via API, dentro da janela de 24h
-  await sdk.messages.send({ receiver: `whatsapp:+${phone}`, body: 'Obrigado!' });
+  await sdk.messages.send({ receiver: `+${phone}`, body: 'Obrigado!' });
 }
 ```
 </CodeGroup>
@@ -169,7 +169,7 @@ Diferenças:
 | `MessageSid` | `id` | Resposta do envio e `data.id` no webhook. Formato `ara_msg_...`. |
 | `MessageStatus` | `data.status` | No webhook, minúsculo: `queued`, `processing`, `sent`, `delivered`, `read`, `failed`, `canceled`. |
 | `From` (inbound) | `data.from` | Só dígitos. |
-| `To` (envio) | `receiver` | `whatsapp:+55...` |
+| `To` (envio) | `receiver` | `+55...` |
 | `Body` | `body` / `data.body` | |
 | `contentSid` | `templateName` | |
 | `contentVariables` | `templateVariables` | Array posicional. |

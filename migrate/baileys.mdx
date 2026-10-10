@@ -74,7 +74,7 @@ const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
 
 await sdk.messages.send(
   {
-    receiver: 'whatsapp:+5511999999999',
+    receiver: '+5511999999999',
     templateName: 'pedido_confirmado',
     templateVariables: ['João', 'ARA-123'],
   },
@@ -115,7 +115,7 @@ app.post('/arara/webhook', express.text({ type: 'application/json' }), (req, res
 
 ### Localização, reação e botões
 
-A API aceita esses tipos em `POST /v1/messages`, dentro da janela de 24h. O SDK Node 1.8.1 não tipa esses campos, então chame a API direto:
+A API aceita esses tipos em `POST /v1/messages`, dentro da janela de 24h. O SDK Node 2.0.0 aceita `interactive`, `location` e `reaction` em `sdk.messages.send`, mas os tipa só como objeto genérico, então confira a forma de cada um na tabela:
 
 | Operação | Baileys | Arara (`POST /v1/messages`) |
 |---|---|---|
@@ -125,18 +125,13 @@ A API aceita esses tipos em `POST /v1/messages`, dentro da janela de 24h. O SDK 
 | Sticker | `sendMessage(jid, { sticker })` | Não suportado |
 
 ```typescript
-await fetch('https://api.ararahq.com/v1/messages', {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${process.env.ARARA_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    receiver: 'whatsapp:+5511999999999',
+await sdk.messages.send(
+  {
+    receiver: '+5511999999999',
     location: { latitude: -23.5614, longitude: -46.6559, name: 'Loja Paulista' },
-  }),
-  signal: AbortSignal.timeout(10_000),
-});
+  },
+  { idempotencyKey: 'pedido-ARA-123-localizacao' },
+);
 ```
 
 Cada requisição leva **um** tipo: `templateName`, `body`, `interactive`, `location` ou `reaction`. Mais de um responde 400.
@@ -185,7 +180,7 @@ Depois de migrar, remova arquivos de sessão, volumes e credenciais do Baileys.
 
 ### Formato do telefone
 
-Baileys usa JID (`5511999999999@s.whatsapp.net`). Na Arara, o envio usa `whatsapp:+5511999999999` e o webhook de entrada traz `data.from` só com dígitos.
+Baileys usa JID (`5511999999999@s.whatsapp.net`). Na Arara, o envio usa `+5511999999999` e o webhook de entrada traz `data.from` só com dígitos.
 
 ### Grupos
 

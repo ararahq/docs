@@ -136,9 +136,8 @@ Criar a conta e gerar a chave de API não exige plano. Você pode conectar o nú
 
     $sdk = new Arara(new Config(apiKey: getenv('ARARA_API_KEY')));
 
-    // O SDK PHP exige o prefixo "whatsapp:" no receiver.
     $response = $sdk->messages->send(
-        receiver: 'whatsapp:+5511999999999',
+        receiver: '+5511999999999',
         templateName: 'pedido_confirmado',
         variables: ['João', '12345'],
     );

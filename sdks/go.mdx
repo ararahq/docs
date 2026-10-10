@@ -1,15 +1,13 @@
 ---
 title: 'SDK Go'
-description: 'SDK Go oficial da Arara (github.com/ararahq/arara-go-sdk): só biblioteca padrão, context.Context em toda chamada, retry automático e erro tipado. Pré-lançamento, sem tag de release.'
+description: 'SDK Go oficial da Arara (github.com/ararahq/arara-go-sdk): só biblioteca padrão, context.Context em toda chamada, retry automático e erro tipado.'
 ---
 
 ## Instalar
 
 ```bash
-go get github.com/ararahq/arara-go-sdk@main
+go get github.com/ararahq/arara-go-sdk@v1.0.0
 ```
-
-O módulo ainda **não tem tag de release** (pré-lançamento): o `go get` resolve uma pseudo-versão do último commit da `main` (hoje `v0.0.0-20260716035048-88895cf1cf93`). Fixe essa versão no seu `go.mod` para builds reprodutíveis.
 
 Requer Go 1.22+. Sem dependências externas (`net/http`, `encoding/json`, `context`).
 
@@ -31,7 +29,7 @@ client, err := arara.NewClient(
     arara.WithMaxRetries(3),                      // opcional, default 3
 )
 if err != nil {
-    log.Fatal(err) // apiKey vazia
+    log.Fatal(err) // apiKey vazia (*arara.APIError, code INVALID_CONFIG)
 }
 ```
 
@@ -72,7 +70,9 @@ func main() {
         log.Fatal(err)
     }
 
-    fmt.Println(resp.ID, resp.Status) // ara_msg_... e status inicial
+    if resp.ID != nil { // o id vem como *string e pode ser nulo
+        fmt.Println(*resp.ID, resp.Status) // ara_msg_... e status inicial
+    }
 }
 ```
 
@@ -80,7 +80,7 @@ Rode:
 
 ```bash
 go mod init exemplo
-go get github.com/ararahq/arara-go-sdk@main
+go get github.com/ararahq/arara-go-sdk@v1.0.0
 ARARA_API_KEY=ara_live_... go run .
 ```
 
@@ -107,11 +107,11 @@ _, err = client.Messages.Send(ctx, &arara.SendMessageRequest{
 })
 ```
 
-O SDK não tem método para consultar a mensagem depois; use `GET /v1/messages/{id}` direto ou o webhook `message.status_updated`.
+Para consultar a mensagem depois, use `client.Messages.Get(ctx, id)` ou o webhook `message.status_updated`. `Get` aceita chave de API com permissão `READ`.
 
 ## Templates
 
-`Get`, `GetStatus` e `Delete` recebem o **id** do template (UUID), não o nome.
+`Get`, `GetStatus` e `Delete` recebem o **id** do template (UUID), não o nome. Para achar o id pelo nome, use `client.Templates.FindByName(ctx, "promo_natal")`.
 
 ```go
 tpl, err := client.Templates.Create(ctx, &arara.CreateTemplateRequest{
@@ -119,7 +119,7 @@ tpl, err := client.Templates.Create(ctx, &arara.CreateTemplateRequest{
     Category: "MARKETING",
     Language: "pt_BR",
     Body:     "Oi {{1}}, oferta de Natal: {{2}}% off até {{3}}.",
-    Samples:  map[string]string{"1": "João", "2": "30", "3": "sexta"},
+    Samples:  map[string]any{"1": "João", "2": "30", "3": "sexta"},
 })
 if err != nil {
     log.Fatal(err)
@@ -133,13 +133,13 @@ if err == nil {
 
 ## Tratar erros
 
-Toda falha devolve `*arara.Error`:
+Toda falha devolve `*arara.APIError`:
 
 ```go
 import "errors"
 
 _, err := client.Messages.Send(ctx, req)
-var apiErr *arara.Error
+var apiErr *arara.APIError
 if errors.As(err, &apiErr) {
     fmt.Println(apiErr.StatusCode, apiErr.Code, apiErr.Message, apiErr.Details)
     if apiErr.StatusCode == 429 && apiErr.RetryAfter != nil {
@@ -151,24 +151,26 @@ if errors.As(err, &apiErr) {
 | Campo | Conteúdo |
 |---|---|
 | `StatusCode` | Status HTTP. Zero em falha de rede. |
-| `Code` | `error.code` da API. `NETWORK_ERROR`, `DECODE_ERROR`, `CONTEXT_CANCELED` ou `UNKNOWN_ERROR` quando não veio da API. |
+| `Code` | `error.code` da API. Quando a resposta não traz o envelope: `AUTHENTICATION_ERROR` (401), `FORBIDDEN` (403), `NOT_FOUND` (404) ou `UNKNOWN_ERROR`. Erros locais: `INVALID_CONFIG`, `NETWORK_ERROR`, `DECODE_ERROR`, `CONTEXT_CANCELED`. |
 | `Message` | `error.message` da API. |
 | `Details` | `error.details` da API. |
-| `RetryAfter` | Segundos do header `Retry-After`, quando houver. |
+| `RetryAfter` | Segundos do header `Retry-After`, quando houver (`*int`). |
+
+Helpers: `arara.IsAuthError(err)` (401), `arara.IsForbidden(err)` (403 sem código), `arara.IsNotFound(err)` (404) e `arara.IsPlanFeatureLocked(err)`. `errors.Is(err, context.Canceled)` funciona.
 
 A API responde 401 para chave inválida, revogada ou expirada, e 403 quando o header `Authorization` está ausente ou a chave não tem permissão para a rota. Lista de códigos em [Erros](/erros).
 
 ## Retentativas e idempotência
 
-O SDK retenta até `WithMaxRetries` vezes em falha de rede, 429 e qualquer 5xx. Respeita `Retry-After` (até 30s); sem ele, espera 500ms e dobra a cada tentativa, até 30s. Cancelar o `context` interrompe a espera. Para desligar: `arara.WithMaxRetries(0)`.
+O SDK retenta até `WithMaxRetries` vezes em falha de rede, 429 e qualquer 5xx, e só em requisições `GET` ou com `Idempotency-Key`. Escritas sem a chave nunca são repetidas. Respeita `Retry-After` (até 30s); sem ele, espera 500ms e dobra a cada tentativa, até 30s. Cancelar o `context` interrompe a espera. Para desligar: `arara.WithMaxRetries(0)`.
 
 <Warning>
-  O retry reenvia `POST /v1/messages` em 5xx. Passe `SendOptions{IdempotencyKey: ...}` em todo envio.
+  `Messages.Send`, `Messages.SendBatch` e `Campaigns.Create` sempre mandam `Idempotency-Key`: se você não passar uma, o SDK gera um UUID v4, que só vale dentro daquela chamada (e é a mesma em todas as retentativas dela). Para que um retry do seu lado não duplique o envio, passe `SendOptions{IdempotencyKey: ...}`.
 </Warning>
 
 `SendOptions` é opcional. Derive a chave de um id do seu sistema (id do pedido, id da tentativa), não de um valor novo a cada chamada. Repetir a mesma `IdempotencyKey` devolve a mensagem original. A API não compara o corpo nem expira a chave: com destinatário ou variáveis diferentes, a resposta continua sendo a mensagem original.
 
-`Campaigns.Create` gera um `Idempotency-Key` (UUID v4) quando você não passa um. Passe o seu para que um retry do seu lado não crie campanha duplicada:
+`Campaigns.Create` segue a mesma regra, com `CampaignCreateOptions`:
 
 ```go
 campaign, err := client.Campaigns.Create(ctx, &arara.CampaignRequest{
@@ -190,23 +192,40 @@ detail, err := client.Campaigns.Get(ctx, campaign.ID)
 
 O SDK não tem helper de webhook. Valide `X-Arara-Signature` com `crypto/hmac` sobre `"{X-Arara-Timestamp}.{corpo cru}"` e compare com `hmac.Equal`. Detalhes em [Webhooks](/webhooks).
 
+```go
+const toleranceSeconds = 300
+
+func validSignature(secret, timestamp, signature string, body []byte) bool {
+    sent, err := strconv.ParseInt(timestamp, 10, 64)
+    if err != nil || math.Abs(float64(time.Now().Unix()-sent)) > toleranceSeconds {
+        return false
+    }
+    mac := hmac.New(sha256.New, []byte(secret))
+    mac.Write([]byte(timestamp + "."))
+    mac.Write(body)
+    expected := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+    return hmac.Equal([]byte(expected), []byte(signature))
+}
+```
+
+Chame com `r.Header.Get("X-Arara-Timestamp")`, `r.Header.Get("X-Arara-Signature")` e o corpo lido com `io.ReadAll(r.Body)`, antes de decodificar o JSON.
+
 ## Recursos disponíveis
 
 Todo método recebe `context.Context` como primeiro argumento.
 
 | Recurso | Acesso | Métodos |
 |---|---|---|
-| Messages | `client.Messages` | `Send` |
-| Templates | `client.Templates` | `List`, `Create`, `Get`, `GetStatus`, `Delete` |
+| Messages | `client.Messages` | `Send`, `SendBatch`, `Get`, `ListByBatch` |
+| Templates | `client.Templates` | `List`, `FindByName`, `Create`, `Get`, `GetStatus`, `Delete`, `Analytics`, `TemplateAnalytics` |
 | Campaigns | `client.Campaigns` | `Create`, `List`, `Estimate`, `Get`, `Cancel` |
 | Contacts | `client.Contacts` | `List`, `ImportBatch`, `Stats`, `ReactivationCandidates`, `ListTags`, `Get`, `Update`, `Messages` |
 | Conversations | `client.Conversations` | `List`, `LeadStats`, `Messages`, `Reply`, `UpdateStatus`, `WindowStatus` |
 | Wallet | `client.Wallet` | `Transactions`, `GetAutoRecharge`, `UpdateAutoRecharge` |
 | Numbers | `client.Numbers` | `List`, `Update`, `Delete`, `Request`, `ListRequests`, `Sync`, `Warming` |
 | Smart links | `client.SmartLinks` | `Create`, `Update`, `List`, `Stats` |
-| Users | `client.Users` | `GetMe`, `Update` |
-| Organizations | `client.Organizations` | `GetWebhook`, `UpdateWebhook` (não funcionam com chave de API; configure o webhook pelo painel) |
-| API Keys | `client.APIKeys` | `List`, `Create` (ver limitações) |
+| Auth | `client.Auth` | `Me` (exige chave de API ADMIN) |
+| Opt-outs | `client.OptOuts` | `List`, `Get`, `Create`, `Delete` (exige chave de API ADMIN) |
 
 Exemplo de contatos e conversas:
 
@@ -221,11 +240,11 @@ _, err = client.Conversations.Reply(ctx, &arara.ConversationReplyRequest{
 
 ## Limitações conhecidas
 
-| Método | Problema |
+| Item | Comportamento |
 |---|---|
-| `Templates.List` | A API responde `{ data, pagination }` e o SDK decodifica em `[]Template`: erro `DECODE_ERROR`. |
 | `Templates.Get/GetStatus/Delete` | Precisam do id (UUID). Com o nome a API responde 400. |
-| `APIKeys.*` | A API recusa gestão de chaves autenticada por API key (403). Crie e revogue chaves pelo painel. |
+| Webhook, chaves de API | O SDK não gerencia. Configure webhooks em `https://app.ararahq.com/dashboard/webhooks` e crie e revogue chaves em `https://app.ararahq.com/dashboard/apikeys`. |
+| `MessageResponse.ID` | É `*string`: confira `nil` antes de ler. |
 
 ## Próximos passos
 

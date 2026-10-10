@@ -54,7 +54,7 @@ import { revalidatePath } from 'next/cache';
 export async function sendOrderConfirmation(orderId: string, phone: string, customerName: string) {
   const response = await arara.messages.send(
     {
-      receiver: `whatsapp:${phone}`,
+      receiver: phone,
       templateName: 'confirmacao_pedido',
       templateVariables: [customerName, orderId],
     },
@@ -199,33 +199,30 @@ if (WebhookUtils.isMessageStatusEvent(payload)) {
 ```
 
 <Note>
-  No tipo `MessageStatusData` da 1.8.1, `messageId` está comentado como `ara_msg_...`, mas a API envia nesse campo o UUID interno. O id `ara_msg_...` (o mesmo devolvido no envio) está em `data.id`, que o tipo não declara.
+  O tipo `MessageStatusData` do SDK 2.0.0 declara `messageId`, mas a API envia nesse campo o UUID interno. O id `ara_msg_...` (o mesmo devolvido no envio) está em `data.id`, que o tipo não declara: leia-o com um cast, por exemplo `(payload.data as { id?: string }).id`.
 </Note>
 
 ## Consultar status de uma mensagem
 
-O SDK 1.8.1 não tem método para buscar uma mensagem. O caminho recomendado é gravar o status que chega pelo webhook `message.status_updated`. Se você precisa consultar sob demanda (tela de suporte, reconciliação), chame a API direto:
+Para gravar o status, prefira o webhook `message.status_updated`. Se você precisa consultar sob demanda (tela de suporte, reconciliação), use `arara.messages.get`:
 
 ```typescript
 // app/api/messages/[id]/route.ts
+import { AraraError } from '@ararahq/sdk';
+import { arara } from '@/lib/arara';
+
 export const runtime = 'nodejs';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const res = await fetch(`https://api.ararahq.com/v1/messages/${encodeURIComponent(id)}`, {
-    headers: { Authorization: `Bearer ${process.env.ARARA_API_KEY}` },
-    cache: 'no-store',
-    signal: AbortSignal.timeout(10_000),
-  });
-
-  if (!res.ok) {
-    return Response.json({ error: 'Mensagem indisponível' }, { status: res.status === 404 ? 404 : 502 });
+  try {
+    const msg = await arara.messages.get(id);
+    return Response.json({ id: msg.id, status: msg.status, reason: msg.reason });
+  } catch (error) {
+    const notFound = error instanceof AraraError && error.statusCode === 404;
+    return Response.json({ error: 'Mensagem indisponível' }, { status: notFound ? 404 : 502 });
   }
-
-  const msg = await res.json();
-  // { id, status, mode, sender, receiver, body, cost, reason }
-  return Response.json({ id: msg.id, status: msg.status, reason: msg.reason });
 }
 ```
 
@@ -241,7 +238,7 @@ Em rotas que enviam mensagem (Server Action, handler de webhook que responde ao 
 
 ```typescript
 await arara.messages.send(
-  { receiver: 'whatsapp:+5511999999999', templateName: 'confirmacao_pedido', templateVariables: ['João', 'ARA-123'] },
+  { receiver: '+5511999999999', templateName: 'confirmacao_pedido', templateVariables: ['João', 'ARA-123'] },
   { idempotencyKey: 'order-confirmation-ARA-123' }
 );
 ```

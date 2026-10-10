@@ -191,6 +191,6 @@ Assíncronos (status `FAILED` via webhook `message.status_updated`, campo `error
 ## Ferramentas prontas
 
 - MCP Server `@ararahq/mcp` v6 (agentes de IA operam a conta em linguagem natural), 9 tools: `whoami`, `send_whatsapp`, `broadcast`, `campaign_report`, `check_status`, `create_template`, `save_contacts`, `opt_out`, `read_conversation`. Local: `npx -y @ararahq/mcp login` e cliente stdio com `npx -y @ararahq/mcp --stdio`. Hospedado: Streamable HTTP em `https://mcp.ararahq.com/mcp` com OAuth — https://docs.ararahq.com/mcp-server
-- SDKs: Node (`@ararahq/sdk`), Python (`ararahq-sdk`), PHP (`ararahq/sdk`), Java (`com.ararahq:arara-java-sdk`), Go (`github.com/ararahq/arara-go-sdk`, pré-lançamento), Ruby (pré-lançamento) — https://docs.ararahq.com/sdks
+- SDKs: Node `@ararahq/sdk` 2.0.0 (npm), Python `ararahq-sdk` 2.0.0 (PyPI), PHP `ararahq/sdk` 2.0.0 (Packagist), Java `com.ararahq:arara-java-sdk` 2.0.0 (GitHub Packages, exige usuário e token do GitHub; não está no Maven Central), Go `github.com/ararahq/arara-go-sdk` v1.0.0 (tag no GitHub), Ruby `ararahq` 1.0.0 (RubyGems) — https://docs.ararahq.com/sdks
 - CLI `arara` (Go): `brew install ararahq/tap/arara`; `arara login`, `arara send`, `arara listen`, `arara api` — https://docs.ararahq.com/cli
 - Coleção Postman: https://github.com/ararahq/arara-postman

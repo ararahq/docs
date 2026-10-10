@@ -11,7 +11,7 @@ pip install ararahq-sdk
 
 [![PyPI](https://img.shields.io/pypi/v/ararahq-sdk)](https://pypi.org/project/ararahq-sdk/)
 
-Versão publicada: **1.8.1**. Python 3.8+. Dependências: `httpx`, `pydantic` v2, `pydantic-settings` e `tenacity`. O pacote instala como `ararahq-sdk` e importa como `arara_api_sdk`.
+Versão publicada: **2.0.0**. Python 3.8+. Dependências: `httpx`, `pydantic` v2, `pydantic-settings` e `tenacity`. O pacote instala como `ararahq-sdk` e importa como `arara_api_sdk`.
 
 ## Configurar
 
@@ -23,7 +23,7 @@ client = AraraClient(
     api_key=os.environ["ARARA_API_KEY"],  # ou omita: o SDK lê ARARA_API_KEY do ambiente
     base_url="https://api.ararahq.com",   # opcional, este é o default
     timeout=30.0,                         # opcional, em segundos
-    max_retries=3,                        # opcional
+    max_retries=3,                        # opcional; 0 desliga as retentativas
 )
 
 # Fecha as conexões ao sair
@@ -45,10 +45,10 @@ from arara_api_sdk.models.message import SendMessageRequest
 
 with AraraClient() as client:  # lê ARARA_API_KEY do ambiente
     response = client.messages.send(SendMessageRequest(
-        receiver="whatsapp:+5511999999999",
+        receiver="+5511999999999",
         template_name="pedido_confirmado",
         template_variables=["João", "12345"],
-    ))
+    ), idempotency_key="pedido-12345")  # id do pedido no seu sistema
 
 print(response.id)      # ara_msg_...
 print(response.status)  # status inicial da mensagem
@@ -60,11 +60,13 @@ Rode:
 ARARA_API_KEY=ara_live_... python enviar.py
 ```
 
+O `receiver` aceita `+5511999999999`, `whatsapp:+5511999999999` ou só os dígitos. O `idempotency_key` é opcional: sem ele o SDK gera um por chamada e o reaproveita nas retentativas. Passe o seu para evitar duplicidade entre processos (veja a seção Retentativas e idempotência).
+
 Com variáveis no corpo do template e mídia no header:
 
 ```python
 client.messages.send(SendMessageRequest(
-    receiver="whatsapp:+5511999999999",
+    receiver="+5511999999999",
     template_name="confirmacao_pedido",
     template_variables=[
         "https://meusite.com/nota/123.pdf",  # header (mídia opcional)
@@ -80,12 +82,12 @@ Para responder dentro da janela de 24h, mande `body` em vez de `template_name`:
 
 ```python
 client.messages.send(SendMessageRequest(
-    receiver="whatsapp:+5511999999999",
+    receiver="+5511999999999",
     body="Oi! Vi sua dúvida e respondo já já.",
 ))
 ```
 
-Para consultar depois, use `client.messages.get(id)`. Ele só devolve mensagens do mesmo usuário dono da chave (ver **Limitações conhecidas**). Em produção, acompanhe o status pelo webhook `message.status_updated`.
+Para consultar depois, use `client.messages.get(id)`. Ele só devolve mensagens do mesmo usuário dono da chave (ver **Limitações conhecidas**). Para enviar o mesmo template a até 1.000 números, use `client.messages.send_batch(BatchMessageRequest(...))` e `client.messages.list_by_batch(batch_id)`. Em produção, acompanhe o status pelo webhook `message.status_updated`.
 
 ### Async
 
@@ -103,8 +105,8 @@ async def main():
                 receiver=phone,
                 template_name="lembrete_aula",
                 template_variables=["João"],
-            ))
-            for phone in ["whatsapp:+5511999990001", "whatsapp:+5511999990002"]
+            ), idempotency_key=f"lembrete-{phone}")
+            for phone in ["+5511999990001", "+5511999990002"]
         ])
 
 results = asyncio.run(main())
@@ -119,6 +121,9 @@ from uuid import UUID
 
 template_id = UUID("7f1c2e9a-3b4d-4c5e-8f60-1a2b3c4d5e6f")
 
+page = client.templates.list(name="pedido_confirmado")  # { data, pagination }
+print([t.name for t in page.data], page.pagination.total_elements)
+
 status = client.templates.get_status(template_id)
 print(status.status, status.rejection_reason)
 
@@ -128,52 +133,57 @@ print(template.name, template.provider_status)
 client.templates.delete(template_id)
 ```
 
-Para criar e listar templates, use a API direto por enquanto (ver limitações).
+Para criar um template, use `client.templates.create(CreateTemplateRequest(name=..., category=..., body=...))` (importe de `arara_api_sdk.models.template`). `client.templates.analytics(template_id, period="30d")` devolve as métricas de entrega e leitura.
 
 ## Tratar erros
 
 ```python
-import time
 from arara_api_sdk import (
-    AraraError,
     AraraAuthError,
-    AraraValidationError,
+    AraraError,
     AraraRateLimitError,
-    AraraResourceNotFoundError,
-    AraraServerError,
-    AraraConnectionError,
-    AraraTimeoutError,
+    AraraUnprocessableError,
 )
 
 try:
-    client.messages.send(SendMessageRequest(receiver="whatsapp:+5511999999999", body="oi"))
+    client.messages.send(SendMessageRequest(receiver="+5511999999999", body="oi"))
+except AraraUnprocessableError as e:
+    print(e.code, e.message)  # ex.: INVALID_RECIPIENT
 except AraraRateLimitError as e:
-    time.sleep(e.retry_after or 1)
+    print(f"Limite atingido, tente em {e.retry_after or 1}s")  # depois das retentativas
+except AraraAuthError:
+    print("Chave de API inválida, revogada ou expirada")
 except AraraError as e:
-    print(e.status_code, e.response_body)
+    print(e.status_code, e.code, e.message, e.details)
 ```
 
 | Exceção | Quando |
 |---|---|
 | `AraraValidationError` | 400 |
 | `AraraAuthError` | 401 |
+| `AraraForbiddenError` | 403 sem envelope de erro (header `Authorization` ausente ou chave sem permissão para a rota) |
+| `AraraApiError` | 403 com envelope, como `ACCOUNT_NOT_ACTIVATED` e `PLAN_LIMIT_REACHED` |
+| `AraraPlanFeatureLockedError` | 403 `PLAN_FEATURE_LOCKED` (`feature`, `current_plan`, `upgrade_to`) |
 | `AraraResourceNotFoundError` | 404 |
+| `AraraUnprocessableError` | 422 |
 | `AraraRateLimitError` | 429 (`retry_after` em segundos) |
 | `AraraServerError` | 5xx |
 | `AraraConnectionError` / `AraraTimeoutError` | falha de rede / timeout |
-| `AraraError` | qualquer outro status, incluindo 403 |
+| `AraraError` | qualquer outro status, como 402 e 409 (base de todas as anteriores) |
 
-Na 1.8.1, as exceções expõem `status_code`, `response_body` (o JSON da resposta) e a mensagem em `str(e)`. O código de erro da API fica em `e.response_body["error"]["code"]`, mas só quando o corpo segue o envelope de erro. Em 401 e 403 de autenticação `error` é uma string, e o corpo pode vir vazio: confira `isinstance(body, dict) and isinstance(body.get("error"), dict)` antes de ler o código. A API responde 401 para chave inválida, revogada ou expirada, e 403 quando o header `Authorization` está ausente ou a chave não tem permissão para a rota. Lista de códigos em [Erros](/erros).
+Toda exceção expõe `status_code`, `response_body` (o JSON da resposta), `message`, `code`, `details` e `retry_after`. `code` e `details` vêm do envelope de erro `{"error": {"code", "message", "details"}}` e ficam vazios (`None` e `{}`) quando o corpo não segue o envelope, o caso de 401 e 403 de autenticação. A API responde 401 para chave inválida, revogada ou expirada, e 403 quando o header `Authorization` está ausente ou a chave não tem permissão para a rota. Lista de códigos em [Erros](/erros).
 
 ## Retentativas e idempotência
 
-Na 1.8.1, o SDK retenta 5xx, erro de conexão e timeout, com espera exponencial entre 2s e 10s, até `max_retries` vezes. **429 não é retentado**: trate `AraraRateLimitError`.
+O SDK retenta 5xx, 429, erro de conexão e timeout, com espera exponencial entre 2s e 10s, até `max_retries` vezes. Em 429 ele espera o `Retry-After` da resposta; se o valor passar de 60s, não retenta e levanta `AraraRateLimitError`.
 
-Hoje `max_retries=0` no construtor é ignorado (o default 3 continua valendo). Para desligar o retry, use a variável de ambiente `ARARA_MAX_RETRIES=0`.
+Todo envio (`messages.send`, `messages.send_batch` e `campaigns.create`) manda o header `Idempotency-Key`. Sem `idempotency_key`, o SDK gera um UUID por chamada e repete o mesmo valor em cada retentativa, então um timeout depois de a API aceitar o pedido não duplica a mensagem. Passe o seu para dedupe entre processos e reinícios:
 
-<Warning>
-  O retry reenvia `POST /v1/messages` em 5xx e o SDK não aceita chave de idempotência no envio. Se duplicar mensagem for inaceitável, desligue o retry.
-</Warning>
+```python
+client.messages.send(request, idempotency_key=f"pedido-{pedido.id}")
+```
+
+Repetir a mesma chave em `messages.send` devolve a mensagem original, mesmo com corpo diferente: a API não compara o corpo. Chamadas `POST`/`PATCH` sem `Idempotency-Key` nunca são retentadas. Para desligar as retentativas, use `max_retries=0` ou `ARARA_MAX_RETRIES=0`.
 
 ## Webhooks
 
@@ -205,31 +215,30 @@ A URL do webhook é cadastrada pelo [painel](https://app.ararahq.com/dashboard/w
 
 ## Recursos disponíveis
 
-| Recurso | Acesso | Métodos que funcionam |
+Todo método tem a variante `_async` (por exemplo `send_async`).
+
+| Recurso | Acesso | Métodos |
 |---|---|---|
-| Messages | `client.messages` | `send(request)`, `get(internal_id)` |
-| Templates | `client.templates` | `get(template_id)`, `get_status(template_id)`, `delete(template_id)` |
-| Users | `client.users` | `me()`, `update(request)` |
-| Organizations | `client.organizations` | `get_webhook()` e `update_webhook(request)` (não funcionam com chave de API; configure o webhook pelo painel), `get_brain_config()`, `update_brain_config(request)`, `invite_user(request)`, `list_members()`, `list_numbers()`, `update_number(number_id, request)` |
+| Messages | `client.messages` | `send`, `send_batch`, `get`, `list_by_batch` |
+| Templates | `client.templates` | `create`, `list`, `get`, `get_status`, `delete`, `analytics` |
+| Campaigns | `client.campaigns` | `create`, `list`, `get`, `cancel` |
+| Contacts | `client.contacts` | `list`, `import_batch`, `stats`, `reactivation_candidates`, `list_tags`, `get`, `update`, `messages` |
+| Conversations | `client.conversations` | `list`, `lead_stats`, `messages`, `reply`, `update_status`, `window_status` |
+| Numbers | `client.numbers` | `list`, `update`, `delete`, `request`, `list_requests`, `sync`, `warming` |
+| Opt-outs | `client.opt_outs` | `list`, `create`, `get`, `delete` |
+| Smart links | `client.smart_links` | `create`, `update`, `list`, `stats` |
+| Wallet | `client.wallet` | `transactions`, `get_auto_recharge`, `update_auto_recharge` |
+| Auth | `client.auth` | `me` |
 
-`client.campaigns`, `client.brain` e `client.payments` existem no pacote, mas nenhum método deles funciona contra a API atual. Detalhes em **Limitações conhecidas**.
-
-<Note>
-  A branch `main` do repositório já tem `contacts`, `conversations`, `wallet`, `numbers`, `smart_links`, `api_keys`, retry em 429 e o campo `code` nas exceções, mas essa versão ainda não foi publicada no PyPI.
-</Note>
+Contacts, conversations, wallet e `auth.me` exigem chave de API com permissão ADMIN.
 
 ## Limitações conhecidas
 
-| Método | Problema |
+| Item | Comportamento |
 |---|---|
-| `messages.get` | Funciona, mas a API só devolve mensagens enviadas pela mesma chave/usuário; mensagem de outro membro da organização responde 403. |
-| `templates.list` | A API responde `{ data, pagination }` e o SDK espera uma lista: falha ao validar. |
-| `templates.create` | O modelo `CreateTemplateRequest` exige `structure_json` e não envia `body`, que a API exige: 400. |
-| `campaigns.create` | Não envia o header `Idempotency-Key`, obrigatório na API: a resposta hoje é 500. |
-| `brain.prompt` | Chama `POST /v1/brain`, rota que não existe na API. |
-| `payments.create_pix` | Envia `amount`, a API lê `amountCentavos`: 400. |
-| `payments.checkout` | Chama `POST /payments/checkout`, rota que não existe na API. |
-| `scheduled_at` em `SendMessageRequest` | O `datetime` não é serializado para JSON; o envio quebra antes de chegar na API. |
+| `messages.get` | A API só devolve mensagens enviadas pelo mesmo usuário dono da chave; mensagem de outro membro da organização responde 403 com corpo vazio. |
+| `media_url` em `SendMessageRequest` | Descontinuado. Mande a mídia do header como primeiro item de `template_variables`. |
+| Webhooks | O SDK não configura webhook. `organizations`, `users`, `brain` e `payments` não existem na 2.0.0. |
 
 ## Próximos passos
 

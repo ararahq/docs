@@ -79,14 +79,14 @@ const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
 
 // Janela de 24h aberta (cliente falou com você nas últimas 24h): mensagem sem template
 await sdk.messages.send({
-  receiver: 'whatsapp:+5511999999999',
+  receiver: '+5511999999999',
   body: 'Olá João, seu pedido foi confirmado!',
 });
 
 // Fora da janela: template aprovado
 await sdk.messages.send(
   {
-    receiver: 'whatsapp:+5511999999999',
+    receiver: '+5511999999999',
     templateName: 'pedido_confirmado',
     templateVariables: ['João', 'ARA-123'],
   },
@@ -98,7 +98,7 @@ await sdk.messages.send(
 Principais mudanças:
 - **Mensagem sem template só na janela de 24h.** Veja [Janela de 24h](/concepts/24h-window).
 - **Mensagem iniciada pela empresa usa template aprovado.**
-- **Destinatário em formato internacional**: `+5511999999999` (o SDK de PHP e o de Java ainda pedem o prefixo `whatsapp:`).
+- **Destinatário em formato internacional**: `+5511999999999` (o prefixo `whatsapp:` também é aceito).
 - **Webhook assinado**: valide `X-Arara-Signature` e `X-Arara-Timestamp`. Veja [Webhooks](/webhooks).
 
 ### 4. Recebimento
