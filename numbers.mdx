@@ -1,21 +1,125 @@
 ---
-title: 'Números dedicados e qualidade'
-description: 'Como gerenciar os números WhatsApp da sua organização na Arara: listar, pedir número novo, acompanhar quality rating e limite de envio, recomendação de warming e eventos de webhook do número.'
-keywords: ['números', 'quality rating', 'tier', 'limite de envio', 'warming', 'banimento', 'whatsapp business']
+title: 'Números: qualidade e limite de envio'
+description: 'O que são o quality rating e o limite de envio do número WhatsApp, como subir o volume sem perder qualidade e como consultar tudo pela API.'
+keywords: ['números', 'quality rating', 'qualityScore', 'tier', 'messagingTier', 'limite de envio', 'warming', 'banimento', 'whatsapp business']
 ---
 
 O número que envia mensagens é o ativo mais frágil da operação. Se a Meta restringe ou bane o número, os envios param até a situação ser resolvida com a Meta.
 
-Esta página mostra como a Arara expõe os seus números, o que significam quality rating e limite de envio, e o que fazer quando algo cai.
+Esta página explica o que a Meta mede em cada número, como subir o volume sem perder qualidade e como acompanhar tudo pela API.
 
-## Tipos de número
+## O que é a qualidade do número
+
+A Meta mantém dois indicadores por número:
+
+- **Quality rating** (`qualityScore`): a saúde do número, calculada pela Meta com base nos sinais dos destinatários, como bloqueios e denúncias.
+- **Limite de envio** (`messagingTier`): o teto operacional, quantos destinatários únicos o número alcança com conversas iniciadas pela empresa em 24h.
+
+Qualidade baixa pode levar a Meta a restringir o número.
+
+| `qualityScore` | Na Meta | O que fazer |
+|---|---|---|
+| `HIGH` | Verde | Manter o padrão de envio |
+| `MEDIUM` | Amarelo | Revisar conteúdo e frequência antes de aumentar o volume |
+| `LOW` | Vermelho | Reduzir o volume, pausar marketing, revisar a base |
+| `FLAGGED` | Sinalizado | Parar marketing e revisar o conteúdo recente |
+| `UNKNOWN` | | A Arara ainda não recebeu o valor. Não trate como "tudo certo" |
+
+## Limite de envio
+
+| `messagingTier` | Tier informado pela Meta (destinatários únicos / 24h) | Teto diário que a Arara aplica |
+|---|---|---|
+| `TIER_50` | 50 | 50 |
+| `TIER_250` | 250 | 250 |
+| `TIER_1K` | 1.000 | 1.000 |
+| `TIER_2K` | 2.000 | 1.000 |
+| `TIER_10K` | 10.000 | 10.000 |
+| `TIER_100K` | 100.000 | 100.000 |
+| `UNLIMITED` | Sem limite | Sem limite |
+| `UNKNOWN` | Ainda não sincronizado | 1.000 |
+
+`messagingTier` é o valor que a Meta informa. No envio, a Arara trata `TIER_2K` e `UNKNOWN` como 1.000 por dia.
+
+Quem sobe ou desce o limite é a Meta, com critérios próprios que mudam com o tempo. Consulte a documentação da Meta para a regra vigente.
+
+A Arara atualiza qualidade e limite de duas formas: consultando o provedor a cada 6 horas e recebendo os eventos de conta que a Meta envia.
+
+## Como subir de tier: aquecimento
+
+Número recém-verificado que sai enviando o limite inteiro tende a perder qualidade. Crescer devagar é o que permite à Meta subir o limite. A Arara calcula uma recomendação de ritmo diário por número:
+
+```bash
+curl https://api.ararahq.com/v1/organizations/me/numbers/{id}/warming \
+  -H "Authorization: Bearer $ARARA_API_KEY"
+```
+
+```json
+{
+  "numberId": "4b1f0c7e-2a3d-4e59-9a61-0f2d5c8b7a10",
+  "qualityScore": "HIGH",
+  "messagingTier": "TIER_1K",
+  "daysSinceVerified": 10,
+  "dailyCapByTier": 1000,
+  "recommendedDailySends": 500,
+  "recommendedPacePct": 50,
+  "currentDailyAverage": 312,
+  "recommendation": "Days 8-14. Ramp to 50% of cap. Keep template diversity high."
+}
+```
+
+Como a recomendação é calculada:
+
+| Situação do número | Ritmo recomendado |
+|---|---|
+| Ainda não verificado pela Meta | 0% (aguarde a verificação) |
+| `FLAGGED` | 0% (pause marketing e revise o conteúdo recente) |
+| `LOW` | 30% do limite, só UTILITY, sem MARKETING por 7 dias |
+| Dias 1 a 7 após verificação | 20% do limite |
+| Dias 8 a 14 | 50% do limite |
+| Dias 15 a 30 | 80% do limite |
+| Depois de 30 dias, ou `UNLIMITED` | 100% |
+
+A recomendação é orientativa: a API não trava envio por ela. Programe o seu envio para respeitar `recommendedDailySends`.
+
+<Note>
+  Para datas de pico, como Black Friday, comece a aquecer o número semanas antes. O limite de envio não sobe no dia.
+</Note>
+
+## O que derruba a qualidade
+
+A Meta não publica pesos, mas os sinais conhecidos são:
+
+| Sinal | Como evitar |
+|---|---|
+| Destinatário bloqueia o número | Opt-in real e conteúdo que a pessoa espera |
+| Destinatário denuncia como spam | Tom apropriado, sem urgência forçada |
+| Destinatário para de receber marketing da marca | Frequência controlada |
+| Vários marketing seguidos para o mesmo contato | Espaçar as campanhas para a mesma base |
+
+Os três cenários mais comuns de queda:
+
+<AccordionGroup>
+  <Accordion title="Envio agressivo de marketing" icon="bullhorn">
+    Template MARKETING recém-aprovado enviado para a base inteira, incluindo contatos inativos ou que não consentiram. **O que fazer**: pause marketing por alguns dias e mantenha só UTILITY com notificações reais.
+  </Accordion>
+  <Accordion title="Conteúdo que gera bloqueio" icon="file-circle-xmark">
+    Texto em caixa alta, "URGENTE", "ÚLTIMA CHANCE", promessa exagerada, cobrança ameaçadora. **O que fazer**: revise o texto seguindo a [Política de templates](/templates/policy). Tom conversacional bloqueia menos.
+  </Accordion>
+  <Accordion title="Falta de opt-in real" icon="hand">
+    Base importada do CRM sem consentimento para WhatsApp. A pessoa recebe sem esperar e bloqueia. **O que fazer**: pare de enviar para essa base e reconquiste o consentimento por outro canal. Veja [Compliance](/concepts/compliance).
+  </Accordion>
+</AccordionGroup>
+
+## Consultar pela API
+
+### Tipos de número
 
 <CardGroup cols={2}>
   <Card title="Número próprio conectado" icon="phone-arrow-up-right">
-    Você conecta um número seu à conta pelo fluxo de cadastro da Meta no dashboard. Não ocupa mensalidade de número.
+    Você conecta um número seu à organização pelo fluxo de cadastro da Meta no [Dashboard](https://app.ararahq.com). Não ocupa mensalidade de número.
   </Card>
   <Card title="Número provisionado pela Arara" icon="user-tie">
-    A Arara providencia a linha para você. Depende do plano e tem mensalidade própria. Ver [Preços](/concepts/pricing).
+    A Arara providencia a linha para você. Depende do plano e tem mensalidade própria. Veja [Preços e limites](/concepts/pricing).
   </Card>
 </CardGroup>
 
@@ -25,41 +129,11 @@ Na API, os dois aparecem com `type: "DEDICATED"`. O campo `provisionedByArara` d
   **Campanhas exigem número conectado.** Sem nenhum número dedicado ativo na organização, `POST /v1/campaigns` responde `403` com `error.code = "NO_DEDICATED_NUMBER"`.
 </Warning>
 
-## Quality rating e limite de envio
-
-A Meta mantém dois indicadores por número:
-
-- **Quality rating** (`qualityScore`): a saúde do número, calculada pela Meta com base nos sinais dos destinatários, como bloqueios e denúncias.
-- **Limite de envio** (`messagingTier`): quantos destinatários únicos o número pode alcançar com conversas iniciadas pela empresa em 24h.
-
-Valores que a API retorna:
-
-| `qualityScore` | Significado |
-|---|---|
-| `HIGH` | Qualidade alta (verde na Meta) |
-| `MEDIUM` | Qualidade média (amarelo) |
-| `LOW` | Qualidade baixa (vermelho) |
-| `FLAGGED` | Número sinalizado pela Meta |
-| `UNKNOWN` | A Arara ainda não recebeu essa informação |
-
-| `messagingTier` | Destinatários únicos / 24h |
-|---|---|
-| `TIER_50` | 50 |
-| `TIER_250` | 250 |
-| `TIER_1K` | 1.000 |
-| `TIER_2K` | 2.000 |
-| `TIER_10K` | 10.000 |
-| `TIER_100K` | 100.000 |
-| `UNLIMITED` | Sem limite |
-| `UNKNOWN` | Ainda não sincronizado |
-
-A Arara atualiza quality e limite de duas formas: consultando o provedor periodicamente (a cada 6 horas) e recebendo os eventos de conta que a Meta envia. Os critérios exatos de subida e descida de limite são da Meta e mudam com o tempo; consulte a documentação da Meta para a regra vigente.
-
-## Listar números
+### Listar números
 
 ```bash
 curl https://api.ararahq.com/v1/organizations/me/numbers \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 Retorna:
@@ -106,6 +180,8 @@ Retorna:
 - `slot` resume quantos números o plano permite (`max = -1` significa sem limite), se a organização já está no teto e, em centavos, a mensalidade por número provisionado pela Arara (`monthlyPriceCents`) e o total mensal dos números ativos (`monthlyTotalCents`). Os valores do exemplo são ilustrativos.
 - `isCoexistence` indica número que segue ativo no app WhatsApp Business junto com a API. `null` enquanto não sincronizou.
 
+Cada organização pode ter mais de um número, por exemplo um para marketing e outro para atendimento, para não concentrar o risco em uma linha só. Cada número tem qualidade e limite próprios. O número de cada envio é escolhido no campo `sender` de `POST /v1/messages`. Sem ele, o envio sai pelo número padrão (`isDefault`). Quantos números a organização pode ter depende do plano: veja `slot.max` na resposta acima.
+
 Outras operações no mesmo recurso:
 
 | Método e rota | O que faz |
@@ -120,50 +196,14 @@ Outras operações no mesmo recurso:
   `GET` nessas rotas funciona com chave de leitura. `POST`, `PATCH` e `DELETE` exigem chave com permissão `ADMIN`.
 </Note>
 
-## Warming: recomendação de ritmo
 
-Número recém-verificado que sai disparando o limite inteiro tende a perder qualidade. A Arara calcula uma recomendação de ritmo diário por número:
+### Pedir um número novo
 
-```bash
-curl https://api.ararahq.com/v1/organizations/me/numbers/{id}/warming \
-  -H "Authorization: Bearer ara_live_xxx"
-```
-
-```json
-{
-  "numberId": "4b1f0c7e-2a3d-4e59-9a61-0f2d5c8b7a10",
-  "qualityScore": "HIGH",
-  "messagingTier": "TIER_1K",
-  "daysSinceVerified": 10,
-  "dailyCapByTier": 1000,
-  "recommendedDailySends": 500,
-  "recommendedPacePct": 50,
-  "currentDailyAverage": 312,
-  "recommendation": "Days 8-14. Ramp to 50% of cap. Keep template diversity high."
-}
-```
-
-Como a recomendação é calculada:
-
-| Situação do número | Ritmo recomendado |
-|---|---|
-| Ainda não verificado pela Meta | 0% (aguarde a verificação) |
-| `FLAGGED` | 0% (pause marketing e revise o conteúdo recente) |
-| `LOW` | 30% do limite, só UTILITY, sem MARKETING por 7 dias |
-| Dias 1 a 7 após verificação | 20% do limite |
-| Dias 8 a 14 | 50% do limite |
-| Dias 15 a 30 | 80% do limite |
-| Depois de 30 dias, ou `UNLIMITED` | 100% |
-
-A recomendação é orientativa: a API não trava envio por ela. Programe o seu disparador para respeitar `recommendedDailySends`.
-
-## Pedir um número novo
-
-Pelo dashboard em **Números**, ou via API:
+Pelo Dashboard em **Números**, ou via API:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/organizations/me/numbers/request \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "areaCode": "11",
@@ -190,7 +230,7 @@ O provisionamento não é automático: a operação da Arara entra em contato pa
 - `402 PLAN_REQUIRED` quando o plano não inclui número provisionado pela Arara.
 - `409 PLAN_SLOT_EXHAUSTED` quando a organização já está no teto de números do plano.
 
-## Eventos de webhook do número
+### Eventos de webhook
 
 Quando a Meta muda algo no número ou na conta, a Arara envia eventos para o [webhook da organização](/webhooks):
 
@@ -201,39 +241,25 @@ Quando a Meta muda algo no número ou na conta, a Arara envia eventos para o [we
 | `number.name_status` | Decisão da Meta sobre o nome de exibição | `decision`, `reason` |
 | `account.review` | Resultado da revisão da conta WhatsApp | `decision` |
 | `account.capability` | Mudança nos limites da conta | `maxDailyConversationPerPhone`, `maxPhoneNumbersPerBusiness` |
+| `template.quality_updated` | A Meta mudou a qualidade de um template | `name`, `quality` |
+| `template.updated` | Status do template mudou, inclusive para pausado | |
 
 <Note>
-  Mudança de `qualityScore` detectada na consulta periódica atualiza o número na API e no dashboard, mas não gera evento de webhook. Para automação baseada em quality, consulte `GET /v1/organizations/me/numbers`.
+  Mudança de `qualityScore` detectada na consulta periódica atualiza o número na API e no Dashboard, mas não gera evento de webhook. Para automação baseada em qualidade, consulte `GET /v1/organizations/me/numbers` periodicamente.
 </Note>
 
-## Meu número caiu de qualidade ou de limite
-
-Os três motivos mais comuns:
-
-<AccordionGroup>
-  <Accordion title="Disparo agressivo de marketing" icon="bullhorn">
-    Template MARKETING para base inativa ou que não consentiu, ou vários marketing seguidos para o mesmo contato. **O que fazer**: pause marketing por alguns dias e mantenha só UTILITY com notificações reais.
-  </Accordion>
-  <Accordion title="Conteúdo que gera bloqueio" icon="file-circle-xmark">
-    Tom de urgência forçada, promessas exageradas, cobrança ameaçadora. **O que fazer**: revise o texto seguindo a [Política de templates](/templates/policy).
-  </Accordion>
-  <Accordion title="Falta de opt-in real" icon="hand">
-    Base importada sem consentimento para WhatsApp. **O que fazer**: pare de enviar para essa base e reconquiste o consentimento. Ver [Compliance](/concepts/compliance).
-  </Accordion>
-</AccordionGroup>
-
-## Perfil do negócio
+### Perfil do negócio
 
 Nome de exibição, descrição, vertical, e-mail, sites e foto ficam em `/v1/organizations/me/business-profile`:
 
 ```bash
 # Consultar
 curl https://api.ararahq.com/v1/organizations/me/business-profile \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 
 # Enviar o perfil salvo para a Meta
 curl -X POST https://api.ararahq.com/v1/organizations/me/business-profile/sync \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 O resultado do envio fica em `metaSyncStatus`, `metaSyncedAt` e `metaSyncError`. A propagação nos aparelhos dos clientes depende da Meta.
@@ -241,10 +267,16 @@ O resultado do envio fica em `metaSyncStatus`, `metaSyncedAt` e `metaSyncError`.
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Conceito: Qualidade do número" icon="signal" href="/concepts/number-quality">
-    O que afeta quality rating e como proteger o número.
-  </Card>
   <Card title="Webhooks" icon="bolt" href="/webhooks">
     Assinatura, retentativas e todos os eventos.
+  </Card>
+  <Card title="Templates" icon="file-lines" href="/concepts/templates">
+    Como não derrubar a qualidade com template ruim.
+  </Card>
+  <Card title="Preços e limites" icon="scale-balanced" href="/concepts/pricing">
+    Quantos números cada plano permite.
+  </Card>
+  <Card title="Compliance" icon="shield-check" href="/concepts/compliance">
+    Opt-in e consentimento.
   </Card>
 </CardGroup>

@@ -60,21 +60,21 @@ Pedidos recebidos por outros canais (telefone, e-mail, formulário) vão para a 
 ```bash
 # Registrar
 curl -X POST https://api.ararahq.com/v1/opt-outs \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "phone": "+5511999999999", "reason": "Pedido por telefone" }'
 
 # Consultar um número
 curl https://api.ararahq.com/v1/opt-outs/%2B5511999999999 \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 
 # Listar
 curl https://api.ararahq.com/v1/opt-outs \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 
 # Remover (cliente pediu para voltar)
 curl -X DELETE https://api.ararahq.com/v1/opt-outs/%2B5511999999999 \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 - `phone` em E.164 (`+5511999999999`). Na URL, codifique o `+` como `%2B`. Formato inválido responde `400 INVALID_PHONE`.
@@ -83,7 +83,7 @@ curl -X DELETE https://api.ararahq.com/v1/opt-outs/%2B5511999999999 \
 - O registro responde `201`; a remoção, `204`.
 
 <Warning>
-  Hoje a lista de opt-out é aplicada automaticamente na ingestão do [Recovery](/recovery), que rejeita o evento com `OPTED_OUT`. Para envios por `POST /v1/messages` e campanhas, consulte `GET /v1/opt-outs/{phone}` antes de enviar ou filtre a sua base.
+  Hoje a lista de opt-out é aplicada automaticamente na ingestão da [recuperação de receita](/recovery), que rejeita o evento com `OPTED_OUT`. Para envios por `POST /v1/messages` e campanhas, consulte `GET /v1/opt-outs/{phone}` antes de enviar ou filtre a sua base.
 </Warning>
 
 <Note>
@@ -108,7 +108,7 @@ Para cada uso, defina a base legal com o seu jurídico. Referências comuns:
 | Confirmação de pedido | Execução de contrato |
 | Carrinho abandonado | Legítimo interesse ou consentimento |
 | Campanha de marketing | Consentimento |
-| Atendimento com IA (Brain) | Execução de contrato |
+| Atendimento com Brain | Execução de contrato |
 
 ### 2. Política de privacidade
 
@@ -141,11 +141,11 @@ Quando um titular exerce os direitos do art. 18 da LGPD, a Arara oferece as duas
 ```bash
 # Exportar tudo o que a organização tem sobre o contato
 curl https://api.ararahq.com/v1/contacts/%2B5511999999999/lgpd/export \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 
 # Eliminar os dados do contato
 curl -X DELETE "https://api.ararahq.com/v1/contacts/%2B5511999999999/lgpd?reason=pedido_titular" \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 A **exportação** retorna o contato (nome, e-mail, telefone, atributos), a conversa e as mensagens trocadas (até 1.000):
@@ -195,14 +195,14 @@ Mesmo dentro da lei brasileira, a Meta pode restringir ou banir um número por:
 
 Quando a Meta restringe, bane ou reativa um número, a Arara envia o evento `number.status` para o seu webhook. Ver [Números](/numbers).
 
-A Arara também faz uma moderação de conteúdo na criação de template e recusa textos com termos de golpe, ameaça e conteúdo explícito. Ver [Política de templates](/templates/policy).
+A Arara também faz uma moderação de conteúdo na criação de template e recusa textos com termos de golpe, ameaça e conteúdo explícito. Ver [Criar e aprovar um template](/templates/policy).
 
-## Recovery: atenção redobrada
+## Recuperação de receita: atenção redobrada
 
 Mensagens de recuperação ("seu Pix vai vencer") para quem iniciou o checkout costumam se apoiar em execução de contrato ou legítimo interesse. Mas:
 
 - Enviar para quem nunca comprou (cross-sell) é marketing e pede consentimento.
-- Quem está na lista de opt-out da organização é rejeitado na ingestão do Recovery.
+- Quem está na lista de opt-out da organização é rejeitado na ingestão da recuperação de receita.
 
 ## Auditoria
 
@@ -226,16 +226,19 @@ Antes de ligar a operação:
 - [ ] Política de privacidade citando WhatsApp e a Arara como operadora
 - [ ] Checkbox de opt-in no cadastro/checkout, não pré-marcado
 - [ ] Rotina que trata `message.received` com pedidos de saída fora das palavras-chave e registra em `/v1/opt-outs`
-- [ ] Consulta à lista de opt-out antes de disparos pela API e campanhas
+- [ ] Consulta à lista de opt-out antes de enviar pela API e campanhas
 - [ ] Template MARKETING com botão de saída (`QUICK_REPLY`, por exemplo "Parar de receber")
 - [ ] Processo documentado para exportação e eliminação de dados de contato
 - [ ] Equipe treinada nas políticas do WhatsApp (nunca pedir senha ou dados de cartão)
 
 ## Próximos passos
 
-<CardGroup cols={2}>
-  <Card title="Política de templates" icon="scale-balanced" href="/templates/policy">
+<CardGroup cols={3}>
+  <Card title="Criar e aprovar um template" icon="scale-balanced" href="/templates/policy">
     O que a Meta recusa no conteúdo.
+  </Card>
+  <Card title="Políticas de uso" icon="gavel" href="/concepts/usage-policies">
+    Proteções automáticas e o que leva à suspensão.
   </Card>
   <Card title="Marketing no WhatsApp" icon="bullhorn" href="/marketing">
     Como operar marketing dentro das regras.
