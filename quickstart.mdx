@@ -12,7 +12,7 @@ Você vai mandar uma mensagem WhatsApp **real** para o seu próprio número. Con
 
 ## 1. Crie a conta e gere uma chave de API
 
-Crie sua conta no [Dashboard](https://app.ararahq.com). Em **API Keys**, gere uma chave e dê um nome que diga onde ela será usada. Toda chave é de produção (`ara_live_...`): a Arara não tem modo de teste, todo envio é real.
+Crie sua conta no [Dashboard](https://app.ararahq.com). Em **API Keys**, gere uma chave e dê um nome que diga onde ela será usada. A API só emite chave de produção (`ara_live_...`, modo `LIVE`). Não existe chave sandbox `ara_test_`: esse prefixo não autentica. Todo envio é real.
 
 A chave completa só aparece uma vez. Guarde em variável de ambiente:
 
@@ -56,7 +56,7 @@ console.log(response.id, response.status);
 ```
 
 ```python Python
-# pip install ararahq-sdk
+# PyPI: pip install ararahq-sdk. O módulo importado é arara_api_sdk.
 import os
 from arara_api_sdk import AraraClient
 from arara_api_sdk.models.message import SendMessageRequest
@@ -86,7 +86,7 @@ echo "{$response['id']} {$response['status']}";
 ```
 
 ```java Java
-// implementation("com.ararahq:arara-java-sdk:1.8.1")
+// implementation("com.ararahq:arara-java-sdk:2.0.0")
 import com.ararahq.arara.sdk.Arara;
 import com.ararahq.arara.sdk.models.SendMessageRequest;
 

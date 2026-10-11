@@ -3,7 +3,7 @@ title: 'Next.js'
 description: 'Integre a Arara num projeto Next.js (App Router): Server Actions, route handlers, webhook com validação de assinatura e consulta de status de mensagem.'
 ---
 
-O SDK Node/TypeScript da Arara (`@ararahq/sdk`, versão publicada 1.8.1) roda no **runtime Node** do Next.js (route handlers, Server Actions). Esta página cobre App Router (Next 15+). Pages Router funciona de forma análoga.
+O SDK Node/TypeScript da Arara (`@ararahq/sdk`, versão publicada 2.0.0) roda no **runtime Node** do Next.js (route handlers, Server Actions). Esta página cobre App Router (Next 15+). Pages Router funciona de forma análoga.
 
 <Note>
   **Requisitos:** Node 18+, Next 15+. Para Edge Runtime, use `fetch` direto contra a API REST (o SDK depende do `axios`, que não roda em edge).
@@ -177,31 +177,22 @@ if (WebhookUtils.isMessageStatusEvent(payload)) {
 ```
 
 <Note>
-  No tipo `MessageStatusData` da 1.8.1, `messageId` está comentado como `ara_msg_...`, mas a API envia nesse campo o UUID interno. O id `ara_msg_...` (o mesmo devolvido no envio) está em `data.id`, que o tipo não declara.
+  No tipo `MessageStatusData` da 2.0.0 os campos declarados são `messageId`, `status`, `receiver`, `sender` e `errorDetails`. Na API, `messageId` é o UUID interno (`message.id`). O id `ara_msg_...` devolvido no envio vai em `data.id` e em `data.internalId`, que esse tipo não declara.
 </Note>
 
 ## Consultar status de uma mensagem
 
-O SDK 1.8.1 não tem método para buscar uma mensagem. O caminho recomendado é gravar o status que chega pelo webhook `message.status_updated`. Se você precisa consultar sob demanda (tela de suporte, reconciliação), chame a API direto:
+O SDK 2.0.0 consulta a mensagem com `messages.get(id)` (`GET /v1/messages/{id}`). Para não consultar em loop, grave o status que chega no webhook `message.status_updated`. Sob demanda (tela de suporte, reconciliação):
 
 ```typescript
 // app/api/messages/[id]/route.ts
+import { arara } from '@/lib/arara';
+
 export const runtime = 'nodejs';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
-  const res = await fetch(`https://api.ararahq.com/v1/messages/${encodeURIComponent(id)}`, {
-    headers: { Authorization: `Bearer ${process.env.ARARA_API_KEY}` },
-    cache: 'no-store',
-    signal: AbortSignal.timeout(10_000),
-  });
-
-  if (!res.ok) {
-    return Response.json({ error: 'Mensagem indisponível' }, { status: res.status === 404 ? 404 : 502 });
-  }
-
-  const msg = await res.json();
+  const msg = await arara.messages.get(id);
   // { id, status, mode, sender, receiver, body, cost, reason }
   return Response.json({ id: msg.id, status: msg.status, reason: msg.reason });
 }

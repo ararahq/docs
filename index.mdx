@@ -134,6 +134,7 @@ await sdk.messages.send({
 ```
 
 ```python Python
+# PyPI: pip install ararahq-sdk. O import é arara_api_sdk.
 from arara_api_sdk import AraraClient
 from arara_api_sdk.models.message import SendMessageRequest
 
@@ -372,7 +373,7 @@ client.Messages.Send(context.Background(), &arara.SendMessageRequest{
       </div>
       <div>
         <p style={{ fontSize: '13px', color: '#5fbcc7', fontWeight: 600, marginBottom: '6px' }}>ChatGPT · claude.ai · clientes remotos</p>
-        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>MCP hospedado em <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>https://mcp.ararahq.com/mcp</code>, com OAuth.</p>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>Conector remoto em <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>https://mcp.ararahq.com/mcp</code>. Transporte Streamable HTTP: <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>POST /mcp</code>, bearer OAuth no header <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>Authorization</code>. Não há endpoint SSE.</p>
       </div>
     </div>
   </div>
@@ -396,7 +397,7 @@ client.Messages.Send(context.Background(), &arara.SendMessageRequest{
       Node, Python, PHP, Java e Go. Ver [SDKs](/sdks).
     </Card>
     <Card title="CLI em binário único" icon="terminal">
-      `arara send`, `arara listen`, `arara api`. Homebrew, curl ou go install. Ver [CLI](/cli).
+      `arara send`, `arara listen`, `arara api`. Script curl, `go install` ou binário no GitHub Releases. Ver [CLI](/cli).
     </Card>
     <Card title="MCP para agentes de IA" icon="server">
       Você diz para quem e o quê; o MCP resolve o resto. Claude Code, Claude Desktop, Cursor, ChatGPT. Ver [MCP](/mcp-server).
