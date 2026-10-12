@@ -1,20 +1,20 @@
 ---
-title: 'Por que minha mensagem falhou'
-description: 'Catálogo completo dos erros de envio da Arara, ordenado pelo que mais acontece em produção: causa, como confirmar e como resolver. Inclui as regras da Meta que reprovam template e bloqueiam número.'
-keywords: ['erro de envio', 'mensagem falhou', 'template reprovado', 'INVALID_FORMAT', 'WABA bloqueada', 'quality rating', 'tier', 'janela 24h', 'FAILED']
+title: 'Erros de envio'
+description: 'Por que uma mensagem aceita pela API terminou em FAILED: códigos, causa e o que fazer.'
+keywords: ['erro de envio', 'mensagem falhou', 'FAILED', 'ararahq', 'template reprovado', 'WABA bloqueada', 'tier', 'janela 24h']
 ---
 
-Esta página existe porque uma mensagem `FAILED` sem explicação é o pior momento de quem usa a plataforma. Cada erro abaixo é real — a ordem é a frequência medida em produção, não um palpite.
+Esta página cobre a mensagem que a API aceitou (`202`) e que falhou depois, com status `FAILED`. Se a chamada foi recusada na hora (4xx/5xx), veja [Erros](/erros).
 
-A regra geral: **o erro diz de quem é o problema.** Template, conta, destinatário ou provedor. Descobrir isso primeiro economiza a maior parte do tempo.
+O erro diz de quem é o problema: template, conta, destinatário ou provedor. Descubra isso primeiro.
 
-## Antes de tudo: onde ver o motivo
+## Onde ver o motivo
 
 Cada mensagem guarda o motivo da falha.
 
 ```bash
-curl https://api.ararahq.com/v1/messages/ara_msg_XXXX \
-  -H "Authorization: Bearer ara_live_xxx"
+curl https://api.ararahq.com/v1/messages/ara_msg_k9Bf2Xq \
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 Quando a mensagem está `FAILED`, o campo `reason` traz o motivo traduzido. O webhook `message.status_updated` traz o mesmo motivo em `data.errorDetails`. No painel, **Logs** mostra o mesmo, com filtro por status.
@@ -26,15 +26,46 @@ O formato do motivo depende do provedor do número:
 
 O valor de uma mensagem que falhou depois do aceite é estornado na carteira.
 
+## Códigos ararahq
+
+Todo motivo de falha reconhecido tem um código `ararahq-*`. Onde ele aparece depende do provedor do número:
+
+- **Recusa na hora por falha do provedor:** em `error.code`, com `error.details.diagnostic`.
+- **Números legados (Twilio):** em `reason` e em `data.errorDetails.code` do webhook.
+- **Números no provedor atual:** `reason` e `data.errorDetails` trazem só o texto, sem código. Não dependa do código nesse caso. Veja [`message.status_updated`](/webhooks/events).
+
+| Código | O que aconteceu | O que fazer |
+|---|---|---|
+| `ararahq-63016` | Janela de 24h fechada (rota legada Twilio). | Envie um template aprovado. |
+| `ararahq-reengagement` | Passaram mais de 24h desde a última mensagem do cliente (Meta `131047`). | Envie um template aprovado. Veja [Janela de 24h](/concepts/24h-window). |
+| `ararahq-63032` | O aparelho não recebeu a mensagem. | Não reenvie em seguida. Tente outro dia ou outro canal. |
+| `ararahq-invalid-number` | Número inválido ou sem WhatsApp. | Corrija o número ou remova o contato. |
+| `ararahq-invalid-recipient` | Destinatário inválido ou indisponível. | Remova o contato da lista. |
+| `ararahq-meta-block` | Bloqueio de spam ou limite de marketing por usuário da Meta. | Pare a campanha para essa lista e revise o conteúdo. |
+| `ararahq-opt-out` | O destinatário bloqueou o seu número. | Remova o contato. Não reenvie. |
+| `ararahq-undeliverable` | A Meta não entregou. | Não reenvie. Limpe a lista. |
+| `ararahq-display-name` | O nome de exibição do número não está aprovado. | Peça a aprovação do nome no Business Manager. |
+| `ararahq-account-locked` | A conta WhatsApp Business está bloqueada. | Conteste no Business Manager e abra um chamado. |
+| `ararahq-user-experiment` | O destinatário está em um experimento da Meta que limita marketing. | Nada a fazer. Não reenvie. |
+| `ararahq-template-mismatch` | As variáveis não batem com o template. | Compare `templateVariables` com o template aprovado. |
+| `ararahq-template-not-found` | O template não existe ou não está aprovado. | Confira o nome e o status em Templates. |
+| `ararahq-insufficient-funds` | Saldo insuficiente. | Recarregue a carteira. |
+| `ararahq-rate-limit` | Limite de envio atingido. | Reduza o ritmo e envie de novo. |
+| `ararahq-media-invalid` | A mídia não pôde ser usada. | Confira a URL, o formato e o tamanho do arquivo. |
+| `ararahq-canceled` | O envio foi cancelado. | Nada a fazer. |
+| `ararahq-<código do provedor>` | Falha do provedor sem tradução própria (ex.: `ararahq-63041`). | Leia o texto de `reason`. Se repetir em volume, abra um chamado. |
+
+As seções abaixo detalham os casos mais comuns.
+
 ---
 
 ## Erros de template
 
-São a maior fatia. Quase sempre o template, não o envio.
+São a maior parte das falhas. Quase sempre o problema está no template, não no envio.
 
 ### `Falha na validação do template: 401 UNAUTHORIZED`
 
-**O que é:** a Arara não conseguiu se autenticar para validar seu template no provedor. Apesar do texto falar em "estrutura e links", **401 é credencial, não conteúdo** — não adianta mexer no texto do template.
+**O que é:** a Arara não conseguiu se autenticar para validar seu template no provedor. Apesar do texto falar em "estrutura e links", 401 é credencial, não conteúdo. Não adianta mexer no texto do template.
 
 **O que fazer:** não é ação sua. Abra um chamado: é a conta do número que precisa ser reconectada do nosso lado. Se você acabou de trocar o número ou refazer o embedded signup, mencione isso no chamado.
 
@@ -45,7 +76,7 @@ Aparece como *"O template usado não existe ou não está aprovado nesta conta W
 **O que é:** a Meta reprovou ou **pausou** um template que já estava aprovado. Pausa acontece quando muita gente bloqueia ou denuncia mensagens daquele template.
 
 **O que fazer:**
-1. Veja o status em **Templates** — pausado aparece como `PAUSED`.
+1. Veja o status em **Templates**. Pausado aparece como `PAUSED`.
 2. Template pausado volta sozinho depois de um período, mas **volta a pausar** se o conteúdo continuar gerando bloqueio.
 3. A correção real é o conteúdo: mensagem que a pessoa não esperava receber gera bloqueio. Revise a lista e o texto antes de resubmeter.
 
@@ -59,7 +90,7 @@ Também aparece como *"As variáveis enviadas não batem com a estrutura do temp
 
 ### `Falha na validação do template: 413 PAYLOAD_TOO_LARGE`
 
-**O que é:** o conteúdo passou do tamanho aceito — normalmente uma variável muito longa, ou mídia grande demais no cabeçalho.
+**O que é:** o conteúdo passou do tamanho aceito, normalmente uma variável muito longa, ou mídia grande demais no cabeçalho.
 
 **O que fazer:** encurte o valor da variável. Para mídia, use link em vez de anexo pesado.
 
@@ -87,7 +118,7 @@ Reprovação por formato costuma vir como `INVALID_FORMAT`, e quase sempre é va
 | Espaçamento | Mais de 4 espaços seguidos, tabs ou várias linhas em branco reprovam. |
 | Emoji | Mais de 10 no corpo reprova. |
 | Tamanho | Corpo acima de 550 caracteres reprova. |
-| Duplicado | Template com corpo ou rodapé igual a outro já aprovado na conta reprova — exceto categoria `AUTHENTICATION`. |
+| Duplicado | Template com corpo ou rodapé igual a outro já aprovado na conta reprova, exceto na categoria `AUTHENTICATION`. |
 
 Categoria errada também reprova: promoção enviada como `UTILITY` é reclassificada ou recusada. Veja [Templates](/concepts/templates).
 
@@ -95,7 +126,7 @@ Categoria errada também reprova: promoção enviada como `UTILITY` é reclassif
 
 ## Erros de conta e número
 
-Aqui nada que você mude no envio resolve — é o estado da conta na Meta.
+Aqui nada que você mude no envio resolve. É o estado da conta na Meta.
 
 ### `A conta WhatsApp (WABA) da sua empresa está bloqueada ou restrita`
 
@@ -103,7 +134,7 @@ Código `ararahq-account-locked` (erro Meta `131031`).
 
 **O que é:** a Meta bloqueou a conta inteira. Nenhum envio sai enquanto durar.
 
-**O que fazer:** o aviso e o motivo chegam no Business Manager da sua empresa. É lá que se abre a contestação — a Arara não consegue destravar por você, mas o chamado ajuda a interpretar o motivo e montar o recurso.
+**O que fazer:** o aviso e o motivo chegam no Business Manager da sua empresa. É lá que se abre a contestação. A Arara não consegue destravar por você, mas o chamado ajuda a interpretar o motivo e montar o recurso.
 
 ### `Bloqueio preventivo de Spam pela Meta`
 
@@ -111,13 +142,13 @@ Código interno `ararahq-meta-block`.
 
 **O que é:** o conteúdo foi classificado como marketing excessivo, ou houve denúncia de usuários.
 
-**O que fazer:** pare o disparo daquela lista. Continuar enviando enquanto o bloqueio está ativo piora a nota de qualidade e aproxima a restrição definitiva.
+**O que fazer:** pare o envio para aquela lista. Continuar enviando enquanto o bloqueio está ativo piora a nota de qualidade e aproxima a restrição definitiva.
 
 ### `O nome de exibição do seu número ainda não foi aprovado`
 
 Código `ararahq-display-name` (erro Meta `131037`).
 
-**O que é:** sem nome aprovado, a Meta bloqueia disparo de template.
+**O que é:** sem nome aprovado, a Meta bloqueia envio de template.
 
 **O que fazer:** peça a aprovação do nome no Business Manager. Enquanto isso, conversa dentro da janela de 24h continua funcionando.
 
@@ -149,7 +180,7 @@ Códigos `ararahq-63041` e similares.
 
 **O que é:** a Arara enviou, o provedor aceitou, mas a confirmação não voltou. Um dos motivos que aparece é `low balance` do lado do provedor.
 
-**O que fazer:** normalmente resolve sozinho e a mensagem é reconciliada. Se um lote inteiro ficar assim, abra chamado — é sinal de incidente, não de conteúdo.
+**O que fazer:** normalmente resolve sozinho e a mensagem é reconciliada. Se um lote inteiro ficar assim, abra chamado. É sinal de incidente, não de conteúdo.
 
 ### Mensagem parada em `SENT_TO_PROVIDER`
 
@@ -157,7 +188,7 @@ Na API e no webhook esse estado aparece como `SENT` / `sent`; o nome técnico s�
 
 **O que é:** aceita pelo provedor e sem status final. Não é falha: é ausência de confirmação.
 
-**O que fazer:** aguarde a reconciliação. Se persistir por horas em volume, abra chamado citando o período — é o tipo de coisa que a gente investiga no log do provedor.
+**O que fazer:** aguarde a reconciliação. Se persistir por horas em volume, abra chamado citando o período.
 
 ---
 
@@ -166,15 +197,26 @@ Na API e no webhook esse estado aparece como `SENT` / `sent`; o nome técnico s�
 Duas coisas diferentes que costumam ser confundidas:
 
 - **Qualidade** é a saúde do número (verde, amarelo, vermelho). Cai quando gente bloqueia ou denuncia.
-- **Tier** é quanto você pode iniciar por dia: 250 → 1.000 → 10.000 → 100.000 → ilimitado.
+- **Tier** é quantas conversas você pode iniciar por dia.
 
-Número novo começa em `TIER_250`. Para subir, é preciso volume consistente com qualidade alta — disparo agressivo derruba a qualidade e trava a subida. O detalhe completo está em [Qualidade do número](/concepts/number-quality).
+| Tier | Teto diário aplicado pela Arara |
+|---|---|
+| `TIER_50` | 50 |
+| `TIER_250` | 250 |
+| `TIER_1K` | 1.000 |
+| `TIER_2K` | 1.000 (a Meta informa 2.000) |
+| `TIER_10K` | 10.000 |
+| `TIER_100K` | 100.000 |
+| `UNLIMITED` | Sem limite |
+| `UNKNOWN` | 1.000 (tier ainda não sincronizado) |
+
+Para subir de tier é preciso volume consistente com qualidade alta. Envio agressivo derruba a qualidade e trava a subida. Veja [Números](/numbers).
 
 ---
 
 ## Como o retry funciona
 
-Falha de rede e erro temporário do provedor entram em retry automático com backoff. **Erro de template, de variável e de conta não entram** — repetir daria o mesmo resultado e só queimaria qualidade.
+Falha de rede e erro temporário do provedor entram em retry automático com backoff. Erro de template, de variável e de conta não entram: repetir daria o mesmo resultado e pioraria a qualidade do número.
 
 Se a mensagem está `FAILED`, ela não será reenviada sozinha. Corrija a causa e envie de novo.
 

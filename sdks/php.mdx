@@ -1,7 +1,9 @@
 ---
 title: 'SDK PHP / Laravel'
-description: 'SDK PHP oficial da Arara (ararahq/sdk): PHP 8.2+, Guzzle 7, argumentos nomeados, retry automático e exceções tipadas. Funciona em Laravel e PHP puro.'
+description: 'SDK PHP oficial da Arara (ararahq/sdk): PHP 8.2+, Guzzle 7, argumentos nomeados, Idempotency-Key automática, retry seguro e exceções tipadas. Funciona em Laravel e PHP puro.'
 ---
+
+## Instalar
 
 ```bash
 composer require ararahq/sdk
@@ -9,47 +11,94 @@ composer require ararahq/sdk
 
 [![Packagist](https://img.shields.io/packagist/v/ararahq/sdk)](https://packagist.org/packages/ararahq/sdk)
 
-Versão estável publicada: **1.8.1**. Requer PHP 8.2+, `ext-json` e `guzzlehttp/guzzle` ^7.0. Autoload PSR-4 no namespace `Arara\`.
+Versão estável publicada: **2.0.0**. Requer PHP 8.2+, `ext-json` e `guzzlehttp/guzzle` ^7.0. Autoload PSR-4 no namespace `Arara\`.
 
-## Setup
+## Configurar
 
 ```php
 use Arara\Arara;
 use Arara\Config;
 
 $sdk = new Arara(new Config(
-    apiKey: 'ara_live_xxx',
+    apiKey: getenv('ARARA_API_KEY'),
     baseUrl: 'https://api.ararahq.com', // opcional, este é o default
     timeout: 30,                        // opcional, em segundos
     retryTimes: 3,                      // opcional
     retryDelayMs: 100,                  // opcional, base do backoff
+    apiVersion: 'v1',                   // opcional, este é o default
 ));
 ```
 
-O SDK monta as URLs como `{baseUrl}/v1/...`. Não inclua `/v1` no `baseUrl`.
+O SDK monta as URLs como `{baseUrl}/{apiVersion}/...`. Não inclua `/v1` no `baseUrl`.
 
-## Recursos disponíveis (1.8.1)
+### Laravel
 
-Todos os métodos devolvem `array` (o JSON da resposta decodificado).
-
-| Recurso | Acesso | Métodos |
-|---|---|---|
-| Messages | `$sdk->messages` | `send(receiver, templateName?, variables?, body?, mediaUrl?)` |
-| Templates | `$sdk->templates` | `list()`, `get($id)`, `create($data)`, `delete($id)` |
-| Users | `$sdk->users` | `getMe()`, `update($data)` (com defeito, ver limitações) |
-| Organizations | `$sdk->organizations` | `getWebhook()`, `updateWebhook($data)` (com defeito, ver limitações) |
-
-Não há método para consultar uma mensagem depois do envio nem para status de template separado. O status da mensagem chega pelo webhook `message.status_updated`.
-
-<Note>
-  A branch `main` (`ararahq/sdk:dev-main`) já tem `contacts`, `conversations`, `wallet`, `numbers`, `smartLinks`, `campaigns`, `apiKeys` e a validação de assinatura de webhook corrigida, mas ainda não saiu em versão estável.
-</Note>
-
-## Enviar mensagem
+Registre o cliente como singleton e receba-o por injeção. Setup completo em [Integração Laravel](/integracoes/laravel).
 
 ```php
+// app/Providers/AppServiceProvider.php
+use Arara\Arara;
+use Arara\Config;
+
+public function register(): void
+{
+    $this->app->singleton(Arara::class, fn () => new Arara(new Config(
+        apiKey: config('services.arara.key'),
+    )));
+}
+
+// Em qualquer controller ou job
+public function store(Request $request, Arara $sdk)
+{
+    $sdk->messages->send(
+        receiver: $request->phone,
+        templateName: 'confirmacao_pedido',
+        variables: [$request->name, $request->orderId],
+        idempotencyKey: 'pedido-' . $request->orderId . '-confirmacao',
+    );
+}
+```
+
+## Enviar a primeira mensagem
+
+Você precisa de plano assinado, número conectado, um template aprovado e saldo. Veja [Antes de começar](/quickstart#antes-de-começar). Troque `pedido_confirmado` pelo nome do seu template.
+
+Salve como `enviar.php`:
+
+```php
+<?php
+
+require 'vendor/autoload.php';
+
+use Arara\Arara;
+use Arara\Config;
+
+$sdk = new Arara(new Config(apiKey: getenv('ARARA_API_KEY')));
+
 $response = $sdk->messages->send(
-    receiver: 'whatsapp:+5511999999999',
+    receiver: '+5511999999999',
+    templateName: 'pedido_confirmado',
+    variables: ['João', '12345'],
+    idempotencyKey: 'pedido-12345-confirmacao',
+);
+
+echo $response['id'], PHP_EOL;     // ara_msg_...
+echo $response['status'], PHP_EOL; // status inicial da mensagem
+```
+
+Rode:
+
+```bash
+ARARA_API_KEY=ara_live_... php enviar.php
+```
+
+Os métodos devolvem `array` (o JSON da resposta decodificado). Só `templates->list()` e `smartLinks->list()` devolvem `Arara\Pagination\PaginatedResponse`, com `data` e `pagination`. O `receiver` aceita `+5511999999999`, `whatsapp:+5511999999999` ou só os dígitos: o SDK não valida o formato, quem valida é a API (número inválido volta como 422).
+
+Com variáveis no corpo do template e mídia no header:
+
+```php
+$sdk->messages->send(
+    receiver: '+5511999999999',
     templateName: 'confirmacao_pedido',
     variables: [
         'https://meusite.com/nota/123.pdf', // header (mídia opcional)
@@ -57,34 +106,44 @@ $response = $sdk->messages->send(
         'ARA-12345',                         // {{2}}
     ],
 );
-
-echo $response['id'];     // ara_msg_...
-echo $response['status']; // status inicial da mensagem
 ```
 
-O `receiver` precisa estar no formato `whatsapp:+<número>` (8 a 15 dígitos). Fora disso o SDK lança `ValidationException` sem chamar a API.
-
-**Mensagem de sessão (texto livre, dentro da janela de 24h):**
+Para responder dentro da janela de 24h, mande `body` em vez de `templateName`:
 
 ```php
-$response = $sdk->messages->send(
-    receiver: 'whatsapp:+5511999999999',
+$sdk->messages->send(
+    receiver: '+5511999999999',
     body: 'Oi! Vi sua dúvida e respondo já já.',
 );
 ```
 
-`send` não aceita chave de idempotência.
+Cada chamada de `send` leva um header `Idempotency-Key`. Passe `idempotencyKey:` derivado do evento do seu sistema (id do pedido, id da tentativa) para que reenviar o mesmo pedido não duplique a mensagem. Sem ele, o SDK gera um UUID novo por chamada.
+
+Para consultar uma mensagem depois do envio, use `$sdk->messages->get($id)`. O status também chega pelo webhook `message.status_updated`.
+
+Para até 1000 mensagens do mesmo template numa chamada:
+
+```php
+$sdk->messages->sendBatch('pedido_confirmado', [
+    ['receiver' => '+5511999999999', 'variables' => ['João', '12345']],
+    ['receiver' => '+5511888888888', 'variables' => ['Maria', '12346']],
+], idempotencyKey: 'lote-2026-10-10');
+```
 
 ## Templates
 
 `get` e `delete` recebem o **id** do template (UUID), não o nome.
 
 ```php
-// Listar: a resposta vem paginada
-$page = $sdk->templates->list();
-foreach ($page['data'] as $template) {
-    echo $template['name'], ' ', $template['providerStatus'], PHP_EOL;
+// Listar: a resposta vem paginada (PaginatedResponse)
+$page = $sdk->templates->list(page: 0, size: 50);
+foreach ($page->data as $template) {
+    echo $template['name'], ' ', $template['status'], PHP_EOL;
 }
+// $page->pagination->totalPages, $page->hasNextPage()
+
+// Achar pelo nome
+$found = $sdk->templates->list(name: 'pedido_confirmado');
 
 // Criar
 $template = $sdk->templates->create([
@@ -95,16 +154,81 @@ $template = $sdk->templates->create([
     'samples' => ['1' => 'João', '2' => '30', '3' => 'sexta'],
 ]);
 
-// Detalhe (inclui providerStatus e rejectionReason)
+// Detalhe
 $detail = $sdk->templates->get($template['id']);
 
 // Remover
 $sdk->templates->delete($template['id']);
 ```
 
+`templates->getStatus($id)` e `templates->analytics($id)` também existem.
+
+## Tratar erros
+
+```php
+use Arara\Exceptions\AraraException;
+use Arara\Exceptions\PlanFeatureLockedException;
+use Arara\Exceptions\RateLimitException;
+
+try {
+    $sdk->messages->send(
+        receiver: '+5511999999999',
+        templateName: 'confirmacao_pedido',
+        idempotencyKey: 'pedido-12345-confirmacao',
+    );
+} catch (RateLimitException $e) {
+    sleep($e->retryAfter ?? 1);
+} catch (PlanFeatureLockedException $e) {
+    echo "Recurso {$e->feature} exige o plano {$e->upgradeTo}";
+} catch (AraraException $e) {
+    echo "HTTP {$e->statusCode} {$e->errorCode}: {$e->getMessage()}";
+    print_r($e->details);
+}
+```
+
+| Exceção | Quando |
+|---|---|
+| `BadRequestException` | 400 |
+| `AuthenticationException` | 401 |
+| `NotFoundException` | 404 |
+| `ValidationException` | 422, ou campo obrigatório vazio / mais de um tipo de conteúdo antes do envio |
+| `RateLimitException` | 429 (`$retryAfter` em segundos) |
+| `ForbiddenException` | 403 |
+| `PlanFeatureLockedException` | 403 `PLAN_FEATURE_LOCKED` (`$feature`, `$currentPlan`, `$upgradeTo`) |
+| `InternalServerException` | 5xx (`$statusCode` traz o status real, como 502 ou 503) |
+| `AraraException` | qualquer outro status, como 402 e 409 |
+
+Todas ficam em `Arara\Exceptions\` e estendem `AraraException`, que expõe `$statusCode`, `$errorCode` (`error.code` da API), `$details` (`error.details`), `$retryAfter`, `$response` (corpo decodificado) e `getMessage()`. A API responde 401 para chave inválida, revogada ou expirada, e 403 quando o header `Authorization` está ausente ou a chave não tem permissão para a rota; nesses dois casos o corpo vem fora do envelope e `$errorCode` é `null`. Falha de conexão chega como exceção do Guzzle (`GuzzleHttp\Exception\ConnectException`), não como `AraraException`. Lista de códigos em [Erros](/erros).
+
+## Retentativas e idempotência
+
+Via middleware de retry do Guzzle, o SDK retenta até `retryTimes` vezes em erro de conexão, 429 e qualquer 5xx. Respeita `Retry-After` quando numérico; sem ele, espera `retryDelayMs × 2^(tentativa-1)`. Para desligar: `retryTimes: 0`.
+
+`POST` e `PATCH` só são repetidos quando a requisição leva `Idempotency-Key`. `messages->send()`, `messages->sendBatch()` e `campaigns->create()` mandam a chave sempre e reaproveitam a mesma em todas as tentativas, então um retry não duplica a mensagem. Chamadas `POST`/`PATCH` sem a chave (por exemplo `templates->create()`) não são repetidas.
+
 ## Webhooks
 
-Na 1.8.1, só `WebhookUtils::isMessageStatusEvent()` reconhece o evento certo. Os outros helpers e `verifySignature()` não batem com o que a API envia (ver limitações). Trate pelo campo `event` e valide a assinatura manualmente:
+A string assinada é `"{X-Arara-Timestamp}.{corpo cru}"`. Valide antes de processar e trate o evento pelo campo `event`. O SDK faz a validação com `WebhookUtils::verifySignature()`, passando o corpo cru, o header de assinatura, o secret e o timestamp (tolerância padrão de 300 segundos):
+
+```php
+use Arara\Utils\WebhookUtils;
+
+$payload = file_get_contents('php://input');
+
+$valid = WebhookUtils::verifySignature(
+    payload: $payload,
+    signature: $_SERVER['HTTP_X_ARARA_SIGNATURE'] ?? '',
+    secret: getenv('ARARA_WEBHOOK_SECRET'),
+    timestamp: $_SERVER['HTTP_X_ARARA_TIMESTAMP'] ?? '',
+);
+
+if (! $valid) {
+    http_response_code(401);
+    exit;
+}
+```
+
+Sem o SDK, a mesma validação à mão:
 
 ```php
 $payload = file_get_contents('php://input');
@@ -134,94 +258,44 @@ switch ($event['event']) {
 }
 ```
 
-Detalhes do payload em [Webhooks](/webhooks).
+Os helpers `isInboundMessageEvent()` e `isRevenueRecoveryEvent()` de `WebhookUtils` não reconhecem os eventos atuais (ver limitações): compare o campo `event` você mesmo. Detalhes do payload em [Webhooks](/webhooks). Controller Laravel pronto em [Integração Laravel](/integracoes/laravel#webhook).
 
-## Erros
+## Recursos disponíveis
 
-```php
-use Arara\Exceptions\AraraException;
-use Arara\Exceptions\RateLimitException;
-
-try {
-    $sdk->messages->send(receiver: 'whatsapp:+5511999999999', templateName: 'confirmacao_pedido');
-} catch (RateLimitException $e) {
-    sleep($e->retryAfter ?? 1);
-} catch (AraraException $e) {
-    echo "HTTP {$e->statusCode} {$e->errorCode}: {$e->getMessage()}";
-    print_r($e->response);
-}
-```
-
-| Exceção | Quando |
-|---|---|
-| `BadRequestException` | 400 |
-| `AuthenticationException` | 401 |
-| `NotFoundException` | 404 |
-| `ValidationException` | 422, ou `receiver` inválido antes do envio |
-| `RateLimitException` | 429 (`$retryAfter` em segundos) |
-| `InternalServerException` | 500 |
-| `AraraException` | qualquer outro status, incluindo 403 e 502/503 |
-
-Todas ficam em `Arara\Exceptions\` e estendem `AraraException`, que expõe `$statusCode`, `$errorCode` (`error.code` da API), `$response` (corpo decodificado) e `getMessage()`. A API responde 403 (não 401) para chave inválida. Falha de conexão chega como exceção do Guzzle (`GuzzleHttp\Exception\ConnectException`), não como `AraraException`. Lista de códigos em [Erros](/erros).
-
-## Retry
-
-Via middleware de retry do Guzzle, o SDK retenta até `retryTimes` vezes em erro de conexão, 429 e qualquer 5xx. Respeita `Retry-After` quando numérico; sem ele, espera `retryDelayMs × 2^(tentativa-1)`. Para desligar: `retryTimes: 0`.
-
-<Warning>
-  O retry reenvia `POST /v1/messages` em 5xx e `send` não manda chave de idempotência. Se duplicar mensagem for inaceitável, use `retryTimes: 0` para envios.
-</Warning>
-
-## Laravel
-
-Setup completo em [Integração Laravel](/integracoes/laravel). Resumido:
-
-```php
-// app/Providers/AppServiceProvider.php
-use Arara\Arara;
-use Arara\Config;
-
-public function register(): void
-{
-    $this->app->singleton(Arara::class, fn () => new Arara(new Config(
-        apiKey: config('services.arara.key'),
-    )));
-}
-
-// Em qualquer controller ou job
-public function store(Request $request, Arara $sdk)
-{
-    $sdk->messages->send(
-        receiver: 'whatsapp:' . $request->phone,
-        templateName: 'confirmacao_pedido',
-        variables: [$request->name, $request->orderId],
-    );
-}
-```
+| Recurso | Acesso | Métodos |
+|---|---|---|
+| Messages | `$sdk->messages` | `send(receiver, templateName?, variables?, body?, mediaUrl?, extra?, idempotencyKey?)`, `sendBatch(templateName, messages, idempotencyKey?)`, `get($id)` |
+| Templates | `$sdk->templates` | `list()`, `get($id)`, `getStatus($id)`, `create($data)`, `delete($id)`, `analytics($id?, $period)` |
+| Contacts | `$sdk->contacts` | `list()`, `get($phone)`, `update($phone, $data)`, `importBatch()`, `stats()`, `listTags()`, `reactivationCandidates()`, `messages($phone)` |
+| Conversations | `$sdk->conversations` | `list()`, `messages($id)`, `reply($id, $body)`, `updateStatus()`, `leadStats()`, `windowStatus($phones)` |
+| Campaigns | `$sdk->campaigns` | `create($data, $idempotencyKey?)`, `list()`, `get($id)`, `cancel($id)`, `estimate()` |
+| Opt-outs | `$sdk->optOuts` | `list()`, `add($phone, $reason?)`, `get($phone)`, `remove($phone)` |
+| Wallet | `$sdk->wallet` | `transactions()`, `getAutoRecharge()`, `updateAutoRecharge($data)` |
+| Numbers | `$sdk->numbers` | `list()`, `update()`, `delete()`, `request()`, `listRequests()`, `sync()`, `warming()` |
+| Smart links | `$sdk->smartLinks` | `create()`, `update()`, `list()`, `stats()` |
+| Auth | `$sdk->auth()` | `me()` (exige chave de administrador) |
 
 ## Limitações conhecidas
 
 | Método | Problema |
 |---|---|
-| `users->getMe()` | Chama `/v1/users/me`; a rota da API é `/users/me`: 404. |
-| `users->update()` | Mesmo path errado e usa POST (a API usa PATCH). |
-| `organizations->getWebhook()` / `updateWebhook()` | Chamam `/v1/organizations/webhook`; a rota é `/organizations/me/webhook` (PATCH para atualizar). |
-| `templates->get/delete` | Precisam do id (UUID). Com o nome a API responde 400. |
 | `WebhookUtils::isInboundMessageEvent()` | Compara com `inbound_message`; a API envia `message.received`. |
 | `WebhookUtils::isRevenueRecoveryEvent()` | Compara com `revenue_recovery`; a API envia `cart.abandoned`, `payment.failed`, `pix.created`, `boleto.due`. |
-| `WebhookUtils::verifySignature()` (1.8.1) | Assina só o corpo, sem o timestamp: nunca bate com `X-Arara-Signature`. Corrigido na `main`. |
+| `templates->get/delete` | Precisam do id (UUID). Com o nome a API responde 400. |
 
-## Source
-
-GitHub: [github.com/ararahq/arara-php-sdk](https://github.com/ararahq/arara-php-sdk) · MIT
+<Note>
+  Quem está na 1.8.1 deve atualizar para a 2.0.0 (`composer require ararahq/sdk:^2.0`). Na 1.8.1, `WebhookUtils::verifySignature()` assina só o corpo, sem o timestamp, e nunca bate com `X-Arara-Signature`; `receiver` sem o prefixo `whatsapp:` é recusado pelo SDK; `users` e `organizations` chamam rotas que não existem; e `send` não manda `Idempotency-Key`, mas o retry reenvia o `POST` em 5xx. Veja o [CHANGELOG](https://github.com/ararahq/arara-php-sdk/blob/main/CHANGELOG.md).
+</Note>
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Receitas Laravel" icon="php" href="/integracoes/laravel">
+  <Card title="Integração Laravel" icon="php" href="/integracoes/laravel">
     Service provider, jobs em fila, controller de webhook.
   </Card>
   <Card title="API Reference" icon="code" href="/api-reference/introduction">
     Endpoints REST por baixo do SDK.
   </Card>
 </CardGroup>
+
+Código-fonte: [github.com/ararahq/arara-php-sdk](https://github.com/ararahq/arara-php-sdk) (MIT).

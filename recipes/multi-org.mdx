@@ -1,156 +1,129 @@
 ---
-title: 'Várias contas (agência)'
-description: 'Como uma agência opera WhatsApp para vários clientes na Arara: uma organização por cliente, um usuário e uma chave de API por organização, profiles no CLI e cuidados com convites e revogação.'
-keywords: ['agência', 'multi-tenant', 'multi-cliente', 'isolamento', 'profiles']
+title: 'Várias organizações (agência)'
+description: 'Opere WhatsApp para vários clientes com isolamento: uma organização, um usuário e uma chave de API por cliente.'
+keywords: ['agência', 'multi-cliente', 'isolamento', 'profiles', 'várias contas']
 ---
 
-Agência que opera WhatsApp para vários clientes precisa de isolamento: a chave do cliente A não pode tocar dados do cliente B, e cada cliente paga o próprio consumo.
+Ao final, sua agência opera o WhatsApp de cada cliente com uma chave de API separada. A chave do cliente A não alcança os dados do cliente B, e cada cliente paga o próprio consumo.
 
-Na Arara, a unidade de isolamento é a **organização**. Número, templates, contatos, conversas, campanhas, webhook, Brain e carteira pertencem à organização.
+## Como o acesso funciona
 
-## Como a Arara organiza acesso
-
-- Cada organização é uma conta separada, com faturamento próprio.
-- Cada **usuário** (e-mail) pertence a **uma organização por vez**.
+- A unidade de isolamento é a **organização**. Número, templates, contatos, conversas, opt-outs, campanhas, automações, webhook, base de conhecimento do Brain, carteira e faturamento pertencem a ela.
+- Cada usuário (e-mail) pertence a **uma organização por vez**.
 - A chave de API pertence ao usuário que a criou e age na organização desse usuário.
-- Não existe troca de organização por API nem painel com várias organizações sob um mesmo login.
+- Não existe troca de organização por API: cada chave age em uma organização só.
 
-Por isso o modelo recomendado é **uma organização por cliente, com um usuário da agência em cada uma**.
+Por isso o caminho é **uma organização por cliente, com um usuário da agência em cada uma**.
 
 <Warning>
   Não aceite, com o mesmo e-mail, convites de organizações diferentes. Aceitar um convite **move** o usuário para a organização que convidou, e as chaves de API desse usuário passam a agir nela. Use um e-mail por cliente (por exemplo `operacao+clientex@suaagencia.com`).
 </Warning>
 
-## Setup por cliente
+## Antes de começar
+
+- Um e-mail da agência exclusivo para cada cliente.
+- Um cofre de segredos para guardar uma chave de API por cliente.
+- O [CLI](/cli) instalado, se você for operar pelo terminal.
+
+## Passo a passo
 
 <Steps>
-  <Step title="Cliente cria a conta">
-    O cliente cria a conta Arara com os dados dele e conecta o número. Ele continua dono da organização (`OWNER`) e dos dados.
+  <Step title="O cliente cria a organização">
+    O cliente cria a conta na Arara com os dados dele e conecta o número. Ele continua dono da organização (`OWNER`) e dos dados.
   </Step>
-  <Step title="Cliente convida a agência">
-    Pelo dashboard ou pela API, com um e-mail exclusivo da agência para esse cliente:
+
+  <Step title="O cliente convida a agência">
+    Pelo [painel](https://app.ararahq.com) ou pela API, com o e-mail da agência reservado para esse cliente:
+
     ```bash
     curl -X POST https://api.ararahq.com/v1/team/invitations \
-      -H "Authorization: Bearer ara_live_chave_do_cliente" \
+      -H "Authorization: Bearer $ARARA_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{ "emails": ["operacao+clientex@suaagencia.com"], "role": "ADMIN" }'
     ```
-    Papéis: `ADMIN`, `DEVELOPER`, `AGENT`, `BILLING`, `VIEWER`. `OWNER` não é atribuído por convite, só por transferência. Só `OWNER` e `ADMIN` convidam.
+
+    Aqui `ARARA_API_KEY` é a chave do cliente. Papéis: `ADMIN`, `DEVELOPER`, `AGENT`, `BILLING`, `VIEWER`. `OWNER` não é atribuído por convite, só por transferência. Só `OWNER` e `ADMIN` convidam.
   </Step>
-  <Step title="Agência entra com esse e-mail">
+
+  <Step title="A agência entra com esse e-mail">
     Quem entra pela primeira vez com um e-mail que tem convite pendente já cai na organização do cliente, com o papel do convite.
   </Step>
-  <Step title="Agência cria a chave de API">
-    Logado nessa organização, crie a chave pelo dashboard (**API Keys**). Criação e gestão de chaves exigem sessão do dashboard de um `OWNER` ou `ADMIN` (`VIEWER` só cria chave restrita a envio); chamada autenticada com chave de API recebe 403. A chave completa só aparece na criação: guarde no seu cofre de segredos.
+
+  <Step title="A agência cria a chave de API">
+    Dentro dessa organização, crie a chave pelo painel, em **API Keys**. Criar e gerenciar chaves exige sessão do painel de um `OWNER` ou `ADMIN` (`VIEWER` só cria chave restrita a envio). Chamada autenticada com chave de API recebe `403`. A chave completa só aparece na criação: guarde no cofre.
+
+    Na criação ou na edição, restrinja a chave:
+
+    - `ipAllowlist`: IPs ou faixas CIDR separados por vírgula. Chamada de fora da lista é recusada. Depende do plano.
+    - `permissions` e `scope`: o que a chave pode fazer.
+    - `dailySendLimit`: teto de envios por dia.
+    - `expiresAt`: validade.
+  </Step>
+
+  <Step title="Use uma instância do SDK por cliente">
+    ```typescript
+    // clients.ts
+    import { NodeSDK, type SendMessageRequest } from '@ararahq/sdk';
+
+    const clients = new Map<string, NodeSDK>([
+      ['cliente-x', new NodeSDK({ apiKey: process.env.ARARA_KEY_CLIENTE_X! })],
+      ['cliente-y', new NodeSDK({ apiKey: process.env.ARARA_KEY_CLIENTE_Y! })],
+    ]);
+
+    export async function sendFor(clientId: string, payload: SendMessageRequest, idempotencyKey: string) {
+      const sdk = clients.get(clientId);
+      if (!sdk) throw new Error(`Cliente ${clientId} não configurado`);
+      return sdk.messages.send(payload, { idempotencyKey });
+    }
+    ```
+
+    Passe em `idempotencyKey` um valor derivado do evento do cliente, por exemplo `clientex-pedido-12345-confirmacao`. Com muitos clientes, guarde as chaves criptografadas no seu banco ou em um gerenciador de segredos, nunca no código nem no frontend.
+  </Step>
+
+  <Step title="Separe os webhooks por organização">
+    Cada organização tem o próprio webhook e o próprio secret. No seu endpoint, use o `organizationId` do payload para saber de qual cliente é o evento e valide a assinatura com o secret daquela organização. Ver [Webhooks](/webhooks).
+  </Step>
+
+  <Step title="No terminal, use um profile por cliente">
+    Cada profile do CLI guarda a própria credencial:
+
+    ```bash
+    arara profile add cliente-x
+    arara login --profile cliente-x
+
+    arara profile add cliente-y
+    arara login --profile cliente-y
+
+    arara profile list
+    arara profile switch cliente-x
+    arara send --to +5511999999999 --template ola_mundo --vars "João"
+
+    # Ou sem trocar o profile ativo
+    arara send --profile cliente-y --to +5511999999999 --template ola_mundo --vars "Maria"
+    ```
   </Step>
 </Steps>
 
-## Uma instância de SDK por cliente
+## Armadilhas
 
-```typescript
-import { NodeSDK, type SendMessageRequest } from '@ararahq/sdk';
+- **`arara org use` não troca a credencial.** `arara org list` e `arara org use` existem, mas a chave continua agindo na organização do usuário. Para trocar de cliente, troque de profile.
+- **Não há visão agregada.** Consulte cada organização com a chave dela (`GET /v1/campaigns`, `GET /v1/contacts/stats`, `GET /v1/recovery/stats`) e consolide do seu lado.
+- **Cada cliente paga o próprio consumo.** Carteira e assinatura são da organização. A cobrança da agência pelo serviço é feita por fora da Arara. Para revenda sob a sua marca, fale com [contato@ararahq.com](mailto:contato@ararahq.com).
 
-const clients = new Map<string, NodeSDK>([
-  ['cliente-x', new NodeSDK({ apiKey: process.env.ARARA_KEY_CLIENTE_X! })],
-  ['cliente-y', new NodeSDK({ apiKey: process.env.ARARA_KEY_CLIENTE_Y! })],
-]);
+## Auditoria e revogação
 
-export async function sendFor(clientId: string, payload: SendMessageRequest, idempotencyKey: string) {
-  const sdk = clients.get(clientId);
-  if (!sdk) throw new Error(`Cliente ${clientId} não configurado`);
-  return sdk.messages.send(payload, { idempotencyKey });
-}
-```
-
-Com muitos clientes, guarde as chaves criptografadas no seu banco ou num gerenciador de segredos, nunca no código nem no frontend.
-
-Cada organização tem o próprio webhook e o próprio secret (`GET /organizations/me/webhook` com a chave daquele cliente). No seu endpoint, use o `organizationId` do payload para saber de qual cliente é o evento, e valide a assinatura com o secret certo.
-
-## CLI com profiles
-
-Cada profile guarda a própria credencial:
-
-```bash
-arara profile add cliente-x
-arara login --profile cliente-x
-
-arara profile add cliente-y
-arara login --profile cliente-y
-
-arara profile list
-arara profile switch cliente-x
-arara send --to +5511999999999 --template ola_mundo --vars "João"
-
-# Ou sem trocar o profile ativo
-arara send --profile cliente-y --to +5511999999999 --template ola_mundo --vars "Maria"
-```
-
-`arara org list` e `arara org use` existem, mas não trocam a credencial: a chave continua agindo na organização do usuário. Para trocar de cliente, troque de profile. Ver [CLI](/cli).
-
-## Isolamento
-
-| Dado | Escopo |
-|---|---|
-| Número de WhatsApp | Organização |
-| Templates | Organização |
-| Contatos, conversas, opt-outs | Organização |
-| Campanhas e automações | Organização |
-| Webhook (URL e secret) | Organização |
-| Base de conhecimento do Brain | Organização |
-| Carteira e faturamento | Organização |
-| Chaves de API | Usuário, agindo na organização dele |
-
-## Segurança
-
-### Uma chave por cliente
-
-Se a chave de um cliente vazar, revogue só ela (`DELETE /v1/api-keys/{id}` pela sessão do dashboard, ou em **API Keys**). As outras organizações não são afetadas.
-
-### Restrinja a chave
-
-Na criação ou edição da chave dá para definir:
-
-- `ipAllowlist`: IPs ou faixas CIDR separados por vírgula. Chamada de fora da lista é recusada. Depende do plano.
-- `permissions` e `scope`: o que a chave pode fazer.
-- `dailySendLimit`: teto de envios por dia.
-- `expiresAt`: validade.
-
-### Auditoria
-
+- Chave vazou: revogue só ela, em **API Keys** ou com `DELETE /v1/api-keys/{id}` pela sessão do painel. As outras organizações não são afetadas.
 - `GET /v1/api-keys/{id}/events`: histórico da chave (criada, revogada, rotacionada, mudança de escopo ou IP), com `actorUserId` e data.
 - `GET /v1/api-keys/{id}/stats`: volume de chamadas e taxa de sucesso em 7 e 30 dias.
 - `GET /v1/team/audit-log`: eventos do time (convites, mudanças de papel, remoções).
 
-`events` e `stats` exigem sessão do dashboard de `OWNER` ou `ADMIN` (não aceitam chave de API). O audit log do time exige `OWNER` ou `ADMIN`.
+`events` e `stats` exigem sessão do painel de `OWNER` ou `ADMIN` e não aceitam chave de API. O audit log do time exige `OWNER` ou `ADMIN`.
 
-## Faturamento
-
-Cada organização tem carteira e assinatura próprias. O cliente paga o consumo dele diretamente. A cobrança da agência pelo serviço é feita por fora da Arara.
-
-Para revenda sob a sua marca, fale com [contato@ararahq.com](mailto:contato@ararahq.com).
-
-## Métricas por cliente
-
-Não há visão agregada de várias organizações. Consulte cada uma com a chave dela, por exemplo `GET /v1/campaigns`, `GET /v1/contacts/stats` e `GET /v1/recovery/stats`, e consolide do seu lado.
-
-## Offboarding
-
-Quando um cliente sai da agência:
+## Quando o cliente sai
 
 1. O cliente remove o usuário da agência em **Time** (ou `DELETE /v1/team/members/{id}`). A remoção revoga todas as chaves de API desse usuário.
-2. Apague a chave e o profile do CLI (`arara profile remove cliente-x`) do seu lado.
+2. Apague do seu lado a chave e o profile do CLI (`arara profile remove cliente-x`).
 3. Se o cliente pedir, exporte os contatos (`GET /v1/contacts/export`) antes da saída.
-
-## Checklist de produção
-
-- [ ] Uma organização por cliente, criada pelo próprio cliente
-- [ ] Um e-mail da agência por cliente; nenhum e-mail aceitando convite de duas organizações
-- [ ] Papel mínimo necessário no convite
-- [ ] Uma chave por cliente, guardada em cofre de segredos
-- [ ] `ipAllowlist` e `dailySendLimit` nas chaves de produção, quando o plano permitir
-- [ ] Webhook de cada cliente validado com o secret daquela organização
-- [ ] Profiles do CLI separados por cliente
-- [ ] Processo de offboarding combinado com cada cliente
 
 ## Próximos passos
 
@@ -158,7 +131,10 @@ Quando um cliente sai da agência:
   <Card title="CLI" icon="terminal" href="/cli">
     Profiles e login.
   </Card>
-  <Card title="API keys" icon="key" href="/api-reference/endpoint/v2/api-keys">
-    Gestão de chaves.
+  <Card title="Chaves de API" icon="key" href="/api-reference/api-keys">
+    Permissões, limites e rotação.
+  </Card>
+  <Card title="Webhooks" icon="bell" href="/webhooks">
+    Assinatura e secret por organização.
   </Card>
 </CardGroup>

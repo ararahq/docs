@@ -1,26 +1,130 @@
 ---
 title: 'Smart Links'
-description: 'Links curtos no domínio ararahq.com que contam cliques: link de WhatsApp com QR Code, botão SMART_LINK em templates e encurtamento automático de URLs nas mensagens.'
+description: 'Links curtos em ararahq.com que contam cliques: link de WhatsApp com QR Code, botão SMART_LINK em templates e encurtamento automático de URLs nas mensagens.'
 keywords: ['smart links', 'short url', 'tracking', 'clique', 'qr code', 'wa.me', 'template']
 ---
 
-Na Arara, links curtos saem em `https://ararahq.com/l/{code}`. Cada acesso registra um clique e redireciona pro destino. Há três formas de gerar esses links:
+Smart Links trocam URLs longas por links curtos `https://ararahq.com/l/{code}` e registram cada clique. Você não precisa encurtar nada antes de enviar.
+
+## O que é um Smart Link
+
+Cada acesso ao link curto registra um clique e redireciona para o destino. O clique guarda IP, user agent, referer e país (quando disponível). O redirecionamento não adiciona parâmetros na URL de destino.
+
+Há três formas de gerar esses links:
 
 | Forma | Destino | Como cria |
 |---|---|---|
 | **Smart Link de WhatsApp** | `wa.me` do seu número, com texto inicial opcional | `POST /v1/smart-links/whatsapp` |
-| **Link de mensagem** | Qualquer URL, um link por mensagem enviada | Botão `SMART_LINK` no template ou URL passada como variável |
+| **Link de mensagem** | Qualquer URL, um link por mensagem enviada | Botão `SMART_LINK` no template, URL em variável ou URL no texto da mensagem dentro da janela de 24h |
 | **Link avulso** | Qualquer URL | Dashboard, em **Links** |
 
-O clique registra IP, user agent, referer e país (quando disponível). Links de mensagem ficam associados à mensagem, e por isso ao destinatário e à campanha. O redirecionamento não adiciona parâmetros na URL de destino.
+Links de mensagem ficam associados à mensagem, e por isso ao destinatário e à campanha.
+
+| Onde está a URL | O que acontece |
+|---|---|
+| Botão `SMART_LINK` do template | Cada mensagem ganha um link curto para o destino do botão |
+| Variável de template que começa com `http` | A variável é trocada pelo link curto |
+| `body` de mensagem dentro da janela de 24h | Toda URL do texto é trocada pelo link curto |
+
+## Usar em um template
+
+### Botão SMART_LINK (recomendado)
+
+O link fica no botão, fora do texto, e o domínio exibido é sempre o mesmo. Crie o template com um botão do tipo `SMART_LINK` e a URL de destino:
+
+```bash
+curl -X POST https://api.ararahq.com/v1/templates \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "produto_quente",
+    "category": "MARKETING",
+    "language": "pt_BR",
+    "body": "Oi {{1}}, separei essa camiseta básica pra você. Toque pra ver.",
+    "samples": { "1": "João" },
+    "buttons": [
+      {
+        "type": "SMART_LINK",
+        "text": "Ver produto",
+        "url": "https://meusite.com.br/produto/camiseta-basica"
+      }
+    ]
+  }'
+```
+
+A Arara registra o botão na Meta como botão de URL `https://ararahq.com/l/{{n}}`. A cada envio, cria um link curto novo para aquela mensagem e preenche o código no botão.
+
+No envio, dois campos opcionais de `POST /v1/messages` controlam o destino:
+
+| Campo | Efeito |
+|---|---|
+| `smartLinkUrl` | Substitui a URL cadastrada no botão só nesta mensagem |
+| `smartLinkParam` | Adiciona `slp={valor}` na URL de destino (ex.: id do pedido ou do cliente) |
+
+```typescript
+import { NodeSDK } from '@ararahq/sdk';
+
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
+
+await sdk.messages.send(
+  {
+    receiver: '+5511999999999',
+    templateName: 'produto_quente',
+    templateVariables: ['João'],
+    smartLinkUrl: 'https://meusite.com.br/produto/camiseta-basica?utm_source=whatsapp',
+    smartLinkParam: 'cliente-8812',
+  },
+  { idempotencyKey: 'produto-quente-cliente-8812' },
+);
+```
+
+O tipo `SendMessageRequest` do SDK Node declara `smartLinkUrl` e `smartLinkParam`, tanto no envio único quanto nos itens do lote.
+
+`POST /v1/messages/batch` aceita `smartLinkUrl` e `smartLinkParam` por item.
+
+### URL como variável
+
+Se o template tem a URL no corpo (`Confira: {{2}} e aproveite.`), passe a URL completa na variável:
+
+```typescript
+import { NodeSDK } from '@ararahq/sdk';
+
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
+
+await sdk.messages.send({
+  receiver: '+5511999999999',
+  templateName: 'oferta_verao_texto',
+  templateVariables: ['João', 'https://sualoja.com/produto/camisa-azul?ref=ads'],
+});
+```
+
+O cliente recebe `https://ararahq.com/l/{code}` no lugar da URL.
+
+## Usar em uma mensagem dentro da janela de 24h
+
+Em mensagem dentro da janela de 24h, toda URL no `body` é encurtada automaticamente. Não há campo extra:
+
+```bash
+curl -X POST https://api.ararahq.com/v1/messages \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiver": "+5511999999999",
+    "body": "Aqui está o seu pedido: https://meusite.com.br/pedido/8812"
+  }'
+```
+
+## Em campanhas
+
+`POST /v1/campaigns` e `POST /v1/messages/batch` aplicam o mesmo encurtamento a cada contato. Numa campanha com teste A/B, os cliques nesses links alimentam a métrica `CLICKED`. Ver [Campanhas de marketing](/marketing).
 
 ## Smart Link de WhatsApp
 
-Um link fixo que abre conversa com o seu número. Serve pra bio, anúncio, QR Code em material impresso.
+Um link fixo que abre conversa com o seu número. Serve para bio, anúncio e QR Code em material impresso.
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/smart-links/whatsapp \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Bio do Instagram",
@@ -47,8 +151,8 @@ Resposta:
 ```
 
 - `name` e `phoneNumber` são obrigatórios. `qrCodeColor` default `BLACK`.
-- Cada número tem um único Smart Link por organização. Criar outro pro mesmo número falha.
-- Quem acessa `shortUrl` é redirecionado pra `https://wa.me/{numero}?text={defaultText}`.
+- Cada número tem um único Smart Link por organização. Criar outro para o mesmo número falha.
+- Quem acessa `shortUrl` é redirecionado para `https://wa.me/{numero}?text={defaultText}`.
 
 | Endpoint | Função |
 |---|---|
@@ -56,62 +160,11 @@ Resposta:
 | `PUT /v1/smart-links/whatsapp/{id}` | Atualiza `name`, `defaultText` e `qrCodeColor` (o número não muda) |
 | `GET /v1/smart-links/whatsapp/{id}/stats` | `{ linkId, totalClicks }` |
 
-## Botão SMART_LINK em templates
-
-Crie o template com um botão do tipo `SMART_LINK` e a URL de destino:
-
-```bash
-curl -X POST https://api.ararahq.com/v1/templates \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "produto_quente",
-    "category": "MARKETING",
-    "language": "pt_BR",
-    "body": "Oi {{1}}, separei essa camiseta básica pra você. Toque pra ver.",
-    "samples": { "1": "João" },
-    "buttons": [
-      {
-        "type": "SMART_LINK",
-        "text": "Ver produto",
-        "url": "https://meusite.com.br/produto/camiseta-basica"
-      }
-    ]
-  }'
-```
-
-A Arara registra o botão na Meta como botão de URL `https://ararahq.com/l/{{n}}`. A cada envio, cria um link curto novo pra aquela mensagem e preenche o código no botão.
-
-No envio, dois campos opcionais de `POST /v1/messages` controlam o destino:
-
-| Campo | Efeito |
-|---|---|
-| `smartLinkUrl` | Substitui a URL cadastrada no botão só nesta mensagem |
-| `smartLinkParam` | Adiciona `slp={valor}` na URL de destino (ex.: id do pedido ou do cliente) |
-
-```bash
-curl -X POST https://api.ararahq.com/v1/messages \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "receiver": "whatsapp:+5511999999999",
-    "templateName": "produto_quente",
-    "templateVariables": ["João"],
-    "smartLinkUrl": "https://meusite.com.br/produto/camiseta-basica?utm_source=whatsapp",
-    "smartLinkParam": "cliente-8812"
-  }'
-```
-
-`POST /v1/messages/batch` aceita `smartLinkUrl` e `smartLinkParam` por item.
-
-## URLs em variáveis e mensagens de sessão
-
-- Variável de template que começa com `http` é trocada por um link curto `https://ararahq.com/l/{code}` no envio.
-- Em mensagem de sessão (texto livre dentro da janela de 24h), toda URL no `body` é encurtada.
-
 ## Onde ver os cliques
 
-O dashboard, em **Links**, junta links avulsos e links nascidos de campanha com a contagem de cliques. Pela API com chave `ara_live_`, a contagem está disponível pros Smart Links de WhatsApp (`clicks` e `/stats`).
+O dashboard, em **Links**, junta links avulsos e links nascidos de campanha com a contagem de cliques. Pela API com chave `ara_live_`, a contagem está disponível para os Smart Links de WhatsApp (`clicks` e `/stats`).
+
+Smart Link de WhatsApp (`wa.me`) não gera webhook por clique. O evento [`message.link_clicked`](/webhooks/events#message-link_clicked) existe para outro caso: template com botão de link dinâmico que usa um link curto da Arara e leva o ID da mensagem no fim da URL. Ele sai uma vez por mensagem, no primeiro clique, e ignora cliques de robôs. Para medir venda, veja [Atribuição de conversão](/smart-links/attribution).
 
 ## Próximos passos
 
@@ -119,7 +172,10 @@ O dashboard, em **Links**, junta links avulsos e links nascidos de campanha com 
   <Card title="Atribuição de conversão" icon="bullseye" href="/smart-links/attribution">
     Reporte vendas e ligue à mensagem que gerou.
   </Card>
-  <Card title="Receita: links em campanhas" icon="link" href="/cookbooks/marketing-smartlinks">
-    Encurtamento e rastreio em disparos.
+  <Card title="Campanhas de marketing" icon="bullhorn" href="/marketing">
+    Opt-in, frequência e teste A/B.
+  </Card>
+  <Card title="Mensagens" icon="message" href="/api-reference/messages">
+    Campos de envio de `POST /v1/messages`.
   </Card>
 </CardGroup>

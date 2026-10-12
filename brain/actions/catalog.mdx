@@ -1,16 +1,17 @@
 ---
 title: 'Catálogo Meta'
-description: 'Deixe o Brain enviar o card oficial de um produto do seu catálogo do WhatsApp (foto, preço e botão) direto na conversa.'
+description: 'Configure o Brain para enviar o card de um produto do seu catálogo Meta (foto, preço e botão) na conversa.'
 ---
 
-A Action `META_CATALOG_SEND` faz o Brain enviar o card de um produto do seu **catálogo Meta** (WhatsApp Commerce) na conversa: foto, título, preço e botão de compra, no formato nativo do WhatsApp.
+Ao final deste guia, o Brain envia, pela Action `META_CATALOG_SEND`, o card de um produto do seu **catálogo Meta** (WhatsApp Commerce) na conversa: foto, título, preço e botão de compra, no formato nativo do WhatsApp.
 
 <Warning>
   A Action não sincroniza Shopify, WooCommerce nem arquivo JSON. Ela só referencia produtos que já estão no catálogo da Meta, pelo SKU (`retailer_id`).
 </Warning>
 
-## Pré-requisitos
+## Antes de começar
 
+- [Brain](/brain) configurado, com plano que inclui Brain e número dedicado.
 - Catálogo criado no Commerce Manager da Meta e conectado à sua conta WhatsApp Business.
 - Produtos com `retailer_id` (SKU) preenchido.
 - SKUs presentes na [base de conhecimento do Brain](/brain#knowledge-base). O Brain só envia um produto se souber o SKU exato.
@@ -28,11 +29,13 @@ Parâmetros que o Brain preenche:
 | `body_text` | Não | Texto que acompanha o card. Default: "Aqui esse produto:" |
 | `footer_text` | Não | Rodapé do card, até 60 caracteres |
 
-## Setup
+## Passos
 
+<Steps>
+  <Step title="Habilite a Action">
 ```bash
 curl -X POST https://api.ararahq.com/v1/brain/actions \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "actionType": "META_CATALOG_SEND",
@@ -43,9 +46,11 @@ curl -X POST https://api.ararahq.com/v1/brain/actions \
     }
   }'
 ```
-
-- `catalogId`: id do catálogo no Commerce Manager.
-- `phoneNumberId`: id do número WhatsApp Business na Meta.
+  </Step>
+  <Step title="Confira os ids">
+    `catalogId` é o id do catálogo no Commerce Manager. `phoneNumberId` é o id do número WhatsApp Business na Meta.
+  </Step>
+</Steps>
 
 ## Fluxo
 
@@ -65,13 +70,15 @@ O card é enviado direto pela Meta; o Brain pode seguir a conversa em paralelo.
 
 - **Estoque e preço vêm da Meta**: o card mostra o que está no catálogo. Mantenha o catálogo atualizado na origem (Commerce Manager ou a integração que alimenta ele).
 - **Um produto por envio**: a Action envia um card de produto único, não lista de vários produtos.
-- **Checkout**: pra cobrar, combine com [AbacatePay](/brain/actions/abacate-pix) ou [Stripe](/brain/actions/stripe).
+- **Checkout**: para cobrar, combine com [AbacatePay](/brain/actions/abacate-pix) ou [Stripe](/brain/actions/stripe).
+
+## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Brain Actions" icon="bolt" href="/actions">
-    Todas as Actions disponíveis.
+  <Card title="Stripe" icon="credit-card" href="/brain/actions/stripe">
+    Cobrança com cartão depois do card do produto.
   </Card>
-  <Card title="Knowledge base" icon="brain" href="/brain#knowledge-base">
-    Onde cadastrar os SKUs e descrições.
+  <Card title="Voltar ao Brain" icon="brain" href="/brain">
+    Configuração, Actions disponíveis e regras.
   </Card>
 </CardGroup>

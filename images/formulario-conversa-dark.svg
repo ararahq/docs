@@ -1,0 +1,48 @@
+<svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mensagem com botão Responder e, ao lado, o formulário aberto dentro do WhatsApp">
+  <g fill="none" stroke="#f3f4f6" stroke-width="1.5" opacity="0.5">
+    <rect x="16" y="16" width="200" height="328" rx="24" />
+    <rect x="368" y="16" width="200" height="328" rx="24" />
+  </g>
+  <g fill="#f3f4f6" opacity="0.35">
+    <rect x="94" y="30" width="44" height="5" rx="2.5" />
+    <rect x="446" y="30" width="44" height="5" rx="2.5" />
+  </g>
+
+  <g>
+    <rect x="34" y="70" width="164" height="96" rx="14" fill="#f3f4f6" opacity="0.07" />
+    <rect x="34" y="70" width="164" height="96" rx="14" fill="none" stroke="#f3f4f6" stroke-width="1" opacity="0.25" />
+    <text x="48" y="96" font-family="Geist, Inter, system-ui, sans-serif" font-size="11" fill="#f3f4f6" opacity="0.85">Oi Ana, conta para gente</text>
+    <text x="48" y="112" font-family="Geist, Inter, system-ui, sans-serif" font-size="11" fill="#f3f4f6" opacity="0.85">o que você procura?</text>
+    <line x1="34" y1="128" x2="198" y2="128" stroke="#f3f4f6" stroke-width="1" opacity="0.2" />
+    <text x="116" y="150" font-family="Geist, Inter, system-ui, sans-serif" font-size="11.5" fill="#1c99a7" text-anchor="middle">Responder</text>
+  </g>
+  <text x="116" y="196" font-family="Geist, Inter, system-ui, sans-serif" font-size="10" fill="#f3f4f6" opacity="0.5" text-anchor="middle">o cliente toca no botão</text>
+
+  <g stroke="#1c99a7" stroke-width="1.5" fill="none">
+    <line x1="246" y1="180" x2="336" y2="180" />
+    <polyline points="326,172 336,180 326,188" />
+  </g>
+
+  <g>
+    <rect x="380" y="112" width="176" height="220" rx="16" fill="#f3f4f6" opacity="0.07" />
+    <rect x="380" y="112" width="176" height="220" rx="16" fill="none" stroke="#f3f4f6" stroke-width="1" opacity="0.25" />
+    <text x="396" y="138" font-family="Geist, Inter, system-ui, sans-serif" font-size="12" fill="#f3f4f6" opacity="0.9">Fale com a gente</text>
+    <text x="396" y="154" font-family="Geist, Inter, system-ui, sans-serif" font-size="9.5" fill="#f3f4f6" opacity="0.55">Leva menos de um minuto.</text>
+
+    <text x="396" y="180" font-family="Geist, Inter, system-ui, sans-serif" font-size="9" fill="#f3f4f6" opacity="0.55">Seu nome</text>
+    <rect x="396" y="186" width="144" height="20" rx="5" fill="none" stroke="#f3f4f6" stroke-width="1" opacity="0.3" />
+    <text x="404" y="200" font-family="Geist, Inter, system-ui, sans-serif" font-size="9.5" fill="#f3f4f6" opacity="0.8">Ana Exemplo</text>
+
+    <text x="396" y="224" font-family="Geist, Inter, system-ui, sans-serif" font-size="9" fill="#f3f4f6" opacity="0.55">Seu melhor e-mail</text>
+    <rect x="396" y="230" width="144" height="20" rx="5" fill="none" stroke="#f3f4f6" stroke-width="1" opacity="0.3" />
+    <text x="404" y="244" font-family="Geist, Inter, system-ui, sans-serif" font-size="9.5" fill="#f3f4f6" opacity="0.8">ana@exemplo.com</text>
+
+    <text x="396" y="268" font-family="Geist, Inter, system-ui, sans-serif" font-size="9" fill="#f3f4f6" opacity="0.55">O que você procura?</text>
+    <rect x="396" y="274" width="144" height="20" rx="5" fill="none" stroke="#f3f4f6" stroke-width="1" opacity="0.3" />
+    <text x="404" y="288" font-family="Geist, Inter, system-ui, sans-serif" font-size="9.5" fill="#f3f4f6" opacity="0.8">Falar com vendas</text>
+    <polyline points="524,282 529,287 534,282" fill="none" stroke="#f3f4f6" stroke-width="1.2" opacity="0.6" />
+
+    <rect x="396" y="304" width="144" height="20" rx="10" fill="#1c99a7" />
+    <text x="468" y="318" font-family="Geist, Inter, system-ui, sans-serif" font-size="10" fill="#ffffff" text-anchor="middle">Enviar</text>
+  </g>
+</svg>

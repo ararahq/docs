@@ -4,16 +4,22 @@ description: 'Mudanças notáveis na API, SDKs, CLI e MCP. SemVer adotado em tod
 keywords: ['changelog', 'releases', 'versão', 'updates', 'breaking changes']
 ---
 
-Histórico de mudanças significativas. Adotamos [SemVer](https://semver.org/lang/pt-BR/) em todos os SDKs. Para roadmap futuro, ver [Roadmap](/roadmap).
+Histórico de mudanças significativas. Adotamos [SemVer](https://semver.org/lang/pt-BR/) em todos os SDKs.
 
 <Note>
   **Política de breaking changes**: anunciadas com **≥ 6 meses de antecedência** via email, banner no dashboard e tag `deprecated` no SDK. Endpoints removidos só após período de sunset.
 </Note>
 
+## Outubro 2026
+
+### Planos e preços
+- **Nova tabela de planos**: Voo (R$ 997/mês, 50.000 envios por mês), Primeira Classe (R$ 2.900/mês, com implantação feita pelo time por R$ 2.900, uma vez) e Sob medida (preço por faixa de volume, para mais de 100 mil mensagens por mês). Detalhes em [Preços e limites](/concepts/pricing).
+- Quem assinou um plano anterior mantém o preço e as condições contratadas.
+
 ## Setembro 2026
 
 ### Planos e preços
-- **Nova tabela para contas criadas a partir de 10/09/2026**: Essencial (R$ 597/mês, até 20.000 mensagens enviadas no mês), Voo (R$ 997/mês, até 50.000) e Primeira Classe (sob consulta, sem teto). Os planos se diferenciam por assentos, números e automações. Ver [Preços](/concepts/pricing) e [Planos e limites](/business-rules/planos-e-limites).
+- **Nova tabela para contas criadas a partir de 10/09/2026**: Essencial (R$ 597/mês, até 20.000 mensagens enviadas no mês), Voo (R$ 997/mês, até 50.000) e Primeira Classe (sob consulta, sem teto). Os planos se diferenciam por assentos, números e automações. Ver [Preços e limites](/concepts/pricing).
 - **Mensagem a preço de custo** nos planos novos: tarifa Meta do país de destino mais US$ 0,001 do provedor, convertidos pelo câmbio da Arara, sem taxa por mensagem.
 - **Câmbio de fonte única**, com referência de R$ 5,85 por dólar.
 - **Campanhas em todos os planos.**
@@ -23,15 +29,21 @@ Histórico de mudanças significativas. Adotamos [SemVer](https://semver.org/lan
 - **Códigos próprios para recusa de envio**: `RECIPIENT_OPTED_OUT`, `INVALID_RECIPIENT`, `CONVERSATION_WINDOW_CLOSED`, `TEMPLATE_NOT_SENDABLE`, `TEMPLATE_PAUSED`, `TEMPLATE_VARIABLES_MISMATCH` e `SENDER_NOT_ALLOWED` (422), `FRAUD_SUSPECTED` (403), `SEND_RATE_LIMITED` e `MARKETING_FREQUENCY_EXCEEDED` (429, com `Retry-After`). Antes a maioria saía como `422 UNPROCESSABLE_ENTITY` genérico.
 - **Biblioteca de templates da Meta**: `GET /v1/templates/library` e `POST /v1/templates/library` criam templates UTILITY já aprovados.
 
+### SDKs
+- **Node, Python, PHP e Java 2.0.0; Go v1.0.0 e Ruby 1.0.0.** Em Node, Python, PHP, Go e Ruby: `Idempotency-Key` automática no envio (ou a sua, quando você passa), consulta de mensagem por id (`messages.get`), envio em lote e recursos de contatos, conversas, campanhas, carteira, números, smart links e opt-outs. No PHP, `WebhookUtils::verifySignature()` com timestamp. Ruby publicado no RubyGems, Go com a tag `v1.0.0` e Java no GitHub Packages. Ver [SDKs](/sdks).
+
 ### MCP
 - **`@ararahq/mcp` v6.** 9 ferramentas no conjunto padrão: `whoami`, `send_whatsapp`, `broadcast`, `campaign_report`, `check_status`, `create_template`, `save_contacts`, `opt_out` e `read_conversation`. Painéis interativos (MCP Apps) em `broadcast`, `campaign_report`, `check_status` e `read_conversation`. Servidor hospedado em `https://mcp.ararahq.com/mcp` (Streamable HTTP, OAuth); o endpoint SSE antigo não existe mais. Ver [MCP Server](/mcp-server).
+- **Ferramentas das versões antigas foram consolidadas.** `send_template` virou `send_whatsapp` com `templateName`; `broadcast_ab`, `prepare_campaign`, `campaign_preflight` e `publish_campaign` viraram `broadcast` (prévia por padrão, `abTest` opcional); `list_campaigns` e `get_campaign` viraram `campaign_report`; `check_message` e `get_template_status` viraram `check_status`; `get_conversation`, `draft_reply` e `reply_to_conversation` viraram `read_conversation` e `send_whatsapp`; as tools de smart link viraram o botão `SMART_LINK` no `create_template`; `login` e `logout` passaram para a CLI (`npx -y @ararahq/mcp login`). Saíram as tools de fila de atendimento (`get_today`, `triage_today`, `find_conversations`, `claim_conversation`, `close_conversation`, `close_case_review`) e as de automação do pacote antigo: atendimento é trabalho do dashboard. O pacote antigo sem escopo, `ararahq-mcp`, é a v4 congelada. Ver [Ferramentas do MCP](/mcp-tools).
 
 ---
 
 ## Julho 2026
 
+Os nomes de plano abaixo são históricos. Planos atuais em [Preços e limites](/concepts/pricing).
+
 ### MCP
-- **v4.0.0.** Corte de 84 pra **10 tools**: `send_whatsapp` aceita nome ou número em qualquer formato e resolve E.164, nono dígito e janela de 24h sozinha; `broadcast` dispara template aprovado pra até 1.000 pessoas; leitura virou 10 resources que o cliente carrega sem tool call. Configuração de conta saiu do MCP — é trabalho de dashboard. Deploy contínuo: push na main publica em [mcp.ararahq.com](https://mcp.ararahq.com). Ver [Ferramentas do MCP](/mcp-tools).
+- **v4.0.0.** Corte de 84 para **10 tools**: `send_whatsapp` aceita nome ou número em qualquer formato e resolve E.164, nono dígito e janela de 24h sozinha; `broadcast` dispara template aprovado pra até 1.000 pessoas; leitura virou 10 resources que o cliente carrega sem tool call. Configuração de conta saiu do MCP — é trabalho de dashboard. Deploy contínuo: push na main publica em [mcp.ararahq.com](https://mcp.ararahq.com). Ver [Ferramentas do MCP](/mcp-tools).
 
 ## Maio 2026
 
@@ -52,7 +64,7 @@ Histórico de mudanças significativas. Adotamos [SemVer](https://semver.org/lan
 
 ### Dashboard
 - Auto-recharge configurável: threshold + valor de recarga
-- Brain monthly conversation cap em 1.500 (PRO) / sem cap (Enterprise)
+- Limite mensal de conversas do Brain por plano (sem limite no Enterprise)
 - Onboarding gate: novos usuários começam em `TESTING` (não `ACTIVE`)
 
 ---
@@ -64,7 +76,7 @@ Histórico de mudanças significativas. Adotamos [SemVer](https://semver.org/lan
 - **Multi-org via M2M**: usuário pode pertencer a múltiplas organizações; `GET /auth/me/organizations` lista todas
 - **Stream SSE real**: `/v1/stream` com per-org publisher
 - **Brain hard activation gate**: bloqueia ativar Brain com pré-requisitos pendentes (sem número dedicado, sem business profile)
-- **Brain usage cap**: 1.500 conversas/mês no PRO. Endpoint `GET /v1/brain/usage` pra acompanhar
+- **Limite de uso do Brain**: conversas por mês conforme o plano. Endpoint `GET /v1/brain/usage` pra acompanhar
 - **Account status endpoint**: `GET /v1/account/status` retorna se conta está em onboarding, ativa, suspensa
 - **Onboarding `ACCOUNT_NOT_ACTIVATED` guard**: tentativa de enviar mensagem antes de ativar retorna erro estruturado
 
@@ -74,21 +86,20 @@ Histórico de mudanças significativas. Adotamos [SemVer](https://semver.org/lan
 - Orphan PENDING sweeper: mensagens órfãs em status `processing` por > 5min são recolocadas na fila
 
 ### Pricing
-- **Sync FREE plan com /precos**: marketing R$ 0,70 (era 0,72), utility/auth R$ 0,30 (era 0,24)
-- **FREE plan**: removido cap de 500 msg/mês — wallet pré-paga é o limite natural
-- **Starter plan**: inbox habilitado, 2 seats inclusos
-- **Brain add-on**: R$ 250/mês (incluído no Enterprise)
-- **Seat extras**: R$ 79/seat (BUSINESS+)
+- **Plano FREE sincronizado com a página de preços** e sem limite mensal de mensagens: a carteira pré-paga era o limite natural
+- **Plano Starter**: inbox habilitado, com assentos inclusos
+- **Brain como add-on**, incluído no Enterprise
+- **Assento extra** cobrado à parte nos planos BUSINESS e acima
 
 ---
 
 ## Março 2026
 
 ### Plataforma
-- **Welcome bonus 30%**: assinatura ou primeira recarga PIX ganha bônus equivalente a 30% do plano
+- **Bônus de boas-vindas**: assinatura ou primeira recarga Pix ganhava um bônus proporcional ao valor
 - **Stripe embedded checkout**: substituí hosted page por embedded (menos abandono)
 - **Smart Links com atribuição 1st-party**: substitui UTM clássico, sobrevive a ITP/Brave Shield
-- **Brain Actions**: AbacatePay (Pix), Cal.com, Catalog, Stripe — agente IA executa, não só responde
+- **Brain Actions**: AbacatePay (Pix), Cal.com, Catalog, Stripe — o Brain executa, não só responde
 - **Brain eval suite**: defina casos, rode contra Brain, mede pass rate
 
 ### Backend
@@ -104,7 +115,7 @@ Histórico de mudanças significativas. Adotamos [SemVer](https://semver.org/lan
 ### Plataforma
 - **WhatsApp self-serve onboarding**: cliente conecta número Meta Business sem precisar suporte
 - **Contatos como recurso 1st-class**: `/v1/contacts` com batch upsert + busca paginada + `attributes` flexível por contato
-- **Per-customer memory no Brain**: agente lembra de cada cliente (LTV, tier, mood)
+- **Per-customer memory no Brain**: o Brain lembra de cada cliente (LTV, tier, mood)
 
 ### SDKs
 - Node SDK v1.7 → 1.8: tipos pra webhook events (`AraraWebhookEvent`)
@@ -135,7 +146,7 @@ Histórico antes de 2026 mantido [no GitHub releases](https://github.com/ararahq
 Highlights:
 - Lançamento da Arara — Dec/2025
 - API REST v1 disponibilizada
-- SDKs Node, Python, PHP, Java em beta
+- SDKs Node, Python, PHP e Java
 - Integração com AbacatePay (Pix nativo BR)
 - Tech Provider Meta aprovado
 
@@ -158,8 +169,8 @@ Hoje marcados como deprecated:
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Roadmap" icon="map" href="/roadmap">
-    O que está sendo construído.
+  <Card title="Erros" icon="triangle-exclamation" href="/erros">
+    Códigos de erro da API e como tratar cada um.
   </Card>
   <Card title="GitHub releases" icon="github" href="https://github.com/ararahq">
     Detalhe técnico por SDK.

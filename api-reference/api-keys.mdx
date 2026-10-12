@@ -1,0 +1,78 @@
+---
+title: 'Chaves de API'
+description: 'Como criar e gerir chaves de API pelo painel: permissões, limite diário, rotação e auditoria.'
+keywords: ['api keys', 'chaves', 'auth', 'rotate', 'revoke', 'audit', 'ip allowlist', 'permissões']
+---
+
+A gestão de chaves é feita só pelo painel, em [app.ararahq.com/dashboard/apikeys](https://app.ararahq.com/dashboard/apikeys). Não há endpoint público para criar, listar, rotacionar ou revogar chaves.
+
+<Warning>
+  Chamar `/v1/api-keys` com uma chave de API responde `403`: com `error.code = RESOURCE_FORBIDDEN` para chave `ADMIN`, e sem `error.code` (o `403` de autenticação) para chave com permissões restritas. Isso é intencional: uma chave vazada não consegue gerar outras.
+</Warning>
+
+No painel, quem gere chaves é o Dono ou o Admin da organização. Criar, listar e revogar também ficam liberados para o papel Leitor, no caso de chaves de envio vinculadas.
+
+## O que você configura na criação
+
+| Campo | Descrição |
+|---|---|
+| Nome | Obrigatório. Descreva onde a chave roda (por exemplo "backend-producao"). |
+| Permissões | `READ`, `MESSAGES_SEND`, `TEMPLATES_WRITE`, `CAMPAIGNS_SEND`, `CONTACTS_WRITE`, `AUTOMATIONS_MANAGE`, `WEBHOOKS_MANAGE` ou `ADMIN`. Sem escolha, a chave nasce `ADMIN`. O que cada uma libera está em [Autenticação](/api-reference/authentication#permissões). |
+| Expiração | Opcional. Depois da data a chave responde `401`. |
+| Lista de IPs permitidos | Opcional. IPs e CIDR IPv4 separados por vírgula. Exige plano com trilha de auditoria (`403 PLAN_FEATURE_LOCKED` sem ele). Chamada de outro IP responde `401`. |
+| Limite diário de envio | Opcional, de 1 a 1.000.000 mensagens por dia (UTC). Acima do limite: `429 SEND_RATE_LIMITED`. |
+| Número e template vinculados | Opcional. Usado por chaves de envio via webhook de parceiro; informe os dois juntos. |
+
+O valor completo (`ara_live_...`) aparece **uma única vez**. A Arara guarda só o hash e os 4 últimos caracteres.
+
+## O que o painel mostra de cada chave
+
+| Campo | Descrição |
+|---|---|
+| Nome | `"Sem nome"` em chaves antigas. |
+| Final da chave | Últimos 4 caracteres, para identificar sem expor. |
+| Permissões | Permissões efetivas. |
+| Limite diário e uso | Teto diário e quanto já foi usado hoje. |
+| Criação, último uso e expiração | O último uso é atualizado no máximo uma vez por minuto. |
+| IPs permitidos | Lista configurada. |
+| Origem | Chave de origem, quando veio de rotação. |
+
+A listagem traz todas as chaves não revogadas da organização.
+
+## Rotação
+
+Rotacionar gera uma chave nova com as mesmas permissões, expiração, lista de IPs e limite, e **revoga a antiga no mesmo instante**. Não há janela de convivência. Para trocar sem interromper o serviço:
+
+<Steps>
+  <Step title="Crie uma segunda chave">
+    Com as mesmas permissões da atual.
+  </Step>
+  <Step title="Publique a nova chave">
+    Atualize a variável de ambiente `ARARA_API_KEY` e faça o deploy.
+  </Step>
+  <Step title="Revogue a antiga">
+    Confirme no painel que a antiga parou de ser usada (último uso) e revogue.
+  </Step>
+</Steps>
+
+## Auditoria
+
+Cada chave guarda eventos de ciclo de vida: `CREATED`, `ROTATED`, `REVOKED`, `EXPIRED`, `SCOPE_CHANGED`, `IP_ALLOWLIST_CHANGED` e `CONFIG_CHANGED`, com o usuário que fez a ação. O painel também mostra o volume de requisições em 7 e 30 dias e a taxa de sucesso (2xx) em 30 dias.
+
+## Segurança
+
+- Nunca coloque a chave no frontend, em repositório ou em log.
+- Use variável de ambiente ou cofre de segredos.
+- Uma chave por serviço e por ambiente, com a menor permissão necessária.
+- Revogue na hora quando suspeitar de vazamento ou quando alguém com acesso sair do time.
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Autenticação" icon="key" href="/api-reference/authentication">
+    Permissões por rota e erros de autenticação.
+  </Card>
+  <Card title="Identidade da chave" icon="user" href="/api-reference/auth">
+    Validar a chave no início da integração.
+  </Card>
+</CardGroup>

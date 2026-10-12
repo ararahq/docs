@@ -1,0 +1,113 @@
+---
+title: 'Contatos'
+description: 'Visão geral do recurso de contatos: o objeto, a importação em lote, opt-out, direitos do titular (LGPD) e a lista de endpoints.'
+keywords: ['contacts', 'contatos', 'crm', 'upsert', 'batch', 'opt-out', 'lgpd']
+---
+
+Contatos são a base da organização, com o telefone como chave única. A Arara também cria e atualiza contatos sozinha, a partir das mensagens enviadas e recebidas. Esta página cobre também o opt-out e os direitos do titular.
+
+<Note>
+  As rotas de contatos exigem plano com contatos (`403 PLAN_FEATURE_LOCKED` sem ele). Leitura pede chave `ADMIN`; escrita aceita `CONTACTS_WRITE`.
+</Note>
+
+## O objeto contato
+
+| Campo | Descrição |
+|---|---|
+| `id` | UUID do contato. |
+| `phone` | Telefone E.164 com `+`. É a chave do contato. |
+| `name`, `email` | Dados básicos. |
+| `attributes` | Objeto livre com dados do seu sistema. |
+| `tags` | Etiquetas, até 20. |
+| `lifecycle` | Estágio: `NEW`, `ENGAGED`, `SILENT`, `DORMANT` ou `OPTED_OUT`. |
+| `outboundCount`, `inboundCount` | Mensagens enviadas e recebidas. |
+| `lastMessageAt`, `optOutAt` | Última mensagem e data do opt-out, quando houver. |
+
+## Importar contatos
+
+O corpo é um **array** de até 5.000 contatos. Telefone novo cria, telefone existente atualiza.
+
+```bash
+curl -X POST https://api.ararahq.com/v1/contacts/batch \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '[
+    { "name": "João Silva", "phone": "+5511999999999", "email": "joao@exemplo.com", "attributes": { "plano": "pro" } },
+    { "name": "Maria Santos", "phone": "5511888888888" }
+  ]'
+```
+
+Resposta `200 OK`:
+
+```json
+{
+  "importId": "fa1b2c3d-4567-89ab-cdef-0123456789ab",
+  "created": 1,
+  "updated": 0,
+  "skipped": 1,
+  "errors": [
+    { "index": 1, "phone": "5511888888888", "reason": "Telefone 5511888888888 fora do formato E.164." }
+  ]
+}
+```
+
+A segunda linha foi recusada porque o telefone veio sem o `+`. Linha inválida não derruba o lote: ela entra em `skipped` e em `errors`, com o índice e o motivo.
+
+## Regras que valem saber
+
+- **O lote substitui `email` e `attributes`.** Enviar um contato existente sem `email` apaga o email dele. Para mudar só um campo, use `PATCH /v1/contacts/{phone}`.
+- **Telefone igual, dados iguais: `skipped`.** Não é erro.
+- **No `PATCH`, campo omitido não muda.** `tags` substitui a lista inteira, e `email` como string vazia remove o email.
+- **Telefone no caminho vai com `+`.** Exemplo: `/v1/contacts/+5511999999999`.
+- **Contato inexistente responde `422`.** Hoje `GET /v1/contacts/{phone}` devolve `422 UNPROCESSABLE_ENTITY`, e não `404`.
+- **A lista tem envelope próprio.** `GET /v1/contacts` responde `{ contacts, total, page, size, totalPages }`, e não `{ data, pagination }`.
+- **`importId` é só para log.** Não há rota para consultá-lo depois.
+
+## Opt-out
+
+O opt-out registra que o telefone não quer mais receber mensagens da organização. Todas as rotas pedem chave `ADMIN`, e telefone fora do E.164 responde `400 INVALID_PHONE`.
+
+<Warning>
+  O envio hoje só é bloqueado por opt-out feito por palavra-chave recebida no WhatsApp (por exemplo "SAIR", "PARAR", "STOP"), e mesmo esse bloqueio depende do formato do telefone no envio. O opt-out registrado por `POST /v1/opt-outs` ou pela remoção LGPD ainda **não** é consultado no envio de mensagens e campanhas. Filtre a lista do seu lado antes de enviar.
+</Warning>
+
+## Direitos do titular (LGPD)
+
+`GET /v1/contacts/{phone}/lgpd/export` devolve o contato, as conversas e até 1.000 mensagens do telefone. `DELETE /v1/contacts/{phone}/lgpd` é **irreversível**: mascara o conteúdo das mensagens e das conversas, apaga o contato e registra opt-out.
+
+## Endpoints
+
+| Método | Caminho | O que faz |
+|---|---|---|
+| `GET` | `/v1/contacts` | Listar contatos |
+| `POST` | `/v1/contacts/batch` | Importar contatos em lote |
+| `GET` | `/v1/contacts/stats` | Consultar estatísticas de contatos |
+| `GET` | `/v1/contacts/{phone}` | Consultar contato |
+| `PATCH` | `/v1/contacts/{phone}` | Atualizar contato |
+| `GET` | `/v1/contacts/{phone}/messages` | Listar mensagens do contato |
+| `GET` | `/v1/contacts/{phone}/lgpd/export` | Exportar dados do titular |
+| `DELETE` | `/v1/contacts/{phone}/lgpd` | Apagar dados do titular |
+| `GET` | `/v1/opt-outs` | Listar opt-outs |
+| `POST` | `/v1/opt-outs` | Registrar opt-out |
+| `GET` | `/v1/opt-outs/{phone}` | Consultar opt-out |
+| `DELETE` | `/v1/opt-outs/{phone}` | Remover opt-out |
+
+## Erros mais comuns
+
+| HTTP | `error.code` | Quando |
+|---|---|---|
+| `400` | `INVALID_JSON` | JSON malformado, ou `name` ou `phone` ausente no lote. |
+| `400` | `INVALID_PHONE` | Telefone inválido em opt-out ou LGPD. |
+| `403` | `PLAN_FEATURE_LOCKED` | Plano sem contatos. |
+| `422` | `UNPROCESSABLE_ENTITY` | Contato não encontrado, telefone fora do E.164 no caminho, lote vazio ou acima de 5.000. |
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Campanhas" icon="bullhorn" href="/api-reference/campaigns">
+    Enviar um template para a base.
+  </Card>
+  <Card title="Compliance" icon="scale-balanced" href="/concepts/compliance">
+    Opt-in, opt-out e LGPD.
+  </Card>
+</CardGroup>

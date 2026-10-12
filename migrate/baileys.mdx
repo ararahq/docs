@@ -6,25 +6,25 @@ keywords: ['baileys', 'whatsapp-web.js', 'wppconnect', 'migração', 'whatsapp b
 
 Baileys é uma biblioteca open source que conecta um número pelo protocolo do WhatsApp Web: roda na sua infra, autentica por QR Code e mantém um socket aberto. A Arara envia pela WhatsApp Business Platform da Meta, por API REST. Migrar é trocar de arquitetura, não só de biblioteca.
 
-Esta página vale também para `whatsapp-web.js` e `wppconnect`, que seguem o mesmo modelo.
+Esta página vale também para `whatsapp-web.js` e `wppconnect`, que seguem o mesmo padrão.
 
 ## O que muda
 
 | | Baileys | Arara |
 |---|---|---|
 | Conexão | Socket persistente + sessão salva em disco | HTTPS, sem estado do seu lado |
-| Autenticação | QR Code no celular | API key `ara_live_...` |
+| Autenticação | QR Code no celular | chave de API `ara_live_...` |
 | Infra | Processo seu, sempre ligado | Nenhum processo a manter |
-| Mensagem iniciada pela empresa | Texto livre | Template aprovado pela Meta |
-| Texto livre | A qualquer momento | Dentro da janela de 24h aberta pelo cliente |
+| Mensagem iniciada pela empresa | Mensagem sem template | Template aprovado pela Meta |
+| Mensagem dentro da janela de 24h | A qualquer momento | Dentro da janela de 24h aberta pelo cliente |
 | Recebimento | Evento `messages.upsert` no socket | Webhook HTTP assinado |
 | Custo | Infra e manutenção próprias | Plano + uso por mensagem. Veja [Preços](/concepts/pricing) |
 
-O que você passa a ter: templates, webhooks de status de entrega e leitura, dashboard com inbox e campanhas, e recursos como [Brain](/brain), [Smart Links](/smart-links) e [recuperação](/recovery).
+O que você passa a ter: templates, webhooks de status de entrega e leitura, dashboard com inbox e campanhas, e recursos como [Brain](/brain), [Smart Links](/smart-links) e [recuperação de receita](/recovery).
 
 O que você perde:
 
-- **Texto livre a qualquer hora**: fora da janela de 24h, só template.
+- **Mensagem sem template a qualquer hora**: fora da janela de 24h, só template.
 - **Latência de aprovação**: template novo depende da Meta.
 - **Recursos do WhatsApp Web**: grupos, status, listas de transmissão e stickers não são enviados pela Arara.
 
@@ -74,7 +74,7 @@ const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
 
 await sdk.messages.send(
   {
-    receiver: 'whatsapp:+5511999999999',
+    receiver: '+5511999999999',
     templateName: 'pedido_confirmado',
     templateVariables: ['João', 'ARA-123'],
   },
@@ -115,7 +115,7 @@ app.post('/arara/webhook', express.text({ type: 'application/json' }), (req, res
 
 ### Localização, reação e botões
 
-A API aceita esses tipos em `POST /v1/messages`, dentro da janela de 24h. O SDK Node 1.8.1 não tipa esses campos, então chame a API direto:
+A API aceita esses tipos em `POST /v1/messages`, dentro da janela de 24h. O SDK Node 2.0.0 aceita `interactive`, `location` e `reaction` em `sdk.messages.send`, mas os tipa só como objeto genérico, então confira a forma de cada um na tabela:
 
 | Operação | Baileys | Arara (`POST /v1/messages`) |
 |---|---|---|
@@ -125,18 +125,13 @@ A API aceita esses tipos em `POST /v1/messages`, dentro da janela de 24h. O SDK 
 | Sticker | `sendMessage(jid, { sticker })` | Não suportado |
 
 ```typescript
-await fetch('https://api.ararahq.com/v1/messages', {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${process.env.ARARA_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    receiver: 'whatsapp:+5511999999999',
+await sdk.messages.send(
+  {
+    receiver: '+5511999999999',
     location: { latitude: -23.5614, longitude: -46.6559, name: 'Loja Paulista' },
-  }),
-  signal: AbortSignal.timeout(10_000),
-});
+  },
+  { idempotencyKey: 'pedido-ARA-123-localizacao' },
+);
 ```
 
 Cada requisição leva **um** tipo: `templateName`, `body`, `interactive`, `location` ou `reaction`. Mais de um responde 400.
@@ -185,7 +180,7 @@ Depois de migrar, remova arquivos de sessão, volumes e credenciais do Baileys.
 
 ### Formato do telefone
 
-Baileys usa JID (`5511999999999@s.whatsapp.net`). Na Arara, o envio usa `whatsapp:+5511999999999` e o webhook de entrada traz `data.from` só com dígitos.
+Baileys usa JID (`5511999999999@s.whatsapp.net`). Na Arara, o envio usa `+5511999999999` e o webhook de entrada traz `data.from` só com dígitos.
 
 ### Grupos
 

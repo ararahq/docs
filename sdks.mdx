@@ -1,198 +1,47 @@
 ---
 title: 'SDKs e ferramentas'
-description: 'Bibliotecas oficiais da Arara para Node, Python, PHP, Java, Go e Ruby: onde instalar, qual versão está publicada, o que cada uma cobre e o que ainda não funciona contra a API atual.'
+description: 'Bibliotecas da Arara para Node, Python, PHP, Java, Go e Ruby: pacote, instalação, status de publicação e recursos cobertos por linguagem.'
 keywords: ['sdks', 'bibliotecas', 'node', 'python', 'php', 'java', 'go', 'ruby', 'cli', 'mcp']
 ---
 
-A Arara mantém 6 SDKs open source no [GitHub](https://github.com/ararahq), além do CLI e do MCP server. Todos falam com `https://api.ararahq.com` usando `Authorization: Bearer ara_live_...`.
+Os SDKs são open source no [GitHub](https://github.com/ararahq) e falam com `https://api.ararahq.com` usando `Authorization: Bearer ara_live_...`. Para qualquer outra linguagem, use REST com a biblioteca HTTP padrão: [API Reference](/api-reference/introduction).
 
-Esta página diz o que está **publicado** em cada registry. O código na branch `main` de alguns repositórios já tem mais recursos do que a versão publicada; quando for o caso, a página de cada SDK avisa.
+## Catálogo
 
-## SDKs
+| Linguagem | Pacote | Instalar | Versão e registro |
+|---|---|---|---|
+| [Node.js / TypeScript](/sdks/node) | `@ararahq/sdk` | `npm install @ararahq/sdk` | 2.0.0, npm |
+| [Python](/sdks/python) | `ararahq-sdk` (import `arara_api_sdk`) | `pip install ararahq-sdk` | 2.0.0, PyPI |
+| [PHP / Laravel](/sdks/php) | `ararahq/sdk` | `composer require ararahq/sdk` | 2.0.0, Packagist |
+| [Java / Kotlin](/sdks/java) | `com.ararahq:arara-java-sdk` | `implementation("com.ararahq:arara-java-sdk:2.0.0")` | 2.0.0, GitHub Packages (não está no Maven Central; exige usuário e token do GitHub) |
+| [Go](/sdks/go) | `github.com/ararahq/arara-go-sdk` | `go get github.com/ararahq/arara-go-sdk@latest` | v1.0.0, tag no GitHub |
+| [Ruby](/sdks/ruby) | `ararahq` | `gem "ararahq"` | 1.0.0, RubyGems |
 
-<CardGroup cols={2}>
-  <Card title="Node.js / TypeScript" icon="node" href="/sdks/node">
-    ```bash
-    npm install @ararahq/sdk
-    ```
-    npm, versão 1.8.1.
-  </Card>
-  <Card title="Python" icon="python" href="/sdks/python">
-    ```bash
-    pip install ararahq-sdk
-    ```
-    PyPI, versão 1.8.1. Import `arara_api_sdk`.
-  </Card>
-  <Card title="PHP / Laravel" icon="php" href="/sdks/php">
-    ```bash
-    composer require ararahq/sdk
-    ```
-    Packagist, versão 1.8.1. PHP 8.2+.
-  </Card>
-  <Card title="Java / Kotlin" icon="java" href="/sdks/java">
-    ```kotlin
-    implementation("com.ararahq:arara-java-sdk:1.8.1")
-    ```
-    GitHub Packages (não está no Maven Central). Java 17+.
-  </Card>
-  <Card title="Go" icon="golang" href="/sdks/go">
-    ```bash
-    go get github.com/ararahq/arara-go-sdk@main
-    ```
-    Sem tag de release ainda. Go 1.22+.
-  </Card>
-  <Card title="Ruby" icon="gem" href="/sdks/ruby">
-    ```ruby
-    gem "ararahq", git: "https://github.com/ararahq/arara-ruby-sdk"
-    ```
-    Não publicado no RubyGems. Ruby 3.0+.
-  </Card>
-</CardGroup>
+Cada página de linguagem traz instalação, o primeiro envio, tratamento de erros, retentativas, webhooks e limitações.
 
-Para qualquer outra linguagem, use REST com a biblioteca HTTP padrão. Referência em [API Reference](/api-reference/introduction).
+## Recursos por SDK
 
-## Cobertura por SDK
-
-Recursos expostos pela versão que você instala hoje (Node, Python, PHP e Java na 1.8.1; Go e Ruby na `main`).
+Recursos expostos pela versão publicada de cada SDK. Contatos, conversas, carteira, opt-outs e `auth.me` exigem chave de API com permissão ADMIN.
 
 | Recurso | Node | Python | PHP | Java | Go | Ruby |
 |---|---|---|---|---|---|---|
 | Enviar mensagem | Sim | Sim | Sim | Sim | Sim | Sim |
-| Templates | Sim | Parcial | Sim | Parcial | Parcial | Sim |
-| Campanhas | — | Com defeito | — | Parcial | Sim | Sim |
-| Contatos | — | — | — | — | Sim | Sim |
-| Conversas | — | — | — | — | Sim | Sim |
-| Carteira | — | — | — | — | Sim | Sim |
-| Números | — | Parcial | — | — | Sim | Sim |
-| Smart links | — | — | — | — | Sim | Sim |
-| Usuário (`/users/me`) | Sim | Sim | Com defeito | Sim | Sim | Sim |
-| Webhook da organização | Sim | Sim | Com defeito | — | Sim | Sim |
-| Header de idempotência no envio | Sim | — | — | — | Sim | Sim |
+| Consultar mensagem por id | Sim | Sim | Sim | Sim | Sim | Sim |
+| Envio em lote | Sim | Sim | Sim | Sim | Sim | Sim |
+| `Idempotency-Key` no envio | Sim | Sim | Sim | Sim | Sim | Sim |
+| Templates | Sim | Sim | Sim | Sim | Sim | Sim |
+| Campanhas | Sim | Sim | Sim | Sim | Sim | Sim |
+| Contatos | Sim | Sim | Sim | Sim | Sim | Sim |
+| Conversas | Sim | Sim | Sim | Sim | Sim | Sim |
+| Carteira | Sim | Sim | Sim | Sim | Sim | Sim |
+| Números | Sim | Sim | Sim | Sim | Sim | Sim |
+| Smart links | Sim | Sim | Sim | Sim | Sim | Sim |
+| Opt-outs | Sim | Sim | Sim | Sim | Sim | Sim |
+| Usuário atual (`auth.me`) | Sim | Sim | Sim | Sim | Sim | Sim |
 
-"Parcial" e "Com defeito" estão detalhados na página de cada SDK, na seção **Limitações conhecidas**. Alguns métodos existem no SDK mas falham contra a API atual (por exemplo, criar API key e listar templates em SDKs tipados); a página de cada linguagem lista quais.
+Webhook da organização e chaves de API: nenhum SDK gerencia, porque a API recusa esses endpoints com chave de API. Configure pelo [painel](https://app.ararahq.com/dashboard/webhooks).
 
-Para um recurso fora do SDK, chame a API direto com o mesmo header de autenticação.
-
-## O que todos os SDKs fazem
-
-- Enviam `Authorization: Bearer <sua chave>` em toda requisição.
-- Usam `https://api.ararahq.com` como base padrão, configurável.
-- Retentam automaticamente falha de rede e respostas 5xx com backoff exponencial. Node, PHP, Java, Go e Ruby também retentam 429 respeitando `Retry-After`.
-- Convertem erro HTTP em exceção (ou `error`, no Go) com status e corpo da resposta.
-
-<Warning>
-  O retry automático também reenvia `POST /v1/messages` quando a API responde 5xx. Se o seu SDK aceita chave de idempotência no envio (Node, Go, Ruby), passe sempre uma. Nos outros, considere desligar o retry para envios.
-</Warning>
-
-## Exemplo lado a lado
-
-Mesma operação: enviar template com header de mídia e 2 variáveis.
-
-<CodeGroup>
-```typescript Node.js
-import { NodeSDK } from '@ararahq/sdk';
-
-const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
-
-await sdk.messages.send({
-  receiver: 'whatsapp:+5511999999999',
-  templateName: 'fatura_disponivel',
-  templateVariables: [
-    'https://meusite.com/fatura.pdf', // header (mídia)
-    'João',                            // {{1}}
-    'Janeiro',                         // {{2}}
-  ],
-});
-```
-
-```python Python
-from arara_api_sdk import AraraClient
-from arara_api_sdk.models.message import SendMessageRequest
-
-with AraraClient(api_key="ara_live_xxx") as client:
-    client.messages.send(SendMessageRequest(
-        receiver="whatsapp:+5511999999999",
-        template_name="fatura_disponivel",
-        template_variables=[
-            "https://meusite.com/fatura.pdf",
-            "João",
-            "Janeiro",
-        ],
-    ))
-```
-
-```php PHP
-use Arara\Arara;
-use Arara\Config;
-
-$sdk = new Arara(new Config(apiKey: 'ara_live_xxx'));
-
-$sdk->messages->send(
-    receiver: 'whatsapp:+5511999999999',
-    templateName: 'fatura_disponivel',
-    variables: [
-        'https://meusite.com/fatura.pdf',
-        'João',
-        'Janeiro',
-    ],
-);
-```
-
-```java Java
-import com.ararahq.arara.sdk.Arara;
-import com.ararahq.arara.sdk.models.SendMessageRequest;
-import java.util.List;
-
-Arara arara = Arara.builder().apiKey("ara_live_xxx").build();
-
-arara.getMessages().send(
-    SendMessageRequest.builder()
-        .receiver("whatsapp:+5511999999999")
-        .templateName("fatura_disponivel")
-        .templateVariables(List.of(
-            "https://meusite.com/fatura.pdf",
-            "João",
-            "Janeiro"
-        ))
-        .build()
-);
-```
-
-```go Go
-client, err := arara.NewClient(os.Getenv("ARARA_API_KEY"))
-if err != nil {
-    log.Fatal(err)
-}
-
-_, err = client.Messages.Send(context.Background(), &arara.SendMessageRequest{
-    Receiver:     "whatsapp:+5511999999999",
-    TemplateName: "fatura_disponivel",
-    TemplateVariables: []string{
-        "https://meusite.com/fatura.pdf",
-        "João",
-        "Janeiro",
-    },
-})
-```
-
-```ruby Ruby
-require "arara"
-
-client = Arara::Client.new(api_key: ENV.fetch("ARARA_API_KEY"))
-
-client.messages.send(
-  receiver: "whatsapp:+5511999999999",
-  template_name: "fatura_disponivel",
-  template_variables: [
-    "https://meusite.com/fatura.pdf",
-    "João",
-    "Janeiro"
-  ]
-)
-```
-</CodeGroup>
-
-**Padrão de mídia**: a URL da mídia (imagem, vídeo ou PDF) do header vai como **primeiro elemento** de `templateVariables`. As posições seguintes preenchem `{{1}}`, `{{2}}`... do corpo do template. O campo `media_url` ainda é aceito, mas está marcado como legado na API.
+O detalhe de cada limitação está na seção **Limitações conhecidas** da página de cada SDK. Para um recurso fora do SDK, chame a API direto com o mesmo header de autenticação.
 
 ## Ferramentas
 
@@ -217,7 +66,7 @@ client.messages.send(
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     Primeiro envio em 5 minutos.
   </Card>
-  <Card title="Receitas práticas" icon="book-open" href="/recipes">
+  <Card title="Receitas" icon="book-open" href="/recipes">
     Carrinho abandonado, OTP, Black Friday, suporte.
   </Card>
 </CardGroup>

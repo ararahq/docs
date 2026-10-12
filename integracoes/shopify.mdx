@@ -1,17 +1,23 @@
 ---
 title: 'Shopify'
-description: 'Como ligar uma loja Shopify à Arara hoje: webhooks do Shopify processados no seu backend, ou chamadas HTTP diretas para o endpoint de recuperação. Confirmação de pedido, rastreio e carrinho abandonado.'
+description: 'Envie confirmação de pedido, rastreio e carrinho abandonado de uma loja Shopify pelo WhatsApp.'
 keywords: ['shopify', 'ecommerce', 'carrinho abandonado', 'rastreio', 'whatsapp']
 ---
 
-A Arara **não tem app nem conector nativo para Shopify**. Não existe tela "Integrações → Shopify" nem templates criados automaticamente. A integração é feita com o que a API já oferece:
+Esta página mostra como enviar confirmação de pedido, rastreio e carrinho abandonado de uma loja Shopify pelo WhatsApp. A Arara não tem app nem conector nativo para Shopify: não existe tela "Integrações → Shopify" nem templates criados automaticamente. A integração usa o que a API já oferece:
 
 1. **Seu backend recebe os webhooks do Shopify** e chama `POST /v1/messages` com um template aprovado. Controle total, serve para qualquer evento (pedido pago, envio, entrega).
-2. **Endpoint de recuperação da Arara**: uma URL por organização que recebe eventos de carrinho abandonado e pagamento, e dispara o template configurado no dashboard. Serve quando a ferramenta que chama consegue mandar headers e corpo customizados.
+2. **Endpoint de recuperação de receita**: uma URL por organização que dispara o template configurado no dashboard. Serve quando quem chama consegue mandar headers e corpo customizados.
 
 <Note>
-  **Antes de começar:** número de WhatsApp conectado na Arara, templates aprovados (veja [Templates](/concepts/templates)) e uma API key `ara_live_...`. O endpoint de recuperação depende do plano da organização.
+  O endpoint de recuperação de receita depende do plano da organização.
 </Note>
+
+## Antes de começar
+
+- Um número conectado na Arara.
+- Templates aprovados. Veja [Templates](/concepts/templates).
+- Uma chave de API (`ara_live_...`) em `ARARA_API_KEY`. Veja [Autenticação](/api-reference/authentication).
 
 ## Opção 1: webhook do Shopify no seu backend
 
@@ -29,7 +35,7 @@ Valide o `X-Shopify-Hmac-Sha256` de cada entrega conforme a documentação do Sh
 
 ### Envie o template pela Arara
 
-Exemplo em Node (runtime Node, SDK `@ararahq/sdk` 1.8.1) para `orders/paid`:
+Exemplo em Node (SDK `@ararahq/sdk`) para `orders/paid`:
 
 ```typescript
 import { NodeSDK } from '@ararahq/sdk';
@@ -68,66 +74,30 @@ O template `pedido_confirmado` é seu: crie e aprove antes, com o número de var
 Para `fulfillments/create`, o mesmo padrão com `tracking_number` e `tracking_url` como variáveis.
 
 <Warning>
-  O telefone precisa estar em formato internacional (`+55...`). Se o checkout não obriga telefone, parte dos pedidos não terá para quem enviar. Confira nas configurações de checkout do Shopify.
+  O telefone precisa estar em formato internacional (`+5511999999999`). Se o checkout não obriga telefone, parte dos pedidos não terá para quem enviar. Confira nas configurações de checkout do Shopify.
 </Warning>
 
 ### Carrinho abandonado
 
 O Shopify não envia um evento "carrinho abandonado". O padrão é: grave o checkout em `checkouts/create`, agende uma verificação (por exemplo 1h depois) e, se não houver pedido para aquele checkout, envie o template com o link `abandoned_checkout_url`. O fluxo completo está na [receita de carrinho abandonado](/recipes/abandoned-cart).
 
-## Opção 2: endpoint de recuperação
+## Opção 2: endpoint de recuperação de receita
 
-Cada organização tem uma URL de ingestão. Busque com uma API key com permissão `ADMIN` (chaves com escopo restrito recebem 403 em `/v1/recovery`):
+Cada organização tem uma URL de ingestão que recebe eventos de carrinho abandonado e pagamento e dispara o template configurado. O contrato completo (headers, assinatura, variáveis, respostas e motivos de rejeição) está em [Recuperação de receita](/recovery).
 
-```bash
-curl https://api.ararahq.com/v1/recovery/endpoint \
-  -H "Authorization: Bearer ara_live_xxx"
-```
+Resumo do que importa para o Shopify:
 
-```json
-{
-  "code": "ara_rec_...",
-  "hmacSecret": "...",
-  "active": false,
-  "url": "https://ararahq.com/l/ara_rec_..."
-}
-```
-
-O endpoint nasce desligado. Ative com `PATCH /v1/recovery/endpoint` e `{"active": true}` (ou pelo dashboard), e configure o template de cada evento em Recuperação.
-
-<Warning>
-  O campo `url` aponta para `ararahq.com/l/{code}`, que só aceita `GET`. Envie o `POST` do evento para `https://api.ararahq.com/l/{code}`.
-</Warning>
-
-Envie eventos para `https://api.ararahq.com/l/{code}`:
-
-```bash
-BODY='{"phone":"+5511999999999","name":"João","variables":{"1":"João","2":"R$ 189,90","3":"https://minha-loja.myshopify.com/checkouts/abc"}}'
-SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$HMAC_SECRET" | sed 's/^.* //')
-
-curl -X POST "https://api.ararahq.com/l/$RECOVERY_CODE" \
-  -H "Content-Type: application/json" \
-  -H "X-Arara-Event: cart.abandoned" \
-  -H "X-Arara-Idempotency-Key: checkout-abc" \
-  -H "X-Arara-Signature: sha256=$SIG" \
-  -d "$BODY"
-```
-
-- `X-Arara-Event` é obrigatório. Eventos com recuperação configurável: `cart.abandoned`, `payment.failed`, `pix.created`, `boleto.due`.
-- `X-Arara-Signature` é o HMAC-SHA256 do corpo cru com o `hmacSecret`, com ou sem prefixo `sha256=` (aqui **sem** timestamp, diferente dos webhooks que a Arara envia para você). Envie sempre, mesmo que hoje não seja obrigatório.
-- `X-Arara-Idempotency-Key` evita processar o mesmo evento duas vezes.
-- `variables` preenche o template em ordem alfabética das chaves: use `"1"`, `"2"`, `"3"`... (com 10 ou mais variáveis, `"10"` vem antes de `"2"`).
-- Resposta `202` com `{ ingestId, status, reason, messageId }`. `status` pode ser `ACCEPTED`, `SENT`, `REJECTED` (por exemplo `INVALID_PHONE`, `OPTED_OUT`) ou `FAILED`.
-
-O template usado e o comportamento de cada evento são configurados no dashboard, em Recuperação. Detalhes em [Revenue Recovery](/recovery).
+- O endpoint nasce desligado. Ative em `PATCH /v1/recovery/endpoint` ou pelo dashboard, em Recuperação.
+- Os endpoints `/v1/recovery` exigem chave de API com permissão `ADMIN`.
+- Envie o `POST` do evento para `https://api.ararahq.com/l/{code}`, com o header `X-Arara-Event`.
 
 <Note>
-  Os webhooks nativos do Shopify não permitem definir `X-Arara-Event` nem o formato do corpo. Para usar o endpoint de recuperação a partir do Shopify, é preciso uma camada intermediária (seu backend, ou uma ferramenta de automação que permita requisição HTTP com headers e corpo customizados).
+  Os webhooks nativos do Shopify não permitem definir `X-Arara-Event` nem o formato do corpo. Para usar o endpoint a partir do Shopify, é preciso uma camada intermediária: seu backend, ou uma ferramenta de automação que permita requisição HTTP com headers e corpo customizados.
 </Note>
 
 ## Catálogo no WhatsApp
 
-O assistente de IA (Brain) tem a action `META_CATALOG_SEND`, que envia um produto do **catálogo da Meta** (Commerce Manager) como card no WhatsApp. A Arara não sincroniza produtos do Shopify: o catálogo precisa estar configurado na Meta, com os produtos já sincronizados por você. Veja [Brain — Catálogo](/brain/actions/catalog).
+O Brain tem a action `META_CATALOG_SEND`, que envia um produto do **catálogo da Meta** (Commerce Manager) como card no WhatsApp. A Arara não sincroniza produtos do Shopify: o catálogo precisa estar configurado na Meta, com os produtos já sincronizados por você. Veja [Brain, catálogo](/brain/actions/catalog).
 
 ## Limitações
 
@@ -139,9 +109,9 @@ O assistente de IA (Brain) tem a action `META_CATALOG_SEND`, que envia um produt
 
 <CardGroup cols={2}>
   <Card title="Receita: Carrinho abandonado" icon="cart-shopping" href="/recipes/abandoned-cart">
-    Fluxo end-to-end detalhado.
+    Fluxo de ponta a ponta.
   </Card>
-  <Card title="Revenue Recovery" icon="rotate-right" href="/recovery">
-    Endpoint de recuperação e eventos.
+  <Card title="Recuperação de receita" icon="rotate-right" href="/recovery">
+    Contrato do endpoint e eventos.
   </Card>
 </CardGroup>

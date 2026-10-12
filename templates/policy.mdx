@@ -1,11 +1,71 @@
 ---
-title: 'Política de templates'
-description: 'Templates aprovados pela Meta seguem regras de conteúdo, formato e categoria. Esta página separa o que a API da Arara valida antes de submeter, o que a Meta decide, e o que fazer quando um template é reclassificado ou pausado.'
+title: 'Criar e aprovar um template'
+description: 'Como criar um template, quais regras a Arara e a Meta aplicam, e o que fazer quando ele é reprovado, reclassificado ou pausado.'
+keywords: ['template', 'aprovação', 'política', 'meta', 'variáveis', 'botões', 'autenticação']
 ---
 
-Template do WhatsApp Business é um contrato. A Meta aprova **uma vez** e você envia **N vezes** sem revisão por mensagem. Em troca, o uso precisa ficar dentro da categoria e do conteúdo aprovados.
+Template aprovado pela Meta é um contrato: a Meta aprova uma vez e você envia quantas vezes precisar, sem revisão por mensagem. Em troca, o uso precisa ficar dentro da categoria e do conteúdo aprovados. Se você ainda não sabe o que é um template, comece por [O que é um template](/concepts/templates).
 
-Esta página é o guia prático do que aprova, do que cai e de como evitar retrabalho.
+Esta página reúne as regras de criação, o que costuma reprovar e como manter o template aprovado.
+
+## Antes de começar
+
+- Uma [chave de API](/api-reference/introduction) com permissão `TEMPLATES_WRITE`.
+- Conta ativa. Com a conta ainda em ativação, criar e listar templates responde `403 ACCOUNT_NOT_ACTIVATED`.
+
+## Onde criar
+
+| Canal | Como |
+|---|---|
+| Dashboard | [app.ararahq.com](https://app.ararahq.com), seção **Templates**. |
+| API | `POST /v1/templates`, como no exemplo abaixo. |
+| Biblioteca da Meta | `POST /v1/templates/library`: templates UTILITY da Meta que já nascem aprovados. Disponível para contas com número conectado ativo. |
+| MCP | Ferramenta `create_template` do [MCP](/mcp-server). |
+| Gerenciador da Meta | Template criado direto na Meta entra na Arara com `POST /v1/templates/sync`. |
+
+## Criar um template pela API
+
+```bash
+curl -X POST https://api.ararahq.com/v1/templates \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "pedido_confirmado",
+    "category": "UTILITY",
+    "language": "pt_BR",
+    "body": "Oi {{1}}, seu pedido {{2}} foi confirmado. Total: R$ {{3}}.",
+    "footer": "Acompanhe pelo nosso site",
+    "samples": { "1": "João", "2": "12345", "3": "147,90" }
+  }'
+```
+
+A resposta é `201 Created`, com o template e o status atual no provedor (`providerStatus`). Todos os campos, respostas e erros estão em [API: Templates](/api-reference/templates).
+
+| Campo | Descrição |
+|---|---|
+| `name` | Identificador em `snake_case`, único por conta WhatsApp Business (WABA). É o nome que você usa no envio (`templateName`). |
+| `category` | `MARKETING`, `UTILITY` ou `AUTHENTICATION`. |
+| `language` | Padrão `pt_BR`. |
+| `body` | Texto com variáveis `{{n}}`. Obrigatório. |
+| `header` / `headerType` | Texto ou URL de mídia; `headerType`: `text`, `media` ou `document`. |
+| `footer` | Rodapé opcional. |
+| `buttons` | Lista de botões. |
+| `samples` | Um exemplo por variável: `{ "1": "João" }`. |
+| `carouselCards` | Cards do carrossel (`mediaUrl`, `body`, `buttons`). |
+
+Para criar a partir da biblioteca da Meta:
+
+```bash
+# Listar templates da biblioteca
+curl "https://api.ararahq.com/v1/templates/library?languageCode=pt_BR" \
+  -H "Authorization: Bearer ara_live_xxx"
+
+# Criar a partir de um template da biblioteca
+curl -X POST https://api.ararahq.com/v1/templates/library \
+  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "confirmacao_pedido", "libraryTemplateName": "<nome_do_template>", "languageCode": "pt_BR" }'
+```
 
 ## As 3 categorias e quando usar cada
 
@@ -21,11 +81,73 @@ Esta página é o guia prático do que aprova, do que cai e de como evitar retra
   </Card>
 </CardGroup>
 
-A categoria define o preço por mensagem. Valores em [Preços](/concepts/pricing).
+A categoria define o preço por mensagem. Valores em [Preços](/concepts/pricing). Na dúvida entre UTILITY e MARKETING, escolha MARKETING.
 
 <Warning>
-  **Marketing enviado como UTILITY não passa despercebido.** A Meta pode reclassificar o template depois de aprovado. Quando isso acontece, a Arara atualiza a categoria, envia o evento `template.category_changed` (`name`, `old`, `new`) e o preço por mensagem passa a ser o da categoria nova.
+  Marketing enviado como UTILITY não passa despercebido. A Meta pode reclassificar o template depois de aprovado. Quando isso acontece, a Arara atualiza a categoria, cria um alerta no dashboard, envia o evento `template.category_changed` (`name`, `old`, `new`) e os envios seguintes são cobrados na categoria nova.
 </Warning>
+
+## Variáveis
+
+Cada `{{n}}` é uma variável posicional, preenchida no envio pelo array `templateVariables`, na ordem das variáveis:
+
+```json
+{
+  "receiver": "+5511999999999",
+  "templateName": "pedido_confirmado",
+  "templateVariables": ["João", "ARA-123", "147,90"]
+}
+```
+
+Regras validadas na criação:
+
+- O corpo não pode começar nem terminar com variável. Coloque texto antes do primeiro `{{` e depois do último `}}`.
+- Cada variável precisa de um exemplo em `samples`, que o revisor da Meta vê.
+- A variável que preenche a URL de um botão não pode ter exemplo com espaço.
+
+Boas práticas:
+
+- Evite variáveis coladas: `{{1}} {{2}}` em sequência tende a ser reprovado.
+- Use variável só para o que muda (nome, valor, data) e mantenha texto fixo suficiente para o template fazer sentido sozinho.
+- Mande exemplos realistas.
+
+Exemplo ruim: `{{1}} {{2}} {{3}}`
+
+Exemplo bom: `Olá {{1}}, seu pedido {{2}} foi confirmado. Previsão de entrega: {{3}}.`
+
+No envio, a quantidade de valores precisa bater com a do template. Se não bater, a API responde `422 TEMPLATE_VARIABLES_MISMATCH`.
+
+## Header de mídia
+
+O template pode ter imagem, vídeo ou documento como header (`headerType` + `header` com a URL). Formatos e tamanhos aceitos são definidos pela Meta; confira a documentação da Meta antes de subir mídia pesada.
+
+No envio, a URL pública da mídia vai como **primeiro elemento** do array `templateVariables`, antes das variáveis do corpo:
+
+```json
+"templateVariables": [
+  "https://meusite.com/imagem.jpg",
+  "João",
+  "ARA-123"
+]
+```
+
+O campo `mediaUrl` no envio está descontinuado. Use a primeira posição de `templateVariables`. Ver [Mensagens](/api-reference/messages).
+
+## Botões
+
+| Tipo | Descrição |
+|---|---|
+| `QUICK_REPLY` | Resposta rápida. O clique chega como mensagem recebida no webhook. |
+| `URL` | Abre uma URL. Aceita variável (`https://meusite.com/pedido/{{1}}`), sem espaço no valor. |
+| `PHONE_NUMBER` | Liga para um número fixo. |
+| `SMART_LINK` | Link curto da Arara com rastreamento de clique. Conta no limite de botões de link. Ver [Smart Links](/smart-links). |
+| `COPY_CODE` | Copia um código. Usado em AUTHENTICATION. |
+
+Limites aplicados na criação: até 10 botões no total, até 2 de link (`URL` ou `SMART_LINK`), até 1 `PHONE_NUMBER` e texto de botão com até 20 caracteres.
+
+## Carrossel
+
+De 2 a 10 cards, cada um com mídia e texto e até 2 botões, com os mesmos tipos de botão em todos os cards.
 
 ## O que a Arara valida antes de submeter
 
@@ -33,26 +155,23 @@ Em `POST /v1/templates`, a API recusa a criação quando:
 
 | Regra | Detalhe |
 |---|---|
-| Nome já existe na organização | Template com o mesmo nome em `FAILED` ou `REJECTED` é substituído; nos outros estados, a criação é recusada |
+| Nome já existe na mesma conta WhatsApp Business (WABA) | Template com o mesmo nome em `FAILED` ou `REJECTED` é substituído; nos outros estados, a criação é recusada |
 | Corpo vazio | `body` é obrigatório |
 | Categoria inválida | Use `MARKETING`, `UTILITY` ou `AUTHENTICATION` |
 | Corpo começa ou termina com variável | Coloque texto antes do primeiro `{{` e depois do último `}}` |
-| Variável sem exemplo | Cada `{{n}}` precisa de exemplo em `samples` (ex: `{ "1": "João" }`), exigido pela Meta na revisão |
+| Variável sem exemplo | Cada `{{n}}` precisa de exemplo em `samples` |
 | Header de texto com caracteres especiais | Header de texto aceita letras, números e pontuação. Para mídia, use uma URL |
-| Botões demais | Até 10 botões no total, até 2 de link (`URL` ou `SMART_LINK`) e até 1 `PHONE_NUMBER` |
-| Texto de botão longo | Até 20 caracteres |
+| Botões demais ou texto de botão longo | Ver limites em Botões |
 | Exemplo com espaço em variável de URL | A variável que preenche a URL de um botão não pode ter espaço |
-| Carrossel fora do formato | De 2 a 10 cards, cada um com mídia e texto, até 2 botões por card, e todos os cards com os mesmos tipos de botão |
+| Carrossel fora do formato | Ver Carrossel |
 
 Além disso, a Arara faz uma moderação de conteúdo em templates `MARKETING` e `UTILITY` e recusa textos com discurso de ódio, ameaça, conteúdo sexual explícito e frases típicas de golpe (como "lucro garantido" ou "você foi sorteado").
 
 <Note>
-  A Arara **não** bloqueia por caixa alta, emoji ou link encurtado. Essas regras são da política de conteúdo da Meta: quem decide é a Meta, e a Arara reflete a decisão no status do template.
+  A Arara não bloqueia por caixa alta, emoji ou link encurtado. Essas regras são da política de conteúdo da Meta: quem decide é a Meta, e a Arara reflete a decisão no status do template.
 </Note>
 
-## Boas práticas de conteúdo
-
-O que costuma gerar reprovação na Meta ou bloqueio pelos destinatários:
+## O que costuma reprovar
 
 | Evite | Por quê |
 |---|---|
@@ -62,43 +181,7 @@ O que costuma gerar reprovação na Meta ou bloqueio pelos destinatários:
 | Cobrança ameaçadora | Conduta abusiva, gera denúncia |
 | Termos de saúde sensíveis ("cura", "milagre") | Política comercial da Meta |
 | Muitas variáveis e pouco texto fixo | Dificulta a revisão da Meta |
-
-## Variáveis
-
-Cada `{{n}}` é uma variável posicional preenchida no envio pelo array `templateVariables`.
-
-- Não comece nem termine o corpo com variável (a API recusa).
-- Evite variáveis coladas: `{{1}} {{2}}` em sequência tende a ser reprovado.
-- Mantenha texto fixo suficiente entre as variáveis para o template fazer sentido sozinho.
-- Mande exemplos realistas em `samples`. É o que o revisor da Meta vê.
-
-Exemplo ruim:
-
-```
-{{1}} {{2}} {{3}}
-```
-
-Exemplo bom:
-
-```
-Olá {{1}}, seu pedido {{2}} foi confirmado. Previsão de entrega: {{3}}.
-```
-
-## Header de mídia
-
-O template pode ter imagem, vídeo ou documento como header (`headerType` + `header` com a URL). Formatos e tamanhos aceitos são definidos pela Meta; confira a documentação da Meta antes de subir mídia pesada.
-
-No envio, a URL pública da mídia vai como **primeiro elemento** do array `templateVariables`, não como campo separado. As posições seguintes preenchem `{{1}}`, `{{2}}`... Ver [Mensagens](/api-reference/endpoint/v2/messages).
-
-## Botões
-
-| Tipo | Descrição |
-|---|---|
-| `QUICK_REPLY` | Resposta rápida. Quando o cliente toca, o texto do botão volta como mensagem. |
-| `URL` | Abre uma URL. Pode ter variável (`https://meusite.com/pedido/{{1}}`), sem espaço no valor. |
-| `PHONE_NUMBER` | Liga para um número fixo. |
-| `SMART_LINK` | Link curto da Arara com rastreamento de clique. Conta no limite de botões de link. Ver [Smart Links](/smart-links). |
-| `COPY_CODE` | Copia um código para a área de transferência. |
+| Categoria que não corresponde ao conteúdo | A Meta reprova ou reclassifica |
 
 ## Template de autenticação (código de verificação)
 
@@ -138,17 +221,30 @@ A Meta não aceita código de verificação em template `UTILITY` ou `MARKETING`
 
 Use a janela de atendimento: quando o usuário manda uma mensagem para o seu número (por exemplo, por um link "receber meu código"), abre uma janela de 24 horas em que você pode enviar o código como mensagem de texto comum, sem template.
 
-## Categoria reclassificada: o que acontece
+## Aprovação e status
 
-1. A Meta reclassifica o template, por exemplo de UTILITY para MARKETING.
-2. A Arara atualiza a categoria do template, cria um alerta no dashboard e envia `template.category_changed`.
-3. Os envios seguintes são cobrados na categoria nova.
+Quem aprova é a Meta. Templates da biblioteca já nascem aprovados; os demais levam de minutos a algumas horas, e às vezes mais. Não submeta template crítico na véspera de uma campanha.
 
-Para evitar: **na dúvida entre UTILITY e MARKETING, escolha MARKETING**.
+Acompanhe o status de duas formas:
+
+- Webhook `template.updated`, com `status` e `rejectionReason`.
+- `GET /v1/templates/{id}/status`, usando o `id` (UUID) do template.
+
+| Status | Pode enviar? | Resposta da API no envio |
+|---|---|---|
+| `APPROVED` | Sim | |
+| `PENDING` | Não | `422 TEMPLATE_NOT_SENDABLE` |
+| `REJECTED` | Não | `422 TEMPLATE_NOT_SENDABLE` |
+| `DISABLED` | Não | `422 TEMPLATE_NOT_SENDABLE` |
+| `PAUSED` | Não | `422 TEMPLATE_PAUSED` |
+
+Enviar com um nome que não existe na organização é recusado com `409 CONFLICT`.
 
 ## Templates pausados
 
 Mesmo aprovado, um template pode ser **pausado pela Meta** por baixa qualidade, geralmente por bloqueios e denúncias dos destinatários. Quando um envio falha por template pausado, a Arara marca o template como `PAUSED` e envia `template.updated`. A Meta também informa mudanças de qualidade do template, que chegam como `template.quality_updated` (`name`, `quality`).
+
+Use o código `TEMPLATE_PAUSED` para interromper uma campanha. Para voltar a enviar, revise o conteúdo e a base para quem o template foi enviado, e edite o texto ou crie um template novo. Reenviar o mesmo conteúdo tende a ser pausado de novo.
 
 Para listar os pausados:
 
@@ -157,26 +253,26 @@ curl "https://api.ararahq.com/v1/templates?status=PAUSED" \
   -H "Authorization: Bearer ara_live_xxx"
 ```
 
-Antes de voltar a usar um template pausado, revise o conteúdo e a base para quem ele foi enviado.
-
 ## Idiomas
 
-Cada template é criado em **um idioma** (campo `language`, padrão `pt_BR`). Para falar com o mesmo cliente em português e inglês, crie dois templates.
+Cada template é criado em **um idioma** (campo `language`, padrão `pt_BR`). O envio escolhe o template pelo nome, sem parâmetro de idioma. Para falar com o mesmo cliente em mais de um idioma, crie um template por idioma, com nomes diferentes: `pedido_confirmado` (`pt_BR`) e `pedido_confirmado_en` (`en_US`).
 
-## Tempo de aprovação
+## Manutenção e limites
 
-Quem aprova é a Meta, e o prazo varia. Acompanhe o status de duas formas:
-
-- Webhook `template.updated`, com `status` e `rejectionReason`.
-- `GET /v1/templates/{id}/status`, usando o `id` (UUID) do template.
-
-Não submeta template crítico na véspera de uma campanha.
+- **Listar**: `GET /v1/templates` (paginado, filtros `name` e `status`).
+- **Desempenho**: `GET /v1/templates/{id}/analytics`.
+- **Remover**: `DELETE /v1/templates/{id}`.
+- **Nomes**: prefira nomes descritivos (`confirmacao_pedido`, `lembrete_pagamento`) a `template1` ou `teste`.
+- **Quantidade**: os planos atuais não limitam a quantidade de templates. Contas no plano Free legado têm teto de 3 templates aprovados (pendentes e reprovados não contam) e, no teto, a criação responde `403 PLAN_LIMIT_REACHED`.
 
 ## Próximos passos
 
-<CardGroup cols={2}>
-  <Card title="API: Templates" icon="file-lines" href="/api-reference/endpoint/v2/templates">
+<CardGroup cols={3}>
+  <Card title="API: Templates" icon="code" href="/api-reference/templates">
     Endpoints completos de CRUD.
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/webhooks">
+    Receba mudanças de status em tempo real.
   </Card>
   <Card title="Marketing no WhatsApp" icon="bullhorn" href="/marketing">
     Como usar templates em campanha.

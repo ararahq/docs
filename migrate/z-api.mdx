@@ -11,8 +11,8 @@ O Z-API conecta um número pelo WhatsApp Web. A Arara envia pela WhatsApp Busine
 | | Z-API | Arara |
 |---|---|---|
 | Conexão do número | Sessão do WhatsApp Web (QR Code) | Número cadastrado na WhatsApp Business Platform pelo fluxo da Meta |
-| Mensagem iniciada pela empresa | Texto livre | Template aprovado pela Meta |
-| Texto livre | A qualquer momento | Só dentro da janela de 24h aberta pelo cliente |
+| Mensagem iniciada pela empresa | Mensagem sem template | Template aprovado pela Meta |
+| Mensagem dentro da janela de 24h | A qualquer momento | Só dentro da janela de 24h aberta pelo cliente |
 | Recebimento | Webhook do Z-API | Webhook da organização, assinado com HMAC |
 | Cobrança | Mensalidade do Z-API | Plano + uso por mensagem, em BRL. Veja [Preços](/concepts/pricing) |
 
@@ -30,7 +30,7 @@ A conexão é feita no dashboard (https://app.ararahq.com), em Números. A verif
 
 ### 1. Preparação
 
-1. Crie a organização em https://app.ararahq.com e gere uma API key `ara_live_...`.
+1. Crie a organização em https://app.ararahq.com e gere uma chave de API (`ara_live_...`).
 2. Liste tudo que o seu sistema envia pelo Z-API e classifique: resposta a cliente (cabe na janela de 24h) ou mensagem iniciada pela empresa (vira template).
 3. Tenha a conta da empresa na Meta pronta para a verificação.
 
@@ -44,7 +44,7 @@ Cada mensagem iniciada pela empresa vira um template:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/templates \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "pedido_confirmado",
@@ -77,16 +77,16 @@ import { NodeSDK } from '@ararahq/sdk';
 
 const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY! });
 
-// Janela de 24h aberta (cliente falou com você nas últimas 24h): texto livre
+// Janela de 24h aberta (cliente falou com você nas últimas 24h): mensagem sem template
 await sdk.messages.send({
-  receiver: 'whatsapp:+5511999999999',
+  receiver: '+5511999999999',
   body: 'Olá João, seu pedido foi confirmado!',
 });
 
 // Fora da janela: template aprovado
 await sdk.messages.send(
   {
-    receiver: 'whatsapp:+5511999999999',
+    receiver: '+5511999999999',
     templateName: 'pedido_confirmado',
     templateVariables: ['João', 'ARA-123'],
   },
@@ -96,9 +96,9 @@ await sdk.messages.send(
 </CodeGroup>
 
 Principais mudanças:
-- **Texto livre só na janela de 24h.** Veja [Janela de 24h](/concepts/24h-window).
+- **Mensagem sem template só na janela de 24h.** Veja [Janela de 24h](/concepts/24h-window).
 - **Mensagem iniciada pela empresa usa template aprovado.**
-- **Destinatário em formato internacional** com prefixo: `whatsapp:+5511999999999`.
+- **Destinatário em formato internacional**: `+5511999999999` (o prefixo `whatsapp:` também é aceito).
 - **Webhook assinado**: valide `X-Arara-Signature` e `X-Arara-Timestamp`. Veja [Webhooks](/webhooks).
 
 ### 4. Recebimento

@@ -1,264 +1,228 @@
 ---
 title: 'Carrinho abandonado'
-description: 'Receba o evento de carrinho abandonado no endpoint de recuperação da Arara, dispare um template ou uma sequência com espera entre mensagens, e pare a sequência quando o cliente comprar.'
+description: 'Envie o evento de carrinho abandonado para a Arara, dispare uma mensagem ou uma sequência com espera e pare quando o cliente comprar.'
 keywords: ['carrinho abandonado', 'abandoned cart', 'recuperação', 'ecommerce', 'automação']
 ---
 
-O seu e-commerce detecta o abandono e avisa a Arara. A Arara envia a mensagem pelo número da sua organização, com o template que você escolheu. Para mais de uma mensagem com intervalo entre elas, use uma automação.
+Ao final, sua loja avisa a Arara a cada carrinho abandonado, o cliente recebe uma ou mais mensagens com o link do checkout, e a sequência para sozinha quando ele compra.
 
-A detecção do abandono é sempre do seu lado: a Arara não observa o checkout da loja.
+A detecção do abandono é do seu lado. A Arara não observa o checkout da loja.
 
-## O que você vai construir
+## Antes de começar
 
-```mermaid
-flowchart TD
-    A["Loja detecta carrinho abandonado"] -->|POST na URL de recuperação| B["Arara recebe cart.abandoned"]
-    B --> C["Automação: espera 1h"]
-    C --> D{"Contato tem a etiqueta comprou?"}
-    D -->|Sim| X["Sequência para"]
-    D -->|Não| E["Template 1: lembrete"]
-    E --> F["Espera 23h"]
-    F --> G{"Contato tem a etiqueta comprou?"}
-    G -->|Sim| X
-    G -->|Não| H["Template 2: segunda mensagem"]
-    I["Loja confirma o pedido"] -->|PATCH /v1/contacts/phone com a etiqueta| D
-```
+- Chave de API na variável `ARARA_API_KEY`. Ver [Autenticação](/api-reference/authentication).
+- Número conectado na organização. Ver [Números](/numbers).
+- Um template `MARKETING` aprovado para cada mensagem da sequência (o passo 1 cria). Ver [Templates](/concepts/templates).
+- Recuperação de receita e automações disponíveis no seu plano. Sem acesso, `/v1/recovery/*` e `/v1/automations` respondem `403 PLAN_FEATURE_LOCKED`.
 
-## Pré-requisitos
+O contrato completo do endpoint de recuperação (headers, variáveis, motivos de recusa) está em [Recuperação de receita](/recovery). Aqui fica o passo a passo.
 
-- Número de WhatsApp conectado na organização.
-- Template MARKETING aprovado para cada mensagem da sequência (ver [Templates](/concepts/templates)).
-- Recuperação e automações disponíveis no seu plano. Sem acesso, os endpoints `/v1/recovery/*` e `/v1/automations` respondem 403 com `PLAN_FEATURE_LOCKED`.
+## Passo a passo
 
-## 1. Pegue o endpoint de recuperação
+<Steps>
+  <Step title="Crie o template">
+    ```bash
+    curl -X POST https://api.ararahq.com/v1/templates \
+      -H "Authorization: Bearer $ARARA_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "carrinho_abandonado_v1",
+        "category": "MARKETING",
+        "language": "pt_BR",
+        "body": "Oi {{1}}, seu carrinho ficou salvo. Quer finalizar a compra?\n\n{{2}}",
+        "samples": { "1": "João", "2": "https://meusite.com/checkout/abc" }
+      }'
+    ```
 
-Cada organização tem uma URL de ingestão própria. Busque pelo dashboard (**Recuperação**) ou pela API:
+    A resposta traz o `id` (UUID), usado como `templateId` nos próximos passos. Acompanhe a aprovação com `GET /v1/templates/{id}/status` ou pelo webhook `template.updated`.
+  </Step>
 
-```bash
-curl https://api.ararahq.com/v1/recovery/endpoint \
-  -H "Authorization: Bearer ara_live_xxx"
-```
+  <Step title="Pegue o endpoint de recuperação">
+    Cada organização tem um endpoint próprio. Busque pelo [painel](https://app.ararahq.com), em **Recuperação**, ou pela API:
 
-```json
-{
-  "code": "ara_rec_...",
-  "hmacSecret": "...",
-  "active": false,
-  "url": "https://.../l/ara_rec_..."
-}
-```
+    ```bash
+    curl https://api.ararahq.com/v1/recovery/endpoint \
+      -H "Authorization: Bearer $ARARA_API_KEY"
+    ```
 
-O endpoint nasce **desligado** (`active: false`). Esse interruptor governa a recuperação de um passo (evento -> template): enquanto estiver desligado, ela não envia nada. Automação ativa que escuta o evento roda do mesmo jeito, porque quem autoriza a automação é ela mesma. Ligue quando terminar a configuração:
+    ```json
+    {
+      "code": "ara_rec_...",
+      "hmacSecret": "...",
+      "active": false,
+      "url": "https://.../l/ara_rec_..."
+    }
+    ```
 
-```bash
-curl -X PATCH https://api.ararahq.com/v1/recovery/endpoint \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{ "active": true }'
-```
+    Guarde no servidor `ARARA_RECOVERY_URL` como `https://api.ararahq.com/l/{code}` e `ARARA_RECOVERY_SECRET` com o `hmacSecret`. O `hmacSecret` nunca vai para o navegador.
+  </Step>
 
-Guarde `url` e `hmacSecret` no servidor. O `hmacSecret` nunca deve ir para o navegador.
+  <Step title="Envie o evento quando o carrinho for abandonado">
+    ```typescript
+    // notify-cart-abandoned.ts
+    import { createHmac } from 'node:crypto';
 
-## 2. Envie o evento quando o carrinho for abandonado
+    const TIMEOUT_MS = 10_000;
 
-Mande um `POST` para a `url` devolvida acima:
+    interface AbandonedCart {
+      id: string;
+      customerName: string;
+      phone: string; // E.164, ex.: +5511999999999
+      totalFormatted: string;
+      checkoutUrl: string;
+    }
 
-```typescript
-import { createHmac } from 'node:crypto';
+    export async function notifyCartAbandoned(cart: AbandonedCart) {
+      const body = JSON.stringify({
+        phone: cart.phone,
+        name: cart.customerName,
+        variables: {
+          nome: cart.customerName,
+          valor: cart.totalFormatted,
+          link: cart.checkoutUrl,
+        },
+      });
 
-export async function notifyCartAbandoned(cart: {
-  id: string;
-  customerName: string;
-  phone: string;        // E.164, ex.: +5511999999999
-  totalFormatted: string;
-  checkoutUrl: string;
-}) {
-  const body = JSON.stringify({
-    phone: cart.phone,
-    name: cart.customerName,
-    variables: {
-      nome: cart.customerName,
-      valor: cart.totalFormatted,
-      link: cart.checkoutUrl,
-    },
-  });
+      const signature = createHmac('sha256', process.env.ARARA_RECOVERY_SECRET!)
+        .update(body)
+        .digest('hex');
 
-  const signature = createHmac('sha256', process.env.ARARA_RECOVERY_SECRET!)
-    .update(body)
-    .digest('hex');
+      const response = await fetch(process.env.ARARA_RECOVERY_URL!, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Arara-Event': 'cart.abandoned',
+          'X-Arara-Idempotency-Key': `cart-${cart.id}`,
+          'X-Arara-Signature': `sha256=${signature}`,
+        },
+        body,
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
 
-  const response = await fetch(process.env.ARARA_RECOVERY_URL!, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Arara-Event': 'cart.abandoned',
-      'X-Arara-Idempotency-Key': `cart-${cart.id}`,
-      'X-Arara-Signature': `sha256=${signature}`,
-    },
-    body,
-  });
+      return response.json(); // { ingestId, status, reason, messageId }
+    }
+    ```
 
-  return response.json(); // { ingestId, status, reason, messageId }
-}
-```
+    - `X-Arara-Event` diz qual evento aconteceu. É ele que liga o evento ao template ou à automação.
+    - `X-Arara-Idempotency-Key` vem do id do carrinho. Repetir a chave não envia de novo nem inicia a automação duas vezes.
+    - `X-Arara-Signature` é o HMAC do **corpo cru**, sem timestamp. É diferente dos [webhooks que a Arara envia para você](/webhooks).
+    - A chave `link` de `variables` vira o destino do botão de smart link do template. As outras preenchem o corpo.
 
-| Header | Obrigatório | Descrição |
-|---|---|---|
-| `X-Arara-Event` | sim | Nome do evento. Recuperação configurável: `cart.abandoned`, `payment.failed`, `pix.created`, `boleto.due`. |
-| `X-Arara-Signature` | não | `sha256=` + HMAC-SHA256 do corpo cru com o `hmacSecret`. Quando enviado, é validado; assinatura errada é recusada. |
-| `X-Arara-Idempotency-Key` | não | Mesmo valor para o mesmo evento. Repetir a chave devolve o resultado do primeiro processamento, sem novo envio. |
+    A resposta é `202`. Os valores de `status` e `reason` estão em [Recuperação de receita](/recovery).
+  </Step>
 
-| Campo do corpo | Descrição |
-|---|---|
-| `phone` | Telefone do cliente. Inválido vira `REJECTED` com `INVALID_PHONE`. |
-| `name` | Nome do cliente (opcional). |
-| `variables` | Valores usados no template. A chave `link` é tratada à parte: vira o destino do botão de smart link do template. |
+  <Step title="Escolha: uma mensagem ou uma sequência">
+    <Tabs>
+      <Tab title="Uma mensagem">
+        Vincule o template ao evento. O envio sai assim que o evento chega.
 
-A resposta é `202` com `{ ingestId, status, reason, messageId }`. `status` pode ser:
+        ```bash
+        curl -X PUT https://api.ararahq.com/v1/recovery/events/cart.abandoned \
+          -H "Authorization: Bearer $ARARA_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "templateId": "0b8f6c1e-7a52-4a1b-9a0e-3f2d6c9e1a44",
+            "active": true
+          }'
+        ```
 
-| `status` | Significado |
-|---|---|
-| `SENT` | Mensagem enviada pela configuração de recuperação. `messageId` traz o `ara_msg_...`. |
-| `ACCEPTED` | Recebido. `reason: HANDLED_BY_AUTOMATION` quando só uma automação tratou o evento. |
-| `REJECTED` | Recusado. Ex.: `INVALID_PHONE`, `OPTED_OUT`, `EVENT_DISABLED`, `TEMPLATE_NOT_APPROVED`. |
-| `FAILED` | Falhou. Ex.: `NO_TEMPLATE` (nenhum template nem automação para o evento), `UNKNOWN_EVENT`. |
+        `templateId` é o UUID do template, não o nome. As variáveis entram **em ordem alfabética da chave** (`link` fica de fora): com `nome` e `valor`, `{{1}}` recebe `nome` e `{{2}}` recebe `valor`. Para mudar a ordem, use `variableMapping`, explicado em [Recuperação de receita](/recovery).
 
-Erros antes do processamento: `401 RECOVERY_HMAC_INVALID` (assinatura não confere), `400 RECOVERY_EVENT_INVALID` (sem `X-Arara-Event`) e `429 RECOVERY_RATE_LIMITED` (com header `Retry-After`).
+        Depois, ligue o endpoint:
 
-<Note>
-  A assinatura do endpoint de recuperação é HMAC do **corpo cru**, sem timestamp. É diferente dos [webhooks que a Arara envia para você](/webhooks), que assinam `"{timestamp}.{corpo}"`.
-</Note>
+        ```bash
+        curl -X PATCH https://api.ararahq.com/v1/recovery/endpoint \
+          -H "Authorization: Bearer $ARARA_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{ "active": true }'
+        ```
+      </Tab>
+      <Tab title="Sequência com espera">
+        Uma automação executa passos em ordem para cada contato que entra. Monte no painel, em **Automações**, ou pela API:
 
-## 3a. Uma mensagem só: configuração de recuperação
+        ```bash
+        curl -X POST https://api.ararahq.com/v1/automations \
+          -H "Authorization: Bearer $ARARA_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "name": "Carrinho abandonado",
+            "trigger": "cart.abandoned",
+            "steps": [
+              { "type": "wait", "config": { "minutes": 60 } },
+              { "type": "condition", "config": { "tag": "comprou" } },
+              { "type": "message", "config": { "templateId": "0b8f6c1e-7a52-4a1b-9a0e-3f2d6c9e1a44", "variables": ["nome", "link"] } },
+              { "type": "wait", "config": { "minutes": 1380 } },
+              { "type": "condition", "config": { "tag": "comprou" } },
+              { "type": "message", "config": { "templateId": "5d2a9b7c-1e44-4f0a-8c3b-6a7e2d1f9b10", "variables": ["nome", "link"] } }
+            ]
+          }'
+        ```
 
-Para enviar um único template assim que o evento chega, vincule o template ao evento. Pelo dashboard em **Recuperação**, ou pela API:
+        | Passo (`type`) | `config` | O que faz |
+        |---|---|---|
+        | `wait` | `{ "minutes": 60 }` | Espera de 1 minuto a 30 dias. |
+        | `condition` | `{ "tag": "comprou" }` | Continua **só se o contato ainda não tem** a etiqueta. Se tiver, a sequência para. |
+        | `message` | `{ "templateId": "<uuid>", "variables": ["nome", "link"] }` | Envia um template aprovado. `variables` lista as chaves do payload, na ordem de `{{1}}`, `{{2}}`... |
+        | `tag` | `{ "tag": "recebeu_lembrete" }` | Aplica uma etiqueta no contato. |
 
-```bash
-curl -X PUT https://api.ararahq.com/v1/recovery/events/cart.abandoned \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "templateId": "0b8f6c1e-7a52-4a1b-9a0e-3f2d6c9e1a44",
-    "active": true
-  }'
-```
+        A automação nasce desligada. Ligue com:
 
-- `templateId` é o **id (UUID)** do template, não o nome.
-- As variáveis do template são preenchidas com os valores de `variables` **em ordem alfabética da chave** (a chave `link` fica de fora). Com `nome` e `valor`, `{{1}}` recebe `nome` e `{{2}}` recebe `valor`.
-- `variableMapping` (opcional) renomeia chaves do payload antes dessa ordenação: `{ "valor": "1", "nome": "2" }` troca a ordem. Use chaves de um dígito; `"10"` ordena antes de `"2"`.
+        ```bash
+        curl -X PUT https://api.ararahq.com/v1/automations/{id}/active \
+          -H "Authorization: Bearer $ARARA_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{ "active": true }'
+        ```
 
-Para validar sem esperar um carrinho real, `POST /v1/recovery/events/cart.abandoned/test` processa um payload de exemplo enviando para o telefone cadastrado no seu usuário. O endpoint precisa estar ligado.
+        A automação ativa roda mesmo com o endpoint de recuperação desligado (`active: false`). O plano define quantas automações ficam ligadas ao mesmo tempo. Mais em [Automações por webhook](/automacoes-webhook).
+      </Tab>
+    </Tabs>
+  </Step>
 
-## 3b. Sequência com espera: automação
+  <Step title="Pare a sequência quando o cliente comprar">
+    Quando o pedido for confirmado, aplique a etiqueta usada no passo `condition`:
 
-Automações executam passos em ordem para cada contato que entra:
+    ```bash
+    curl -X PATCH "https://api.ararahq.com/v1/contacts/%2B5511999999999" \
+      -H "Authorization: Bearer $ARARA_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{ "tags": ["comprou"] }'
+    ```
 
-| Passo (`type`) | `config` | O que faz |
-|---|---|---|
-| `wait` | `{ "minutes": 60 }` | Espera de 1 minuto a 30 dias. |
-| `condition` | `{ "tag": "comprou" }` | Continua **só se o contato ainda não tem** a etiqueta. Se tiver, a sequência para. |
-| `message` | `{ "templateId": "<uuid>", "variables": ["nome", "link"] }` | Envia um template aprovado. `variables` lista as chaves do payload, na ordem de `{{1}}`, `{{2}}`... |
-| `tag` | `{ "tag": "recebeu_lembrete" }` | Aplica uma etiqueta no contato. |
+    - `tags` **substitui** a lista inteira de etiquetas do contato. Leia as atuais com `GET /v1/contacts/{phone}` e envie a lista completa.
+    - O contato precisa existir na organização. Se não existir, a API responde erro.
+    - O `+` do telefone vai codificado na URL (`%2B`).
+  </Step>
 
-Monte pelo dashboard em **Automações**, ou pela API:
+  <Step title="Teste e acompanhe">
+    `POST /v1/recovery/events/cart.abandoned/test` processa um payload de exemplo e **envia de verdade** para o telefone cadastrado no seu usuário. O endpoint precisa estar ligado.
 
-```bash
-curl -X POST https://api.ararahq.com/v1/automations \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Carrinho abandonado",
-    "trigger": "cart.abandoned",
-    "steps": [
-      { "type": "wait", "config": { "minutes": 60 } },
-      { "type": "condition", "config": { "tag": "comprou" } },
-      { "type": "message", "config": { "templateId": "0b8f6c1e-7a52-4a1b-9a0e-3f2d6c9e1a44", "variables": ["nome", "link"] } },
-      { "type": "wait", "config": { "minutes": 1380 } },
-      { "type": "condition", "config": { "tag": "comprou" } },
-      { "type": "message", "config": { "templateId": "5d2a9b7c-1e44-4f0a-8c3b-6a7e2d1f9b10", "variables": ["nome", "link"] } }
-    ]
-  }'
-```
+    - `GET /v1/recovery/ingests?event=cart.abandoned&status=REJECTED` lista os eventos recebidos com o motivo de recusa. `POST /v1/recovery/ingests/{id}/retry` reprocessa um deles.
+    - `GET /v1/recovery/stats?period=LAST_7D` traz os números agregados.
+    - O webhook `message.status_updated` traz o status de cada mensagem.
+    - Três ou mais falhas ou recusas em 5 minutos geram um alerta no painel.
+  </Step>
+</Steps>
 
-A automação nasce desligada. Ligue com:
-
-```bash
-curl -X PUT https://api.ararahq.com/v1/automations/{id}/active \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{ "active": true }'
-```
-
-O plano define quantas automações podem ficar ligadas ao mesmo tempo.
-
-A mesma `X-Arara-Idempotency-Key` não inicia a automação duas vezes para o mesmo evento.
+## Armadilhas
 
 <Warning>
-  O evento é entregue para as automações **e** para a recuperação de um passo. Se houver automação ativa para `cart.abandoned` e também um template vinculado ao evento (ou o template padrão `arara_recovery_cart_abandoned_pt_br` criado por `POST /v1/recovery/provision-defaults`), o cliente recebe as duas mensagens. Para usar só a automação, desligue o evento com `PUT /v1/recovery/events/cart.abandoned` e `{ "active": false }`. Nesse caso a resposta do `POST` vem `REJECTED` com `EVENT_DISABLED`, mesmo com a automação iniciada.
+  O evento é entregue para as automações **e** para a recuperação de um passo. Com automação ativa para `cart.abandoned` e também um template vinculado ao evento (ou o template padrão `arara_recovery_cart_abandoned_pt_br`, criado por `POST /v1/recovery/provision-defaults`), o cliente recebe as duas mensagens. Para usar só a automação, desligue o evento com `PUT /v1/recovery/events/cart.abandoned` e `{ "active": false }`. Nesse caso a resposta do `POST` vem `REJECTED` com `EVENT_DISABLED`, mesmo com a automação iniciada.
 </Warning>
 
-## 4. Pare a sequência quando o cliente comprar
-
-Quando o pedido for confirmado, aplique a etiqueta usada no passo `condition`:
-
-```bash
-curl -X PATCH "https://api.ararahq.com/v1/contacts/%2B5511999999999" \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{ "tags": ["comprou"] }'
-```
-
-- `tags` **substitui** a lista inteira de etiquetas do contato. Leia as atuais com `GET /v1/contacts/{phone}` e envie a lista completa.
-- O contato precisa existir na base da organização; se não existir, a API responde erro.
-- O `+` do telefone vai codificado na URL (`%2B`).
-
-Resposta do cliente no WhatsApp **não** para a sequência sozinha. Se quiser parar quando ele responder, escute o webhook `message.received` e aplique a etiqueta.
-
-## Template de exemplo
-
-```bash
-curl -X POST https://api.ararahq.com/v1/templates \
-  -H "Authorization: Bearer ara_live_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "carrinho_abandonado_v1",
-    "category": "MARKETING",
-    "language": "pt_BR",
-    "body": "Oi {{1}}, seu carrinho ficou salvo. Quer finalizar a compra?\n\n{{2}}",
-    "samples": { "1": "João", "2": "https://meusite.com/checkout/abc" }
-  }'
-```
-
-`samples` é um objeto com o número da variável como chave. O retorno traz o `id` (UUID) usado em `templateId`. Acompanhe a aprovação com `GET /v1/templates/{id}/status` ou pelo webhook `template.updated`.
-
-Tom leve na primeira mensagem. Quem responde abre a janela de 24h e pode ser atendido por texto livre (ver [Atendimento com vários atendentes](/recipes/inbox-support)).
-
-## Acompanhar resultados
-
-- `GET /v1/recovery/stats?period=LAST_7D` (aceita `TODAY`, `YESTERDAY`, `LAST_7D`, `LAST_30D`): números agregados da recuperação.
-- `GET /v1/recovery/ingests?event=cart.abandoned&status=REJECTED`: eventos recebidos, com motivo de recusa. `POST /v1/recovery/ingests/{id}/retry` reprocessa um deles.
-- Webhook `message.status_updated`: status de cada mensagem (`sent`, `delivered`, `read`, `failed`).
-- Três ou mais falhas/recusas em 5 minutos geram um alerta no dashboard.
-
-## Checklist de produção
-
-- [ ] Templates aprovados (`GET /v1/templates/{id}/status`)
-- [ ] Endpoint de recuperação com `active: true`
-- [ ] `hmacSecret` só no servidor e `X-Arara-Signature` em toda chamada
-- [ ] `X-Arara-Idempotency-Key` derivada do id do carrinho
-- [ ] Só uma via por evento: automação **ou** configuração de recuperação
-- [ ] Etiqueta de compra aplicada quando o pedido fecha
-- [ ] Webhook `message.received` tratado (cliente respondeu)
-- [ ] Opt-out respeitado: eventos para contatos em `/v1/opt-outs` voltam `REJECTED` com `OPTED_OUT`
-- [ ] Telefone normalizado em E.164 antes de enviar
+- **Resposta do cliente não para a sequência.** Para parar quando ele responder, escute o webhook `message.received` e aplique a etiqueta.
+- **Opt-out é recusado.** Evento para contato que pediu para sair volta `REJECTED` com `OPTED_OUT`.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Revenue Recovery" icon="rotate-right" href="/recovery">
-    Endpoint de recuperação e eventos de pagamento.
+  <Card title="Recuperação de receita" icon="rotate-right" href="/recovery">
+    Contrato do endpoint e os outros eventos de pagamento.
   </Card>
   <Card title="Shopify" icon="cart-shopping" href="/integracoes/shopify">
-    Como ligar uma loja Shopify a este fluxo.
+    Ligue uma loja Shopify a este fluxo.
+  </Card>
+  <Card title="Atendimento com vários atendentes" icon="users" href="/recipes/inbox-support">
+    Quem atende quando o cliente responde.
   </Card>
 </CardGroup>

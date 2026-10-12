@@ -1,13 +1,16 @@
 ---
 title: 'Stripe'
-description: 'Deixe o Brain criar um link de pagamento Stripe (cartão) na sua conta e enviar direto no WhatsApp, em BRL, USD ou EUR.'
+description: 'Configure o Brain para criar um link de pagamento Stripe na sua conta e enviar no WhatsApp, em BRL, USD ou EUR.'
 ---
 
-A Action `STRIPE_CHECKOUT` permite que o Brain crie um **Payment Link** na sua conta Stripe e envie a URL na conversa. Serve pra quem quer pagar com cartão ou pra clientes de fora do Brasil.
+Ao final deste guia, o Brain cria um **Payment Link** na sua conta Stripe e envia a URL na conversa, pela Action `STRIPE_CHECKOUT`. Serve para pagamento com cartão e para clientes de fora do Brasil.
 
-<Note>
-  Pra Pix, use a Action [AbacatePay](/brain/actions/abacate-pix). O Brain é instruído a preferir Pix no Brasil quando as duas estão habilitadas.
-</Note>
+## Antes de começar
+
+- Conta Stripe com chave de API.
+- [Brain](/brain) configurado, com plano que inclui Brain e número dedicado.
+
+Para Pix, use a Action [AbacatePay](/brain/actions/abacate-pix). O Brain é instruído a preferir Pix no Brasil quando as duas estão habilitadas.
 
 ## Quando o Brain usa
 
@@ -21,16 +24,16 @@ Parâmetros que o Brain preenche:
 | `description` | Sim | Descrição mostrada no checkout, até 100 caracteres |
 | `currency` | Não | `BRL` (default), `USD` ou `EUR` |
 
-## Setup
+## Passos
 
 <Steps>
-  <Step title="Crie uma chave no Stripe">
+  <Step title="Crie uma chave de API no Stripe">
     Em **Developers → API keys**. A Action cria Product, Price e Payment Link a cada cobrança, então uma restricted key precisa de escrita em Products, Prices e Payment Links.
   </Step>
   <Step title="Habilite na Arara">
     ```bash
     curl -X POST https://api.ararahq.com/v1/brain/actions \
-      -H "Authorization: Bearer ara_live_xxx" \
+      -H "Authorization: Bearer $ARARA_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "actionType": "STRIPE_CHECKOUT",
@@ -65,11 +68,13 @@ O Payment Link não expira sozinho: o cliente pode pagar depois.
 - **Sem confirmação automática**: a Arara não recebe os webhooks da sua conta Stripe. Trate `checkout.session.completed` no seu sistema e responda a conversa se precisar confirmar no chat.
 - **Um Product por cobrança**: cada link cria um Product e um Price novos na sua conta Stripe.
 
+## Próximos passos
+
 <CardGroup cols={2}>
-  <Card title="Brain" icon="brain" href="/brain">
-    Regras, prompt e conhecimento.
+  <Card title="AbacatePay (Pix)" icon="qrcode" href="/brain/actions/abacate-pix">
+    Cobrança Pix, o meio mais comum no Brasil.
   </Card>
-  <Card title="Brain Actions" icon="bolt" href="/actions">
-    Todas as Actions disponíveis.
+  <Card title="Voltar ao Brain" icon="brain" href="/brain">
+    Configuração, Actions disponíveis e regras.
   </Card>
 </CardGroup>

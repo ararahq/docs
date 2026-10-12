@@ -1,7 +1,9 @@
 ---
 title: 'SDK Node.js / TypeScript'
-description: 'SDK oficial Node/TypeScript da Arara (@ararahq/sdk): envio de mensagens, templates, webhook da organização, retry automático e erro tipado.'
+description: 'SDK oficial Node/TypeScript da Arara (@ararahq/sdk): envio de mensagens, templates, campanhas, contatos, retry automático e erro tipado.'
 ---
+
+## Instalar
 
 ```bash
 npm install @ararahq/sdk
@@ -9,9 +11,9 @@ npm install @ararahq/sdk
 
 [![npm](https://img.shields.io/npm/v/@ararahq/sdk)](https://www.npmjs.com/package/@ararahq/sdk)
 
-Versão publicada: **1.8.1**. Pacote CommonJS com build ESM e tipos `.d.ts`. Depende de `axios`. O pacote não declara versão mínima de Node; o build de publicação roda em Node 20, então use Node 18 ou superior.
+Versão publicada: **2.0.0**. Pacote CommonJS (`require`) com build ESM (`import`) e tipos `.d.ts`. Depende de `axios`. O pacote não declara versão mínima de Node; o build de publicação roda em Node 20, então use Node 18 ou superior.
 
-## Setup
+## Configurar
 
 ```typescript
 import { NodeSDK } from '@ararahq/sdk';
@@ -26,26 +28,49 @@ const sdk = new NodeSDK({
 
 A `apiKey` é obrigatória (o construtor lança `Error` sem ela) e usa o prefixo `ara_live_`. A Arara não tem modo de teste.
 
-## Recursos disponíveis (1.8.1)
+## Enviar a primeira mensagem
 
-| Recurso | Acesso | Métodos |
-|---|---|---|
-| Messages | `sdk.messages` | `send(payload, options?)` |
-| Templates | `sdk.templates` | `list()`, `create(payload)`, `get(id)`, `getStatus(id)`, `delete(id)` |
-| Users | `sdk.users` | `getMe()`, `update(data)` |
-| Organizations | `sdk.organizations` | `getWebhook()`, `updateWebhook(data)` |
-| API Keys | `sdk.apiKeys` | `list()`, `create(mode?)` (ver limitações) |
+Você precisa de plano assinado, número conectado, um template aprovado e saldo. Veja [Antes de começar](/quickstart#antes-de-começar). Troque `pedido_confirmado` pelo nome do seu template.
 
-Não há método para consultar uma mensagem depois do envio. O status chega pelo webhook `message.status_updated`.
+Salve como `enviar.js`:
 
-<Note>
-  A branch `main` do repositório já tem `contacts`, `conversations`, `wallet`, `numbers`, `smartLinks`, `campaigns` e um acesso REST genérico (`sdk.api`), mas essa versão ainda não foi publicada no npm. Até lá, chame esses endpoints direto pela API.
-</Note>
+```javascript
+const { NodeSDK } = require('@ararahq/sdk');
 
-## Enviar mensagem
+const sdk = new NodeSDK({ apiKey: process.env.ARARA_API_KEY });
 
-```typescript
-const response = await sdk.messages.send({
+async function main() {
+  const orderId = '12345'; // id do evento no seu sistema
+
+  const response = await sdk.messages.send(
+    {
+      receiver: 'whatsapp:+5511999999999',
+      templateName: 'pedido_confirmado',
+      templateVariables: ['João', orderId],
+    },
+    { idempotencyKey: `hello-${orderId}` },
+  );
+
+  console.log(response.id);     // ara_msg_...
+  console.log(response.status); // status inicial da mensagem
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+```
+
+Rode:
+
+```bash
+ARARA_API_KEY=ara_live_... node enviar.js
+```
+
+Com variáveis no corpo do template e mídia no header:
+
+```javascript
+await sdk.messages.send({
   receiver: 'whatsapp:+5511999999999',
   templateName: 'confirmacao_pedido',
   templateVariables: [
@@ -54,40 +79,33 @@ const response = await sdk.messages.send({
     'ARA-12345',                         // {{2}}
   ],
 });
-
-console.log(response.id);     // ara_msg_...
-console.log(response.status); // status inicial da mensagem
 ```
 
 `variables` é aceito como apelido de `templateVariables`.
 
-**Mensagem de sessão (texto livre, dentro da janela de 24h):**
+Para responder dentro da janela de 24h, mande `body` em vez de `templateName`:
 
-```typescript
+```javascript
 await sdk.messages.send({
   receiver: 'whatsapp:+5511999999999',
   body: 'Oi! Vi sua dúvida e respondo já já.',
 });
 ```
 
-## Idempotência
+Para consultar uma mensagem depois do envio, use `sdk.messages.get(response.id)`. O status também chega pelo webhook `message.status_updated`.
 
-`send` aceita um segundo argumento com `idempotencyKey`, enviado no header `Idempotency-Key`:
+Para mandar o mesmo template a até 1000 destinatários, use `sendBatch`:
 
-```typescript
-import { randomUUID } from 'node:crypto';
-
-await sdk.messages.send(
-  { receiver: 'whatsapp:+5511999999999', templateName: 'confirmacao_pedido', templateVariables: ['João'] },
-  { idempotencyKey: randomUUID() }
-);
+```javascript
+await sdk.messages.sendBatch({
+  templateName: 'pedido_confirmado',
+  messages: [{ receiver: '+5511999999999', variables: ['João', '12345'] }],
+});
 ```
-
-Repetir a mesma chave devolve a mensagem original, sem novo envio. A API não compara o corpo: a mesma chave com destinatário ou variáveis diferentes também devolve a mensagem original, e a chave não expira. Use uma chave derivada do seu evento (ex.: id do pedido) para que retries da sua função não dupliquem a mensagem.
 
 ## Templates
 
-Os métodos `get`, `getStatus` e `delete` recebem o **id** do template (UUID), não o nome. O parâmetro aparece como `name` na assinatura, mas a API só aceita o id.
+Os métodos `get`, `getStatus`, `delete` e `analytics` recebem o **id** do template (UUID), não o nome. Para achar um template pelo nome, filtre a lista: `sdk.templates.list({ name: 'promo_natal' })`.
 
 ```typescript
 // Criar
@@ -109,17 +127,64 @@ await sdk.templates.delete(created.id);
 
 `samples` é um objeto com o nome da variável como chave (`'1'` para `{{1}}`).
 
-**Listar:** a API responde `{ data, pagination }`, mas o tipo de retorno declarado no SDK é `Template[]`. Até a correção, faça o cast:
+**Listar:** `list` devolve `{ data, pagination }` e aceita `page`, `size`, `name` e `status`.
 
 ```typescript
-import type { Template } from '@ararahq/sdk';
-
-const page = (await sdk.templates.list()) as unknown as {
-  data: Template[];
-  pagination: { page: number; size: number; totalElements: number; totalPages: number };
-};
-console.log(page.data.map((t) => t.name));
+const { data, pagination } = await sdk.templates.list({ page: 0, size: 50 });
+console.log(data.map((t) => t.name), pagination.totalPages);
 ```
+
+## Tratar erros
+
+Toda falha lança `AraraError`. Duas subclasses cobrem os casos comuns: `AuthenticationError` (401, ou 403 sem código de erro: chave inválida, expirada, sem permissão ou fora da allowlist de IP) e `PlanFeatureLockedError` (403 `PLAN_FEATURE_LOCKED`, com `feature`, `currentPlan` e `upgradeTo`).
+
+```typescript
+import { AraraError } from '@ararahq/sdk';
+
+try {
+  await sdk.messages.send({ receiver: 'whatsapp:+5511999999999', templateName: 'confirmacao_pedido' });
+} catch (err) {
+  if (err instanceof AraraError) {
+    console.error(err.statusCode, err.code, err.message, err.details);
+    if (err.statusCode === 429) {
+      console.log('Tente de novo em', err.retryAfter, 'segundos');
+    }
+  }
+}
+```
+
+| Campo | Conteúdo |
+|---|---|
+| `statusCode` | Status HTTP. Ausente em falha de rede. |
+| `code` | `error.code` da API. `NETWORK_ERROR` sem resposta, `UNKNOWN_ERROR` quando a API não mandou código. |
+| `message` | `error.message` da API. Quando o corpo da resposta não é o envelope de erro, é a mensagem genérica do cliente HTTP. |
+| `details` | `error.details` da API, quando houver. |
+| `retryAfter` | Segundos do header `Retry-After`, quando houver. |
+
+A API responde 401 para chave inválida, revogada ou expirada, e 403 quando a chave não tem permissão para a rota. O corpo desses erros de autenticação não vem no envelope da API: o SDK lança `AuthenticationError` com `code` `UNKNOWN_ERROR`. Teste a classe ou o `statusCode`, não o `code`. Lista de códigos em [Erros](/erros).
+
+## Retentativas e idempotência
+
+O SDK retenta, até `maxRetries` vezes:
+
+- falha de rede (sem resposta);
+- 429, respeitando `Retry-After` (até 30s);
+- qualquer 5xx.
+
+O intervalo começa em 500ms e dobra a cada tentativa, até 30s. Outros 4xx não são retentados. Para desligar: `maxRetries: 0`.
+
+Só se retenta requisição segura de repetir: `GET`, `PUT`, `DELETE` e `POST` com `Idempotency-Key`. `messages.send`, `messages.sendBatch` e `campaigns.create` sempre mandam esse header, então uma retentativa repete a mesma chave e não duplica o envio. `templates.create` não manda a chave e não é retentado.
+
+`send` aceita um segundo argumento com `idempotencyKey`, enviado no header `Idempotency-Key`. Sem ele, o SDK gera um UUID por chamada (igual em todas as retentativas dela), o que não protege contra reenvio do seu lado. Derive a chave de um id do seu sistema (id do pedido, id da tentativa), não de um valor novo a cada chamada:
+
+```typescript
+await sdk.messages.send(
+  { receiver: 'whatsapp:+5511999999999', templateName: 'confirmacao_pedido', templateVariables: ['João'] },
+  { idempotencyKey: `confirmacao-${order.id}` }
+);
+```
+
+Repetir a mesma chave devolve a mensagem original, sem novo envio. A API não compara o corpo: a mesma chave com destinatário ou variáveis diferentes também devolve a mensagem original, e a chave não expira.
 
 ## Webhooks
 
@@ -128,7 +193,7 @@ O SDK exporta guards de tipo para o corpo do webhook:
 ```typescript
 import { WebhookUtils } from '@ararahq/sdk';
 
-function handleWebhook(payload: unknown) {
+function handleWebhook(payload: { event: string }) {
   if (WebhookUtils.isMessageStatusEvent(payload)) {
     console.log(payload.data.status, payload.data.receiver); // delivered, read, failed...
     return;
@@ -166,52 +231,27 @@ export function isValidAraraSignature(rawBody: string, timestamp: string, signat
 
 Detalhes em [Webhooks](/webhooks).
 
-## Erros
+## Recursos disponíveis
 
-Toda falha lança `AraraError`:
+| Recurso | Acesso | Métodos |
+|---|---|---|
+| Messages | `sdk.messages` | `send(payload, options?)` |
+| Templates | `sdk.templates` | `list()`, `create(payload)`, `get(id)`, `getStatus(id)`, `delete(id)` |
+| Auth | `sdk.auth` | `me()` (chave ADMIN) |
+| Opt-outs | `sdk.optOuts` | `list()`, `get(phone)`, `create(request)`, `delete(phone)` |
+| Contacts | `sdk.contacts` | `list()`, `importBatch()`, `stats()`, `reactivationCandidates()`, `listTags()`, `get(phone)`, `update(phone, patch)`, `messages(phone)` |
+| Conversations | `sdk.conversations` | `list()`, `leadStats()`, `messages(id)`, `reply(request)`, `updateStatus(id, status)`, `windowStatus(phones)` |
+| Campaigns | `sdk.campaigns` | `create(payload, options?)`, `list()`, `estimate(templateName, count)`, `get(id)`, `cancel(id)` |
+| Wallet | `sdk.wallet` | `transactions()`, `getAutoRecharge()`, `updateAutoRecharge(request)` |
+| Numbers | `sdk.numbers` | `list()`, `update(id, request)`, `delete(id)`, `request(request)`, `listRequests()`, `sync(id)`, `warming(id)` |
+| Smart links | `sdk.smartLinks` | `create()`, `update()`, `list()`, `stats(id)` |
+| REST genérico | `sdk.api` | `get`, `post`, `put`, `patch`, `delete` para endpoints sem recurso tipado; herda autenticação, `baseUrl`, timeout e retentativas |
 
-```typescript
-import { AraraError } from '@ararahq/sdk';
+As leituras de contacts, conversations, wallet, smart links, opt-outs e `auth.me()` exigem chave ADMIN. Com chave só `READ`, lançam `AuthenticationError` (403). `optOuts` recusa telefone fora do formato `+5511999999999` com `RangeError`, antes de chamar a API.
 
-try {
-  await sdk.messages.send({ receiver: 'whatsapp:+5511999999999', templateName: 'confirmacao_pedido' });
-} catch (err) {
-  if (err instanceof AraraError) {
-    console.error(err.statusCode, err.code, err.message, err.details);
-    if (err.statusCode === 429) {
-      console.log('Tente de novo em', err.retryAfter, 'segundos');
-    }
-  }
-}
-```
+### TypeScript
 
-| Campo | Conteúdo |
-|---|---|
-| `statusCode` | Status HTTP. Ausente em falha de rede. |
-| `code` | `error.code` da API. `NETWORK_ERROR` sem resposta, `UNKNOWN_ERROR` quando a API não mandou código. |
-| `message` | `error.message` da API. |
-| `details` | `error.details` da API, quando houver. |
-| `retryAfter` | Segundos do header `Retry-After`, quando houver. |
-
-A API responde 403 (não 401) para chave inválida ou ausente. Lista de códigos em [Erros](/erros).
-
-## Retry automático
-
-O SDK retenta, até `maxRetries` vezes:
-
-- falha de rede (sem resposta);
-- 429, respeitando `Retry-After` (até 30s);
-- qualquer 5xx.
-
-O intervalo começa em 500ms e dobra a cada tentativa, até 30s. Outros 4xx não são retentados. Para desligar: `maxRetries: 0`.
-
-<Warning>
-  O retry vale também para `POST /v1/messages`. Se a API responder 5xx depois de aceitar o envio, a mensagem pode sair duas vezes. Passe `idempotencyKey` em todo envio.
-</Warning>
-
-## TypeScript
-
-Tipos exportados na 1.8.1:
+Tipos exportados na 2.0.0 (exemplos; o pacote exporta também os tipos de contatos, campanhas, carteira, números e smart links):
 
 ```typescript
 import type {
@@ -220,15 +260,10 @@ import type {
   SendMessageOptions,
   MessageResponse,
   Template,
+  CreateTemplateRequest,
   TemplateResponse,
   TemplateStatus,
-  User,
-  UpdateUserRequest,
-  OrganizationWebhook,
-  UpdateWebhookRequest,
-  WebhookUpdateResponse,
-  ApiKey,
-  GeneratedApiKey,
+  PaginatedResponse,
   AraraWebhookEvent,
   MessageStatusWebhookEvent,
   RevenueRecoveryWebhookEvent,
@@ -236,27 +271,26 @@ import type {
 } from '@ararahq/sdk';
 ```
 
-`CreateTemplateRequest` e `InboundMessageWebhookEvent` existem no código mas não são exportados pelo pacote.
+`InboundMessageWebhookEvent` existe no código mas não é exportado pelo pacote.
 
 ## Limitações conhecidas
 
 | Método | Problema |
 |---|---|
-| `apiKeys.*` | A API recusa gestão de chaves autenticada por API key (403). Crie e revogue chaves pelo dashboard. |
-| `templates.list()` | Tipo de retorno errado (`Template[]` em vez de `{ data, pagination }`). Use o cast acima. |
-| `templates.get/getStatus/delete` | Precisam do id (UUID). Com o nome do template a API responde 400. |
-
-## Source
-
-GitHub: [github.com/ararahq/arara-node-sdk](https://github.com/ararahq/arara-node-sdk) · MIT
+| Chaves de API, perfil do usuário e webhook da organização | O SDK não tem métodos para isso, e a API recusa esses endpoints com chave de API. Use o [painel](https://app.ararahq.com/dashboard/webhooks). |
+| `templates.get/getStatus/delete/analytics` | Precisam do id (UUID). Com o nome do template a API responde 400. |
+| `templates.create` | Não manda `Idempotency-Key` e não é retentado. |
+| Validação de assinatura de webhook | O SDK não valida. Use a função da seção Webhooks. |
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Receitas em Next.js" icon="js" href="/integracoes/nextjs">
+  <Card title="Next.js" icon="js" href="/integracoes/nextjs">
     Server Actions e route handlers.
   </Card>
   <Card title="API Reference" icon="code" href="/api-reference/introduction">
     Endpoints REST que o SDK chama por baixo.
   </Card>
 </CardGroup>
+
+Código-fonte: [github.com/ararahq/arara-node-sdk](https://github.com/ararahq/arara-node-sdk) (MIT).

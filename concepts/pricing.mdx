@@ -1,46 +1,67 @@
 ---
-title: 'Preços'
-description: 'Quanto custa a Arara: mensalidade do plano (Essencial R$ 597, Voo R$ 997, Primeira Classe sob consulta) e mensagem a preço de custo, repassando Meta e provedor sem taxa da Arara.'
-keywords: ['preço', 'custo', 'fatura', 'brl', 'meta pricing', 'whatsapp custo', 'essencial', 'voo', 'primeira classe']
+title: 'Preços e limites'
+description: 'Planos, preço por mensagem, carteira e os limites de envio e operação, com a resposta da API quando um limite é atingido.'
+keywords: ['preço', 'custo', 'fatura', 'brl', 'meta pricing', 'whatsapp custo', 'voo', 'primeira classe', 'sob medida', 'limites', 'plano', 'rate limit', 'PLAN_LIMIT_REACHED']
 ---
 
 A conta tem duas partes:
 
 ```
-Mensalidade do plano (Essencial, Voo ou Primeira Classe)
+Mensalidade do plano (Voo, Primeira Classe ou Sob medida)
        +
 Mensagens a preço de custo: tarifa da Meta + tarifa do provedor,
 convertidas para reais, sem taxa da Arara
 ```
 
-A mensalidade paga a plataforma (caixa de entrada, campanhas, automações, IA, assentos, números). A mensagem sai da carteira pré-paga pelo custo real.
+A mensalidade paga a plataforma (caixa de entrada, campanhas, automações, IA, pessoas, números). A mensagem sai da carteira pré-paga pelo custo real.
+
+<Info>
+  Não existe plano gratuito nem modo de teste. Toda mensagem é real e debita da carteira.
+</Info>
 
 <Note>
-  Esta página vale para contas criadas a partir de 10/09/2026. Quem assinou antes continua com o preço e as condições que contratou. O valor de cada conta aparece no [Dashboard](https://app.ararahq.com), em Cobrança.
+  Quem assinou um plano anterior (Embarque, Essencial ou outro) continua com o preço e as condições que contratou. O valor de cada conta aparece no [painel](https://app.ararahq.com/dashboard/faturamento).
 </Note>
 
 ## Planos
 
-| | Essencial | Voo | Primeira Classe |
+| | Voo | Primeira Classe | Sob medida |
 |---|---|---|---|
-| **Mensalidade** | R$ 597/mês | R$ 997/mês | Sob consulta |
-| **Anual (pago de uma vez)** | R$ 5.730/ano | R$ 9.570/ano | Negociado |
-| **Mensagens enviadas por mês** | até 20.000 | até 50.000 | sem teto |
-| **Assentos** | 3 | 10 | 10 |
-| **Números WhatsApp** | 1 incluso | 1 incluso, até 2 | 3 inclusos, sem teto |
-| **Contas WhatsApp Business (WABA)** | 1 | 1 | sem teto |
-| **Automações ativas** | 3 | 10 | 10 |
-| **Caixa de entrada, campanhas, contatos** | Sim | Sim | Sim |
-| **Recuperação de receita e IA que responde** | Sim | Sim | Sim |
-| **Lembretes de agendamento** | Não | Sim | Sim |
-| **Suporte** | E-mail, primeira resposta em até 48h úteis | Chat e e-mail, até 24h úteis | Chat, e-mail e WhatsApp, até 4h úteis |
-| **Mensagem** | Preço de custo | Preço de custo | Preço de custo |
+| **Para quem** | Quem vende caro e quer ver, todo mês, quanto voltou | A operação grande: o time da Arara coloca no ar, integra e cuida do número com você | Quem manda mais de 100 mil mensagens por mês |
+| **Mensalidade** | R$ 997/mês | R$ 2.900/mês | Por faixa de volume, em contrato |
+| **Implantação** | Você mesmo, pelo painel | Feita pelo time: R$ 2.900, uma vez | Feita pelo time |
+| **Envios por mês** | 50.000 | Ilimitados | Mais de 100 mil |
+| **Pessoas** | 10 | Ilimitadas | Ilimitadas |
+| **Números** | 1 incluso | 3 inclusos | Quantos precisar, dedicados |
+| **Automações ativas** | 10 | Ilimitadas | Ilimitadas |
+| **Como contratar** | [Começar agora](https://app.ararahq.com) | Falar com vendas | Falar com vendas |
 
-O teto mensal é de segurança, não de cobrança: todos os planos pagam a mensagem pelo mesmo preço de custo. Quem precisa enviar mais sobe de plano. Números além dos inclusos são cobrados à parte.
+**No Voo:**
 
-Ao ativar um plano pago, a carteira recebe uma única vez um bônus de 30% do valor da mensalidade em créditos.
+- Recuperação de receita: carrinho, Pix, boleto, cartão recusado e orçamento parado.
+- Brain, a IA que responde e chama uma pessoa na dúvida.
+- Teste A/B e formulários dentro do WhatsApp.
+- API, SDKs, CLI e MCP.
+- 7 dias de garantia: se desistir, a mensalidade volta inteira.
 
-Detalhe de cada limite e do que acontece quando ele é atingido em [Planos e limites](/business-rules/planos-e-limites).
+**Na Primeira Classe, tudo do Voo e mais:**
+
+- Implantação pelo time: número, conta na Meta, templates aprovados e automações no ar.
+- Integração feita com você: seu agente, sua IA ou seu sistema.
+- Várias contas na Meta, com trilha de auditoria.
+- Encontro mensal e SLA de 99,9%.
+- Contrato, DPA, fatura e boleto.
+
+**No Sob medida, tudo da Primeira Classe e mais:**
+
+- Preço por faixa de volume, fechado em contrato.
+- Números dedicados, com o limite de envio trabalhado junto à Meta.
+
+Em todos os planos a mensagem sai a preço de custo da Meta. O teto mensal de envios é de segurança, não de cobrança: quem precisa enviar mais sobe de plano. Números além dos inclusos são cobrados à parte.
+
+A mensalidade não inclui créditos: o saldo da carteira é recarregado à parte.
+
+Os planos atuais não têm limite de templates. Contas no plano Free legado têm teto de 3 templates aprovados e recebem `403 PLAN_LIMIT_REACHED`. O que acontece quando cada limite é atingido está em [Limites](#limites).
 
 ## Preço por mensagem
 
@@ -83,13 +104,13 @@ Plano Voo:                                   R$    997,00
 Total aproximado:                            R$ 12.133,00
 ```
 
-**Notificações transacionais** (Essencial), 15.000 templates UTILITY no mês:
+**Notificações transacionais** (Voo), 15.000 templates UTILITY no mês:
 
 ```
-Plano Essencial:                             R$    597,00
+Plano Voo:                                   R$    997,00
 15.000 × R$ 0,046 (UTILITY):                 R$    690,00
                                             ─────────────
-Total aproximado:                            R$  1.287,00
+Total aproximado:                            R$  1.687,00
 ```
 
 Valores de mensagem aproximados, com câmbio de R$ 5,85, destinatários no Brasil e sem contar mensagens recebidas.
@@ -103,7 +124,7 @@ Para não parar a operação, ative a auto-recarga: quando o saldo cai abaixo do
 ```bash
 # Consultar a configuração
 curl https://api.ararahq.com/v1/wallet/auto-recharge \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 A mesma configuração é alterada com `PATCH` no endpoint acima ou pelo Dashboard.
@@ -113,20 +134,89 @@ A mesma configuração é alterada com `PATCH` no endpoint acima ou pelo Dashboa
 ```bash
 # Preço vigente por categoria e rate card da Meta por mercado
 curl "https://api.ararahq.com/v1/pricing/current?market=BR" \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 
 # Quantas mensagens de cada categoria um valor compra (em centavos)
 curl "https://api.ararahq.com/v1/wallet/calculate?amountCents=10000" \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
-Os dois endpoints usam o plano e a tabela de preço da sua conta. Para estimar uma campanha antes de disparar, use `GET /v1/campaigns/estimate`.
+Os dois endpoints usam o plano e a tabela de preço da sua conta. Para estimar uma campanha antes de enviar, use `GET /v1/campaigns/estimate`.
+
+## Limites
+
+### Teto mensal de mensagens
+
+O teto conta as mensagens enviadas pela Arara no mês: envios de campanha, envios pela API e respostas de atendentes, tudo no mesmo contador. Mensagens que o cliente manda para você não contam.
+
+Quando o envio passaria do teto, a API recusa com HTTP 403:
+
+```json
+{
+  "error": {
+    "code": "PLAN_LIMIT_REACHED",
+    "message": "Limite do plano atingido em 'MESSAGES_PER_MONTH': 50000/50000.",
+    "details": {
+      "feature": "MESSAGES_PER_MONTH",
+      "current": 50000,
+      "max": 50000,
+      "currentPlan": "VOO",
+      "upgradeTo": "..."
+    }
+  }
+}
+```
+
+O contador zera na virada do mês. Campanha cancelada, ou contato barrado por opt-out durante a campanha, devolve a cota que tinha sido reservada. Retentativas com o mesmo `Idempotency-Key` não contam duas vezes.
+
+O mesmo código `PLAN_LIMIT_REACHED` aparece em outros limites numéricos, com `details.feature` indicando qual: `ACTIVE_AUTOMATIONS` (automações ativas) e `TEAM_MEMBERS` (membros da equipe, checado no convite).
+
+Recurso que o plano não inclui responde HTTP 403 com `PLAN_FEATURE_LOCKED`.
+
+<Note>
+  Em `details`, `currentPlan` traz o identificador interno do plano: `VOO` (Voo) e `VOO_ASSISTIDO` (Primeira Classe). Contas em planos anteriores trazem `EMBARQUE`, `ESSENTIAL` ou outro identificador antigo. Trate `upgradeTo` só como sugestão. Para escolher o plano, compare a tabela de [Planos](#planos).
+</Note>
+
+### Consultar o plano
+
+```bash
+curl https://api.ararahq.com/v1/organizations/me/plan \
+  -H "Authorization: Bearer $ARARA_API_KEY"
+```
+
+Retorna o plano atual (`current`), o preço de referência por categoria de mensagem e a lista de recursos do plano. O consumo do mês aparece no [Dashboard](https://app.ararahq.com).
+
+### Limites de proteção
+
+Estes limites protegem o seu número e a sua reputação na Meta. Valem em qualquer plano.
+
+| Situação | Resposta |
+|---|---|
+| Destinatário pediu para não receber (opt-out) | `422 RECIPIENT_OPTED_OUT` |
+| Telefone fora do formato aceito | `422 INVALID_RECIPIENT` |
+| Muitas mensagens para o mesmo destinatário em poucos minutos | `403 FRAUD_SUSPECTED` |
+| Frequência alta de MARKETING para o mesmo destinatário (referência: 4 em 24h) | `429 MARKETING_FREQUENCY_EXCEEDED` |
+| Limite diário configurado na própria chave de API (dia em UTC) | `429 SEND_RATE_LIMITED` |
+
+Respostas `429` trazem o header `Retry-After` quando aplicável. Veja [Erros](/erros) para o tratamento de cada código.
+
+Contas novas enviam só pelo próprio número conectado; sem ele o envio responde `403 NO_DEDICATED_NUMBER`. Contas antigas habilitadas no número compartilhado da Arara têm limites mais baixos: 250 mensagens por dia por organização, 50 por dia por destinatário e 30 mensagens dentro da janela de 24h por destinatário por hora. Com número próprio esses tetos não se aplicam.
+
+A Meta também impõe, por número, um limite diário de destinatários únicos fora da janela de 24h. Ele sobe conforme a qualidade e o volume do número e vale em qualquer plano. Veja [Números: qualidade e limite de envio](/numbers).
+
+### Antes de assinar
+
+Criar a conta, gerar a chave de API, conectar o número e criar templates não exige plano. Para enviar, é preciso um plano ativo, um número conectado, um template aprovado e saldo na carteira. Sem assinatura, o envio responde `403 ACCOUNT_NOT_ACTIVATED`. Veja [Envie sua primeira mensagem](/quickstart).
+
+### Pagamento em atraso
+
+Se a cobrança da mensalidade falhar, o acesso aos recursos do plano continua durante o período de carência enquanto o pagamento é tentado de novo. Passado esse prazo sem pagamento, os recursos do plano são suspensos até a regularização.
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Planos e limites" icon="scale-balanced" href="/business-rules/planos-e-limites">
-    Tetos, assentos, números e o que acontece ao atingir cada um.
+  <Card title="Políticas de uso" icon="shield-check" href="/concepts/usage-policies">
+    Opt-in, opt-out, qualidade e suspensão.
   </Card>
   <Card title="Janela de 24h" icon="clock" href="/concepts/24h-window">
     Quando dá para mandar texto livre e quando precisa de template.

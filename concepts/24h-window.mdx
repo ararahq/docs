@@ -41,15 +41,15 @@ Com um cliente que nunca falou com você, ou que está sem responder há mais de
 1. Envie um **template aprovado**.
 2. O cliente **responde**: a janela abre.
 
-Não existe outro caminho. Texto livre com a janela fechada é recusado.
+Não existe outro caminho. Mensagem livre com a janela fechada é recusado.
 
 ## Como verificar o status
 
-Antes de mandar texto livre, consulte a janela de até **200 números por chamada**:
+Antes de mandar mensagem livre, consulte a janela de até **200 números por chamada**:
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/conversations/window-status \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "phones": ["+5511999999999", "+5511888888888"] }'
 ```
@@ -80,7 +80,7 @@ Resposta:
 
 Se você mandar mais de 200 números, a resposta considera os 200 primeiros e traz `truncated: true`.
 
-## Texto livre com a janela fechada
+## Mensagem livre com a janela fechada
 
 A API recusa com **HTTP 422**:
 
@@ -110,14 +110,14 @@ async function reply(phone: string, text: string) {
 
   if (item?.isWindowOpen) {
     return sdk.messages.send({
-      receiver: `whatsapp:${phone}`,
+      receiver: phone,
       body: text,
     });
   }
 
   // Janela fechada: envia template de retomada e guarda o texto para quando o cliente responder
   await sdk.messages.send({
-    receiver: `whatsapp:${phone}`,
+    receiver: phone,
     templateName: 'retomada_atendimento',
     templateVariables: ['Olá'],
   });
@@ -130,7 +130,7 @@ Quando o cliente responder ao template, a janela abre e você envia o texto pend
 ## Janela e custo
 
 - **Template**: paga a tarifa Meta da categoria (MARKETING, UTILITY ou AUTHENTICATION), dentro ou fora da janela.
-- **Texto livre dentro da janela**: a Meta não cobra. A carteira paga só o custo do provedor.
+- **Mensagem livre dentro da janela**: a Meta não cobra. A carteira paga só o custo do provedor.
 - **Mensagem recebida do cliente**: a carteira paga só o custo do provedor.
 
 Valores em [Preços](/concepts/pricing).
@@ -143,17 +143,20 @@ Se o cliente respondeu há poucos segundos e o evento ainda não foi processado,
 
 ### O cliente respondeu no meio de uma campanha
 
-Durante um disparo, um cliente pode responder e abrir a janela. Marque a conversa como aberta ao receber o webhook `message.received` e faça o seu disparador consultar esse estado antes de enviar o próximo template para a mesma pessoa.
+Durante uma campanha, um cliente pode responder e abrir a janela. Marque a conversa como aberta ao receber o webhook `message.received` e faça o seu envio consultar esse estado antes de enviar o próximo template para a mesma pessoa.
 
 ### Mais de uma equipe no mesmo número
 
-A janela é por número da empresa e cliente. Se atendimento e marketing usam o mesmo número, a resposta do cliente para um libera texto livre para o outro. Coordene.
+A janela é por número da empresa e cliente. Se atendimento e marketing usam o mesmo número, a resposta do cliente para um libera mensagem livre para o outro. Coordene.
 
 ## Próximos passos
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="Templates" icon="file-lines" href="/concepts/templates">
     O que mandar fora da janela.
+  </Card>
+  <Card title="Criar e aprovar um template" icon="file-lines" href="/templates/policy">
+    Regras para o template de retomada.
   </Card>
   <Card title="Receita: caixa de entrada" icon="users" href="/recipes/inbox-support">
     Atendimento com vários atendentes.

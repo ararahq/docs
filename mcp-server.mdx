@@ -1,20 +1,30 @@
 ---
 title: 'MCP Server'
-description: 'Conecte Claude Code, Claude Desktop, Cursor ou qualquer cliente MCP à sua conta da Arara. 9 ferramentas: você diz pra quem e o quê, a Arara resolve o resto.'
+description: 'Conecte Claude Code, Claude Desktop, Cursor ou qualquer cliente MCP à sua operação de WhatsApp na Arara.'
 keywords: ['mcp', 'model context protocol', 'claude code', 'claude desktop', 'cursor', 'windsurf', 'vs code', 'agentes ai', 'tools', 'oauth', 'arara']
 ---
 
-Instalou, autorizou no browser e o agente já fala com a base: dispara campanha, lê o que voltou e responde quem levantou a mão. Você pede em português, o agente executa.
+Instalou, autorizou no browser e o agente já fala com a sua base: dispara campanha, lê o que voltou e responde quem levantou a mão. Você pede em português, o agente executa.
 
-<Note>
-  **MCP (Model Context Protocol)** é o protocolo aberto, criado pela Anthropic, pra conectar LLMs a ferramentas externas. O pacote `@ararahq/mcp` roda local via stdio em qualquer cliente que fale MCP: Claude Code, Claude Desktop, Cursor, Windsurf, VS Code e SDKs de MCP.
-</Note>
+## O que é e para quem
 
-## Você diz o quê. A Arara resolve o resto.
+**MCP (Model Context Protocol)** é o protocolo aberto, criado pela Anthropic, para conectar LLMs a ferramentas externas. O pacote `@ararahq/mcp` roda local via stdio em qualquer cliente que fale MCP: Claude Code, Claude Desktop, Cursor, Windsurf, VS Code e SDKs de MCP. Há também um [servidor hospedado](#servidor-hospedado) para claude.ai e ChatGPT.
 
-São **9 ferramentas**, de propósito. Agente bom não precisa de um painel de controle inteiro: precisa de poucas ações que aceitam o que uma pessoa sabe de cabeça e resolvem o resto.
+Use o MCP quando o agente é **seu** (Claude Code, Cursor, Claude Desktop) e trabalha **para você**: dispara campanha, lê o relatório, lê o que a pessoa respondeu e manda a resposta que você aprovou. Já o [Brain](/brain) é a IA da Arara que conversa **com o seu cliente** no WhatsApp.
 
-Na prática: `send_whatsapp` aceita `"Renata"` ou `"11 99999-8888"`. O MCP busca o contato salvo ou normaliza o número pra E.164 e, se a janela de 24h estiver fechada, não inventa template: devolve os seus aprovados pra escolher.
+| Você precisa de... | Use |
+|---|---|
+| Agente de IA que age na sua conta (Claude Code, Claude Desktop, Cursor) | **MCP** |
+| IA que atende o seu cliente no WhatsApp e executa Pix, agenda e catálogo | [Brain](/brain) |
+| Backend próprio que dispara WhatsApp (e-commerce, CRM) | [SDK](/sdks) ou [API REST](/api-reference/introduction) |
+| Resposta automática às respostas da base, com escalada para uma pessoa | [Automações](/integracoes) |
+| Automação visual sem código | [Integrações](/integracoes) |
+
+Não são exclusivos: operação típica usa SDK no backend, automações para responder e MCP para o dono trabalhar pelo agente.
+
+### Você diz o quê. A Arara resolve o resto.
+
+O MCP tem poucas ferramentas de propósito: agente bom não precisa de um painel de controle inteiro, precisa de poucas ações que aceitam o que uma pessoa sabe de cabeça. `send_whatsapp` aceita `"Renata"` ou `"11 99999-8888"`. O MCP busca o contato salvo ou normaliza o número para E.164 e, se a janela de 24h estiver fechada, não inventa template: devolve os seus aprovados para escolher.
 
 | Grupo | Ferramentas |
 |---|---|
@@ -23,15 +33,15 @@ Na prática: `send_whatsapp` aceita `"Renata"` ou `"11 99999-8888"`. O MCP busca
 | Preparar | `create_template` (com botões e smart-link) · `save_contacts` · `opt_out` |
 | Conta | `whoami` |
 
-Quatro tools abrem **painéis interativos** dentro do chat (funil da campanha, prévia do disparo com aprovação, linha do tempo da entrega, thread da conversa) em clientes com suporte a MCP Apps. Leitura leve (conta, templates aprovados, campanhas recentes, números) fica em **resources**, sem gastar tool call. Parâmetros, limites e exemplos de cada uma: [Ferramentas do MCP](/mcp-tools).
+Quatro tools abrem **painéis interativos** dentro do chat (funil da campanha, prévia da campanha com aprovação, linha do tempo da entrega, thread da conversa) em clientes com suporte a MCP Apps. Leitura leve (conta, templates aprovados, campanhas recentes, números) fica em **resources**, sem gastar tool call. Parâmetros, limites e exemplos: [Ferramentas do MCP](/mcp-tools).
 
 <Note>
-  A lista de tools do cliente também mostra 12 ferramentas de operação interna da equipe AraraHQ (`create_api_key`, `add_credit`, `list_failures` e afins). Elas recusam qualquer conta fora da allowlist interna com `OPERATOR_NOT_CONFIGURED` ou `OPERATOR_NOT_ALLOWED`. Pra sua conta, as 9 acima são as que funcionam.
+  A lista de tools do cliente também mostra ferramentas de operação interna da equipe da Arara. Elas não estão disponíveis para clientes. Para a sua organização, as listadas na tabela acima são as que funcionam.
 </Note>
 
-Configuração de conta (API keys, perfil do negócio, números, automações) é trabalho do [dashboard](https://app.ararahq.com), não do agente.
+Configuração de conta (chaves de API, perfil do negócio, números, automações) é trabalho do [painel](https://app.ararahq.com), não do agente.
 
-## Instalar
+## Instalar e conectar
 
 Requisito: **Node.js 20 ou mais novo**. No Linux, o keychain usa o Secret Service (`libsecret`), que precisa estar instalado.
 
@@ -41,7 +51,7 @@ Requisito: **Node.js 20 ou mais novo**. No Linux, o keychain usa o Secret Servic
 npx -y @ararahq/mcp login
 ```
 
-O terminal mostra um link e um código e abre a Arara no browser. Você aprova com a sua conta, e os tokens vão pro keychain do sistema (Keychain no macOS, Secret Service no Linux, Credential Manager no Windows). Nada fica em arquivo de projeto nem na configuração do cliente.
+O terminal mostra um link e um código e abre a Arara no browser. Você aprova com a sua conta, e as credenciais OAuth vão para o keychain do sistema (Keychain no macOS, Secret Service no Linux, Credential Manager no Windows). Nada fica em arquivo de projeto nem na configuração do cliente.
 
 Confira:
 
@@ -116,9 +126,32 @@ npx -y @ararahq/mcp status
 | `npx -y @ararahq/mcp logout` | Remove os tokens do keychain desta máquina. |
 | `npx -y @ararahq/mcp --version` | Versão instalada. |
 
+## Primeiro uso
+
+Depois de conectar, confira com `whoami` em qual organização o agente vai operar e peça uma destas três coisas.
+
+**Falar com a base**
+```
+dispara o template promo_setembro para esses 40 números da planilha
+```
+`broadcast` resolve os números (qualquer formato), renderiza a mensagem e estima o custo **sem enviar**. Você confere a prévia e aprova; só aí a campanha é criada. Quem não resolver aparece listado, não some em silêncio.
+
+**Ver o que voltou**
+```
+como foi a campanha de ontem? quantos clicaram e quantos responderam?
+```
+`campaign_report` devolve enviados, entregues, lidos, cliques, respostas e conversões, mais quantos foram bloqueados e por quê, estornos e custo.
+
+**Responder quem levantou a mão**
+```
+lê o que a Renata respondeu e me sugere uma resposta
+```
+`read_conversation` traz o que ela escreveu; `send_whatsapp` responde depois que você aprova o texto.
+
+
 ## Servidor hospedado
 
-A AraraHQ também roda o servidor em `https://mcp.ararahq.com/mcp`, na Cloudflare Workers, pra clientes que falam MCP Streamable HTTP.
+A AraraHQ também roda o servidor em `https://mcp.ararahq.com/mcp`, na Cloudflare Workers, para clientes que falam MCP Streamable HTTP.
 
 ```
 URL: https://mcp.ararahq.com/mcp
@@ -134,7 +167,7 @@ Adicione um conector personalizado com a URL `https://mcp.ararahq.com/mcp`. O cl
 3. Abre `https://app.ararahq.com/oauth/authorize`, onde você entra na sua conta e aprova o acesso.
 4. Troca o código por token em `POST /oauth/token` (authorization code com PKCE `S256`) e passa a mandar o bearer em cada chamada.
 
-Não há API key nem token pra colar em lugar nenhum.
+Não há chave de API nem token para colar em lugar nenhum.
 
 Como o hospedado se comporta:
 
@@ -156,26 +189,6 @@ OAuth, e só OAuth.
 - `logout` apaga os tokens desta máquina.
 
 Sem login, as tools não executam. Rode `status` ou `doctor` pra conferir antes de abrir o cliente.
-
-## 3 coisas pra pedir hoje
-
-**Falar com a base**
-```
-dispara o template promo_setembro pra esses 40 números da planilha
-```
-`broadcast` resolve os números (qualquer formato), renderiza a mensagem e estima o custo **sem enviar**. Você confere a prévia e aprova; só aí a campanha é criada. Quem não resolver aparece listado, não some em silêncio.
-
-**Ver o que voltou**
-```
-como foi a campanha de ontem? quantos clicaram e quantos responderam?
-```
-`campaign_report` devolve enviados, entregues, lidos, cliques, respostas e conversões, mais quantos foram bloqueados e por quê, estornos e custo.
-
-**Responder quem levantou a mão**
-```
-lê o que a Renata respondeu e me sugere uma resposta
-```
-`read_conversation` traz o que ela escreveu; `send_whatsapp` responde depois que você aprova o texto.
 
 ## Guarda-rails
 
@@ -212,22 +225,17 @@ ARARA_OAUTH_SCOPES="scope1 scope2"        # Escopos publicados no metadata, sepa
 
 No modo HTTP em Node, o corpo da requisição é limitado a 64 KB e o rate limit é de 120 requisições por minuto por IP.
 
-## MCP, SDK ou Automações
-
-| Você precisa de... | Use |
-|---|---|
-| Agente de IA que age na sua conta (Claude Code, Claude Desktop, Cursor) | **MCP** |
-| Backend próprio que dispara WhatsApp (e-commerce, CRM) | [SDK](/sdks) |
-| Resposta automática às respostas da base, com escalada pra pessoa | [Automações](/integracoes) |
-| Automação visual sem código | [Integrações](/integracoes) |
-
-Não são exclusivos: operação típica usa SDK no backend, automações pra responder e MCP pro dono trabalhar pelo agente.
-
 ## Próximos passos
 
 <CardGroup cols={2}>
   <Card title="Ferramentas do MCP" icon="wrench" href="/mcp-tools">
-    O que cada uma das 9 ferramentas faz, parâmetros, limites e exemplos.
+    Referência de tools, resources e prompts: parâmetros, limites e exemplos.
+  </Card>
+  <Card title="Brain" icon="brain" href="/brain">
+    A IA da Arara que atende o seu cliente no WhatsApp.
+  </Card>
+  <Card title="CLI" icon="terminal" href="/cli">
+    A CLI tem um `arara mcp` próprio, diferente deste pacote.
   </Card>
   <Card title="Source no GitHub" icon="github" href="https://github.com/ararahq/mcp">
     Código aberto MIT, releases versionadas, issues abertas.

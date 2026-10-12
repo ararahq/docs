@@ -1,24 +1,24 @@
 ---
 title: 'Automações com resposta'
-description: 'Faça uma pergunta com botões no meio da automação e siga um caminho diferente pra cada resposta do cliente: cobrar, etiquetar, lembrar quem não respondeu.'
+description: 'Faça uma pergunta com botões no meio da automação e siga um caminho diferente para cada resposta do cliente: cobrar, etiquetar, lembrar quem não respondeu.'
 keywords: ['automação', 'pergunta', 'botões', 'ramificação', 'question', 'button.replied', 'resposta rápida', 'histórico de execução']
 ---
 
-O passo `question` envia uma pergunta com opções e espera o cliente responder. Cada opção tem o seu próprio caminho de passos, e existe um caminho pra quem não respondeu e outro pra quem respondeu outra coisa.
+O passo `question` envia uma pergunta com opções e espera o cliente responder. Cada opção tem o seu próprio caminho de passos, e existe um caminho para quem não respondeu e outro para quem respondeu outra coisa.
 
-O resto da automação continua igual: gatilho, passos em ordem, um contato por execução. Se você ainda não montou uma automação, comece pela [receita de carrinho abandonado](/recipes/abandoned-cart#3b-sequência-com-espera-automação).
+O resto da automação continua igual: gatilho, passos em ordem, um contato por execução. Se você ainda não montou uma automação, comece pela [receita de carrinho abandonado](/recipes/abandoned-cart#passo-a-passo).
 
 ## Exemplo completo
 
 Pagamento falhou. A automação pergunta como o cliente quer resolver, por template, porque ele pode estar fora da janela de 24h:
 
 - **Pix**: envia a [cobrança](/cobrancas) na hora.
-- **Falar com alguém**: aplica uma etiqueta pra sua equipe assumir.
+- **Falar com alguém**: aplica uma etiqueta para sua equipe assumir.
 - **Não respondeu em 24h**: manda um lembrete.
 
 ```bash
 curl -X POST https://api.ararahq.com/v1/automations \
-  -H "Authorization: Bearer ara_live_xxx" \
+  -H "Authorization: Bearer $ARARA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Pagamento falhou: como resolver",
@@ -71,7 +71,7 @@ curl -X POST https://api.ararahq.com/v1/automations \
   }'
 ```
 
-O template `pagamento_falhou_opcoes` tem dois botões de resposta rápida, `Pix` e `Falar com alguém`. O template do caminho `pix` é um [template de cobrança](/cobrancas#fora-da-janela-template-de-cobrança).
+O template `pagamento_falhou_opcoes` tem dois botões de resposta rápida, `Pix` e `Falar com alguém`. O template do caminho `pix` é um [template de cobrança](/cobrancas#como-faço).
 
 A automação nasce desligada. Ligue com `PUT /v1/automations/{id}/active` e `{ "active": true }`.
 
@@ -107,7 +107,7 @@ Os passos de um caminho têm o mesmo formato dos passos da raiz, inclusive outro
 | `options[].id` | De 1 a 200 caracteres, único na pergunta. Não pode começar com `__`. |
 | `options[].title` | O texto que o cliente vê. |
 | `options[].match` | Opcional. Textos digitados que contam como essa opção, como `["1", "pix"]`. |
-| `timeoutMinutes` | Prazo pra responder. Padrão `1440` (24h), de `1` a `10080` (7 dias). |
+| `timeoutMinutes` | Prazo para responder. Padrão `1440` (24h), de `1` a `10080` (7 dias). |
 | `retryText` | Opcional. O que a automação manda quando não entende a primeira resposta. |
 | `templateName` | Só em `template`: o nome do template aprovado. |
 | `variables` | Só em `template`: as variáveis do template, na ordem de `{{1}}`, `{{2}}`... |
@@ -125,7 +125,7 @@ Uma automação aceita até **2 níveis de pergunta**: uma pergunta dentro do ca
 
 `buttons` e `list` são mensagens de sessão. Só funcionam com a janela de 24h aberta, ou seja, quando o cliente falou com você nas últimas 24 horas.
 
-Pra começar uma conversa com quem está fora da janela, **a primeira pergunta precisa ser `template`**: um template aprovado com botões de resposta rápida. Nesse modo, o toque chega com o **texto do botão**, e a Arara casa esse texto com o `title` (ou o `id`) de cada opção. Então o `title` precisa ser igual ao texto do botão no template.
+Para começar uma conversa com quem está fora da janela, **a primeira pergunta precisa ser `template`**: um template aprovado com botões de resposta rápida. Nesse modo, o toque chega com o **texto do botão**, e a Arara casa esse texto com o `title` (ou o `id`) de cada opção. Então o `title` precisa ser igual ao texto do botão no template.
 
 Depois que o cliente toca no botão, a janela abre. As perguntas seguintes podem ser `buttons` ou `list`.
 
@@ -137,7 +137,7 @@ Depois que o cliente toca no botão, a janela abre. As perguntas seguintes podem
 Quando nada bate:
 
 - **Primeira vez**: a automação pergunta de novo, uma vez, com o `retryText`.
-- **Segunda vez**: segue pelo caminho `__other`. Sem `__other`, a execução para e a mensagem vai pro atendimento normal (Brain ou caixa de entrada).
+- **Segunda vez**: segue pelo caminho `__other`. Sem `__other`, a execução para e a mensagem vai para o atendimento normal (Brain ou caixa de entrada).
 
 Enquanto uma execução espera resposta, quem responde é a automação, não o Brain. A mensagem do cliente aparece na conversa do mesmo jeito, e o webhook [`message.received`](/webhooks/events#message-received) dispara normalmente, com `reply` quando foi um toque.
 
@@ -151,7 +151,7 @@ A opção escolhida vira variável da execução e pode ser usada nos passos seg
 |---|---|
 | `resposta_1` | O `id` da opção escolhida na primeira pergunta. |
 | `resposta_1_texto` | O `title` dessa opção. |
-| `resposta_2`, `resposta_2_texto` | O mesmo, pra segunda pergunta. |
+| `resposta_2`, `resposta_2_texto` | O mesmo, para segunda pergunta. |
 
 Use como `{{resposta_1}}`, do mesmo jeito que as variáveis do evento que disparou a automação.
 
@@ -159,10 +159,10 @@ Use como `{{resposta_1}}`, do mesmo jeito que as variáveis do evento que dispar
 
 | Pergunta | Custo |
 |---|---|
-| `buttons` ou `list` (formato livre) | O custo de uma mensagem de sessão no seu plano. |
+| `buttons` ou `list` (formato livre) | O custo de uma mensagem dentro da janela de 24h no seu plano. |
 | `template` | O custo do template, pela categoria dele. |
 
-A estimativa de `costPerRunBrl` soma o caminho mais caro, porque cada pessoa atravessa um caminho só. `GET /v1/automations/pricing` devolve o preço da mensagem livre (`sessionUnitPriceBrl`) pra você somar antes de salvar.
+A estimativa de `costPerRunBrl` soma o caminho mais caro, porque cada pessoa atravessa um caminho só. `GET /v1/automations/pricing` devolve o preço da mensagem dentro da janela de 24h (`sessionUnitPriceBrl`) para você somar antes de salvar.
 
 ## Gatilho: toque num botão
 
@@ -180,7 +180,7 @@ A configuração vai em `triggerConfig`, ao lado de `trigger`:
 | Campo | Regra |
 |---|---|
 | `replyId` | Obrigatório. O `id` do botão, comparado exatamente (maiúsculas contam). Em resposta rápida de template, o `id` que chega é o **texto do botão**. |
-| `templateName` | Opcional. Fica guardado pra você se organizar; a resposta do WhatsApp não diz de qual template veio, então não entra na comparação. |
+| `templateName` | Opcional. Fica guardado para você se organizar; a resposta do WhatsApp não diz de qual template veio, então não entra na comparação. |
 
 Sem `replyId` a criação é recusada com `AUTOMATION_TRIGGER_CONFIG_INVALID`.
 
@@ -194,7 +194,7 @@ Cada contato que entra na automação gera uma execução.
 
 ```bash
 curl "https://api.ararahq.com/v1/automations/{id}/runs?page=0&size=20" \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 ```json
@@ -232,11 +232,11 @@ curl "https://api.ararahq.com/v1/automations/{id}/runs?page=0&size=20" \
 | `STOPPED` | Parou antes do fim: condição, resposta não reconhecida sem `__other`, ou atendente assumiu. |
 | `FAILED` | Um passo falhou. |
 
-Pra ver o que aconteceu dentro de uma execução:
+Para ver o que aconteceu dentro de uma execução:
 
 ```bash
 curl "https://api.ararahq.com/v1/automations/{id}/runs/{runId}/events?page=0&size=50" \
-  -H "Authorization: Bearer ara_live_xxx"
+  -H "Authorization: Bearer $ARARA_API_KEY"
 ```
 
 ```json
@@ -286,12 +286,24 @@ Pergunta fora dos limites (opções demais, `title` longo, `id` repetido ou come
 ## Como testar
 
 1. Crie a automação com uma pergunta em modo `buttons` e ligue.
-2. Mande uma mensagem do seu celular pro seu número, pra abrir a janela de 24h.
-3. Dispare o gatilho pro seu próprio telefone.
-4. Toque num botão e confira o caminho. Depois repita digitando um texto de `match`, e outra vez digitando qualquer coisa duas vezes, pra ver o `retryText` e o `__other`.
-5. Pra testar o `__timeout` sem esperar um dia, use `"timeoutMinutes": 1`.
+2. Mande uma mensagem do seu celular para o seu número, para abrir a janela de 24h.
+3. Dispare o gatilho para o seu próprio telefone.
+4. Toque num botão e confira o caminho. Depois repita digitando um texto de `match`, e outra vez digitando qualquer coisa duas vezes, para ver o `retryText` e o `__other`.
+5. Para testar o `__timeout` sem esperar um dia, use `"timeoutMinutes": 1`.
 6. Abra `GET /v1/automations/{id}/runs/{runId}/events` e confira a ordem: `QUESTION_ASKED`, `REPLY_MATCHED` e o passo do caminho.
 
-Pra testar o modo `template`, o template com respostas rápidas precisa estar aprovado. Pra coletar vários dados de uma vez em vez de uma escolha, use um [formulário](/flows). Pra cobrar e seguir um caminho quando o cliente pagar, veja [Link da automação e pagamento](/automacoes-webhook).
+Para testar o modo `template`, o template com respostas rápidas precisa estar aprovado. Para coletar vários dados de uma vez em vez de uma escolha, use um [formulário](/flows). Para cobrar e seguir um caminho quando o cliente pagar, veja [Link da automação e pagamento](/automacoes-webhook).
 
-Pra criar, editar e ligar automações pela API, veja [Automações pela API](/automacoes-api).
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Automações pela API" icon="code" href="/automacoes-api">
+    Criar, editar e ligar automações.
+  </Card>
+  <Card title="Link da automação e pagamento" icon="link" href="/automacoes-webhook">
+    Gatilho webhook e wait_payment.
+  </Card>
+  <Card title="Formulários" icon="list-check" href="/flows">
+    Coletar vários dados de uma vez.
+  </Card>
+</CardGroup>

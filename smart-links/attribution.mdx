@@ -1,20 +1,20 @@
 ---
 title: 'Atribuição de conversão'
-description: 'Reporte vendas do seu backend pra Arara e ligue cada conversão à última mensagem enviada ao cliente. Alimenta a métrica de conversão do A/B test e o valor recuperado do Recovery.'
+description: 'Reporte vendas do seu backend para Arara e ligue cada conversão à última mensagem enviada ao cliente. Alimenta a métrica de conversão do teste A/B e o valor recuperado da recuperação de receita.'
 ---
 
-O **clique** em links da Arara já é registrado automaticamente (ver [Smart Links](/smart-links)). Pra saber se o cliente **comprou**, o seu backend reporta a conversão pra Arara, que liga a venda à última mensagem enviada àquele telefone.
+Segundo passo depois dos [Smart Links](/smart-links): o clique já é registrado automaticamente, e para saber se o cliente **comprou** o seu backend reporta a conversão para a Arara, que liga a venda à última mensagem enviada àquele telefone.
 
 <Note>
-  Não existe pixel JavaScript nem integração nativa com Shopify, WooCommerce ou Stripe pra conversão. A atribuição é feita por chamada server-side, com o telefone como chave.
+  Não existe pixel JavaScript nem integração nativa com Shopify, WooCommerce ou Stripe para conversão. A atribuição é feita por chamada server-side, com o telefone como chave.
 </Note>
 
 ## Como a atribuição funciona
 
-1. Você envia `phone`, `order_id` e `value` pro endpoint de conversão da sua organização.
+1. Você envia `phone`, `order_id` e `value` para o endpoint de conversão da sua organização.
 2. A Arara procura a última mensagem enviada a esse telefone nos **últimos 7 dias**.
 3. Se encontrar, a conversão fica ligada a essa mensagem.
-4. A conversão atribuída alimenta a métrica `CONVERTED` do [A/B test de campanha](/marketing) e o valor recuperado em `GET /v1/recovery/stats`.
+4. A conversão atribuída alimenta a métrica `CONVERTED` do [teste A/B de campanha](/marketing) e o valor recuperado em `GET /v1/recovery/stats`.
 
 ## Endpoint de conversão
 
@@ -74,14 +74,14 @@ A resposta é `202`:
 }
 ```
 
-`attributedMessageId` vem `null` quando não houve mensagem pra esse telefone nos últimos 7 dias.
+`attributedMessageId` vem `null` quando não houve mensagem para esse telefone nos últimos 7 dias.
 
 <Warning>
   **Mande sempre `order_id`.** Gateways reenviam webhook. Sem `order_id`, cada reenvio vira uma conversão nova.
 </Warning>
 
 <Note>
-  Use `https://api.ararahq.com/l/{code}`. O `url` devolvido pelo endpoint aponta pra `ararahq.com/l/{code}`, que só aceita `GET`.
+  Use `https://api.ararahq.com/l/{code}`. O `url` devolvido pelo endpoint aponta para `ararahq.com/l/{code}`, que só aceita `GET`.
 </Note>
 
 ## A partir do webhook do seu gateway
@@ -92,9 +92,9 @@ Shopify (`orders/paid`), Stripe (`checkout.session.completed`), WooCommerce e Ab
 
 | Sintoma | Causa provável |
 |---|---|
-| `attributedMessageId` nulo | Nenhuma mensagem pra esse telefone nos últimos 7 dias, ou telefone em formato diferente do usado no envio. Use E.164 (`+5511999999999`) |
+| `attributedMessageId` nulo | Nenhuma mensagem para esse telefone nos últimos 7 dias, ou telefone em formato diferente do usado no envio. Use E.164 (`+5511999999999`) |
 | Conversão não aparece de novo | O `order_id` já tinha sido recebido |
-| Valor recuperado zerado no Recovery | A conversão não foi atribuída a uma mensagem de Recovery |
+| Valor recuperado zerado na recuperação de receita | A conversão não foi atribuída a uma mensagem de recuperação |
 | `403 RECOVERY_ENDPOINT_INACTIVE` | Endpoint de conversão desativado |
 
 ## Dados registrados
@@ -102,15 +102,15 @@ Shopify (`orders/paid`), Stripe (`checkout.session.completed`), WooCommerce e Ab
 - Clique: IP, user agent, referer e país (quando disponível).
 - Conversão: telefone, `order_id`, valor e o corpo recebido.
 
-Declare na sua política de privacidade que usa a Arara pra medir resultado das mensagens. Ver [Compliance](/concepts/compliance).
+Declare na sua política de privacidade que usa a Arara para medir resultado das mensagens. Ver [Compliance](/concepts/compliance).
 
 ## Próximos passos
 
 <CardGroup cols={2}>
-  <Card title="Smart Links" icon="link" href="/smart-links">
-    Links curtos e contagem de cliques.
-  </Card>
-  <Card title="Revenue Recovery" icon="rotate-right" href="/recovery">
+  <Card title="Recuperação de receita" icon="rotate-right" href="/recovery">
     Mensagens automáticas a partir de eventos.
+  </Card>
+  <Card title="Campanhas de marketing" icon="bullhorn" href="/marketing">
+    Teste A/B com a métrica CONVERTED.
   </Card>
 </CardGroup>

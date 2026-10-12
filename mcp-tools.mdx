@@ -4,7 +4,7 @@ description: 'Referência das 9 ferramentas, 4 painéis interativos, 4 resources
 keywords: ['mcp', 'tools', 'send_whatsapp', 'broadcast', 'campaign_report', 'ab test', 'check_status', 'create_template', 'save_contacts', 'opt_out', 'read_conversation', 'resources', 'prompts', 'mcp apps', 'arara']
 ---
 
-O MCP tem 3 camadas: **tools** (ações que o agente executa), **resources** (dados que o cliente lê sem tool call) e **prompts** (fluxos prontos). Instalação e autenticação: [MCP Server](/mcp-server).
+O MCP tem 3 camadas: **tools** (ações que o agente executa), **resources** (dados que o cliente lê sem tool call) e **prompts** (fluxos prontos). Instalação e autenticação: [MCP Server](/mcp-server). A versão atual é o pacote `@ararahq/mcp` 6.x; mudanças em relação às versões antigas estão no [changelog](/changelog).
 
 São 9 tools de propósito. Agente com painel de controle inteiro erra mais do que agente com poucas ações que aceitam o que uma pessoa sabe de cabeça (um nome, um número em qualquer formato) e resolvem o resto.
 
@@ -156,7 +156,7 @@ Submete um template novo pra aprovação da Meta. Você precisa de um pra qualqu
 </Warning>
 
 <Note>
-  Botão `SMART_LINK`: passe em `url` o **destino real** (ex: `https://wa.me/5583991768778?text=Quero%20saber%20mais`). A Arara encurta e conta cada clique, que aparece como cliques no `campaign_report`. É assim que você descobre qual copy converteu num teste A/B.
+  Botão `SMART_LINK`: passe em `url` o **destino real** (ex: `https://wa.me/5511999999999?text=Quero%20saber%20mais`). A Arara encurta e conta cada clique, que aparece como cliques no `campaign_report`. É assim que você descobre qual copy converteu num teste A/B.
 </Note>
 
 ### save_contacts
@@ -278,7 +278,7 @@ Sete tools para montar e acompanhar automações em linguagem natural, sobre a m
 Vale a mesma nota de permissão da API: escrita exige `AUTOMATIONS_MANAGE`, leitura exige `READ`. Sem a permissão, a tool falha com o `error.code` que a API devolveu.
 
 <Warning>
-`create_automation` e `update_automation` nunca ligam a automação sozinhos — ela sai desligada ou do jeito que já estava. Ligar uma automação com `set_automation_active` manda mensagens reais para clientes reais a partir daquele momento; confirme com a pessoa antes de chamar. O link de uma automação com gatilho `webhook` é uma credencial: nunca cole nem repita esse link na conversa.
+`create_automation` e `update_automation` nunca ligam a automação sozinhos: ela sai desligada ou do jeito que já estava. Ligar uma automação com `set_automation_active` manda mensagens reais para clientes reais a partir daquele momento; confirme com a pessoa antes de chamar. O link de uma automação com gatilho `webhook` é uma credencial: nunca cole nem repita esse link na conversa.
 </Warning>
 
 ```
@@ -289,17 +289,13 @@ monta uma automação que pergunta se o cliente quer pagar por Pix ou cartão e 
 me mostra quem parou na pergunta ontem
 ```
 
-## O que mudou
+## Próximos passos
 
-A versão atual é o pacote `@ararahq/mcp` 6.x. O pacote antigo sem escopo, `ararahq-mcp`, é a v4 congelada. Se você usava a v4 ou a v5 (voltada a atendimento), o mapa:
-
-| Antes | Agora |
-|---|---|
-| `send_whatsapp` + `send_template` | `send_whatsapp` (com `message` ou `templateName`) |
-| `broadcast` + `broadcast_ab`, `prepare_campaign` + `campaign_preflight` + `publish_campaign` | `broadcast` (prévia por padrão, `abTest` opcional) |
-| `list_campaigns` + `get_campaign` | `campaign_report` (com ou sem `campaignId`) |
-| `check_status` + `check_message` + `get_template_status` | `check_status` (com `to`, `messageId` ou `templateId`) |
-| `get_conversation`, `draft_reply`, `reply_to_conversation` | `read_conversation` + `send_whatsapp` |
-| `create_smart_link`, `list_smart_links`, `create_short_link`, `list_short_links` | Botão `SMART_LINK` no `create_template`; link avulso fica no [dashboard](https://app.ararahq.com) |
-| `login`, `logout` | CLI: `npx -y @ararahq/mcp login` / `logout` |
-| `get_today`, `triage_today`, `find_conversations`, `claim_conversation`, `close_conversation`, `close_case_review`, `list_automations`, `get_automation` | Removidas. Fila de atendimento é trabalho do dashboard, não do agente. |
+<CardGroup cols={2}>
+  <Card title="Instalar o MCP" icon="plug" href="/mcp-server">
+    Login, configuração em cada cliente e primeiro uso.
+  </Card>
+  <Card title="Erros" icon="triangle-exclamation" href="/erros">
+    Códigos que a API devolve e passam sem alteração pelo MCP.
+  </Card>
+</CardGroup>
