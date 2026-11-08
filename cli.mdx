@@ -1,7 +1,7 @@
 ---
 title: 'CLI da Arara'
 description: 'Envie mensagem, escute eventos, consulte templates e campanhas e chame qualquer endpoint da API pelo terminal. Binário único em Go, sem dependência de Node ou Python.'
-keywords: ['cli', 'terminal', 'arara cli', 'linha de comando', 'go', 'homebrew', 'arara send', 'arara listen']
+keywords: ['cli', 'terminal', 'arara cli', 'linha de comando', 'go', 'homebrew', 'arara send']
 ---
 
 O `arara` é a CLI da Arara. Binário único em Go para macOS, Linux e Windows (amd64/arm64), sem Node e sem Python.
@@ -21,9 +21,6 @@ arara send --to +5511999999999 --template confirmacao_pedido --vars "João,ARA-1
 
 # Ver o payload e o custo estimado sem enviar
 arara send --to +5511999999999 --template confirmacao_pedido --vars "João,ARA-12345" --dry-run
-
-# Acompanhar eventos em tempo real
-arara listen
 ```
 
 ## Instalação
@@ -134,34 +131,11 @@ arara send \
 | `--watch` | Espera a mensagem chegar a um status final (entregue, lida, falhou) e sai. |
 | `--watch-timeout` | Tempo máximo do `--watch`. |
 
-### `arara listen`
-
-Escuta os eventos da conta em tempo real (SSE):
-
-```bash
-arara listen
-arara listen --events message.status_updated,message.received
-```
-
-Para desenvolver um receptor de webhook local, encaminhe cada evento via POST:
-
-```bash
-arara listen --forward-to http://localhost:3000/api/webhooks
-```
-
-Com `--capture`, a CLI registra um listener temporário no backend e o evento chega assinado no seu handler local (header `X-Arara-Signature`), sem expor o localhost com túnel. Se o ambiente não suportar captura, a CLI volta ao modo passivo e avisa.
-
-```bash
-arara listen --capture --forward-to http://localhost:3000/api/webhooks
-```
-
 ### `arara logs`
 
 ```bash
 arara logs                 # mensagens recentes
 arara logs --limit 50
-arara logs --follow        # eventos ao vivo em NDJSON, bom para pipe
-arara logs --tail          # eventos ao vivo em visualizador no terminal
 ```
 
 ### `arara api`
@@ -212,7 +186,6 @@ A criação de template não tem subcomando. Use o [Dashboard](https://app.arara
 | `arara doctor` | Diagnóstico de versão, autenticação e conectividade. |
 | `arara init` | Cria `.arara/` no projeto: `settings.json`, um comando de exemplo, um hook de exemplo e a entrada `credentials*` no `.gitignore`. |
 | `arara upgrade` | Verifica se há versão nova. Com `--install`, baixa, confere o SHA-256 e troca o binário. |
-| `arara telemetry on/off/status` | Telemetria anônima de uso da CLI. Desligada por padrão. |
 | `arara config list/get/set` | Configuração em `~/.arara/config.yaml` (`profile`, `api-url`, `output`). |
 | `arara settings list/get/set` | Preferências da CLI (tema, hooks, plugins), em camadas usuário e projeto. |
 | `arara completion <shell>` | Gera autocomplete (bash, zsh, fish, powershell). `arara completion install` instala. |
