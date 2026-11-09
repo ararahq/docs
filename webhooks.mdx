@@ -245,48 +245,6 @@ Responda `200` assim que a assinatura for válida e o `X-Arara-Delivery-Id` esti
 
 ## Testar localmente
 
-### Com a CLI
-
-O `arara listen` da [CLI](/cli) recebe os eventos da organização no terminal e encaminha cada um para o seu receptor local, sem túnel.
-
-<Steps>
-  <Step title="Autentique a CLI">
-    ```bash
-    arara login
-    ```
-  </Step>
-  <Step title="Veja os eventos chegando">
-    ```bash
-    arara listen
-    ```
-
-    Para filtrar por tipo:
-
-    ```bash
-    arara listen --events message.status_updated,message.received
-    ```
-  </Step>
-  <Step title="Encaminhe para o seu receptor">
-    Com o `receptor.mjs` rodando na porta `3000`:
-
-    ```bash
-    arara listen --forward-to http://localhost:3000/webhooks/arara
-    ```
-
-    Para receber o evento assinado, com o header `X-Arara-Signature`, use `--capture`:
-
-    ```bash
-    arara listen --capture --forward-to http://localhost:3000/webhooks/arara
-    ```
-  </Step>
-</Steps>
-
-<Warning>
-  Enquanto um `arara listen --capture` está ativo, os eventos da organização vão para a CLI em vez da URL cadastrada no painel. Não deixe a captura ligada numa organização em produção.
-</Warning>
-
-Com `--capture`, a assinatura é feita com o secret do listener temporário da CLI, não com o secret do painel. Para validar a verificação de assinatura de ponta a ponta com o secret de produção, use o túnel.
-
 ### Com túnel
 
 Qualquer túnel que entregue um endereço `https` público serve:
