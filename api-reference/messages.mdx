@@ -11,7 +11,7 @@ Uma mensagem é um envio de WhatsApp para um telefone. Você envia um template a
 | Campo | Descrição |
 |---|---|
 | `id` | ID público (`ara_msg_...`). Use para consultar e para casar com o webhook. |
-| `status` | `PENDING`, `SCHEDULED`, `PROCESSING`, `SENT`, `DELIVERED`, `READ`, `FAILED` ou `CANCELED`. |
+| `status` | `PENDING`, `SCHEDULED`, `PROCESSING`, `SENT`, `DELIVERED`, `READ`, `PLAYED`, `FAILED` ou `CANCELED`. `PLAYED` é a nota de voz ouvida. |
 | `sender`, `receiver` | Número que enviou e número do destinatário. |
 | `body` | Conteúdo final, com as variáveis aplicadas. Pode vir `null`. |
 | `cost` | Custo em reais. Pode vir `null`. |
@@ -124,6 +124,6 @@ A lista completa de cada endpoint está na página dele. Códigos de falha de en
     Criar e gerenciar templates aprovados.
   </Card>
   <Card title="Eventos de webhook" icon="bell" href="/webhooks/events">
-    Receber `delivered`, `read` e `failed` em tempo real.
+    Receber `delivered`, `read`, `played` e `failed` em tempo real.
   </Card>
 </CardGroup>

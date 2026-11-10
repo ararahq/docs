@@ -103,12 +103,14 @@ Dispara a cada mudança de status de uma mensagem que você enviou.
 | `messageId` | string (UUID) \| null | ID interno. `null` quando o envio falhou antes de virar mensagem. |
 | `internalId` | string | Igual a `id`. |
 | `providerSid` | string \| null | ID da mensagem na Meta (`wamid`). |
-| `status` | string | `queued`, `scheduled`, `processing`, `sent`, `delivered`, `read`, `failed` ou `canceled`. |
+| `status` | string | `queued`, `scheduled`, `processing`, `sent`, `delivered`, `read`, `played`, `failed` ou `canceled`. |
 | `receiver` | string | Telefone do destinatário. |
 | `sender` | string | Número que enviou. Vazio quando o envio falhou antes de virar mensagem. |
 | `errorDetails` | string \| object \| null | Motivo da falha. `null` quando não houve falha. |
 
 O `status` vem em minúsculas. Na API REST o mesmo status vem em maiúsculas, e `PENDING` aparece aqui como `queued`.
+
+`played` significa que o destinatário ouviu uma nota de voz. Fica acima de `read`: um evento `played` não volta para `read`, `delivered` ou `sent`. No REST o mesmo estado é `PLAYED`.
 
 Quando `status` é `failed`, `errorDetails` traz o motivo já traduzido pela Arara, em um de dois formatos:
 
