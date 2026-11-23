@@ -6,7 +6,7 @@
 
 Antes de escrever código, saiba:
 
-- **Todo envio é real e cobrado.** Não existe modo de teste nem sandbox. Não rode um envio de exemplo sem o usuário confirmar o número de destino.
+- **Todo envio é real e cobrado.** Não existe modo de teste nem chave de teste; para prova de conceito, o especialista libera um número de sandbox da Arara, que também envia de verdade. Não rode um envio de exemplo sem o usuário confirmar o número de destino.
 - **Pré-requisitos da conta** (feitos pelo usuário no painel, não pela API): plano assinado, número conectado, pelo menos um template aprovado pela Meta e saldo na carteira. Sem eles o envio responde `403 ACCOUNT_NOT_ACTIVATED`, `403 NO_DEDICATED_NUMBER`, `409 CONFLICT` (template não existe) ou `402 INSUFFICIENT_FUNDS`.
 - **Chave de API**: criada em https://app.ararahq.com/dashboard/apikeys, formato `ara_live_...`, lida da variável de ambiente `ARARA_API_KEY`. Nunca no código nem no frontend.
 - **Fora da janela de 24h só template.** Texto livre (`body`) só funciona se o cliente escreveu nas últimas 24h; senão `422 CONVERSATION_WINDOW_CLOSED`.
@@ -180,7 +180,7 @@ Mensagem recebida do cliente (atenção: campos em snake_case, telefones só com
 ## Infraestrutura
 
 - Base URL: `https://api.ararahq.com` (todos os paths abaixo são relativos a ela; o prefixo `/api` também é aceito)
-- Auth: header `Authorization: Bearer $ARARA_API_KEY` (formato `ara_live_...`). Chave gerada no painel (https://app.ararahq.com/dashboard/apikeys). Uma chave não gerencia chaves: `/v1/api-keys` recusa chamada autenticada por chave de API. Toda chave é de produção: não existe modo de teste nem sandbox.
+- Auth: header `Authorization: Bearer $ARARA_API_KEY` (formato `ara_live_...`). Chave gerada no painel (https://app.ararahq.com/dashboard/apikeys). Uma chave não gerencia chaves: `/v1/api-keys` recusa chamada autenticada por chave de API. Toda chave é de produção: não existe modo de teste nem chave de teste. Para prova de conceito, o especialista libera um número de sandbox da Arara, com envio real.
 - Permissões: chave criada sem restrição tem acesso total (`ADMIN`). Com permissões restritas, escrita exige a permissão da área (`MESSAGES_SEND`, `TEMPLATES_WRITE`, `CAMPAIGNS_SEND`, `CONTACTS_WRITE`, `AUTOMATIONS_MANAGE`) e `READ` libera só `GET` em mensagens, campanhas, templates, formulários, cobranças, automações e números; as demais leituras (contatos, conversas, opt-outs, carteira, `/auth/me`) exigem `ADMIN`.
 - Rate limit por usuário dono da chave: 1.200 leituras e 3.000 escritas por minuto. Toda resposta traz `X-RateLimit-Remaining`; ao estourar, `429 RATE_LIMIT_EXCEEDED` com `Retry-After`.
 - Painel: https://app.ararahq.com
