@@ -1,7 +1,18 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Arara — API de WhatsApp Business",
+  "name": "Arara Docs",
+  "description": "Documentação da API de WhatsApp Business da Arara: envio e recebimento de mensagens, templates, campanhas, webhooks, SDKs, CLI e MCP para agentes de IA.",
+  "seo": {
+    "indexing": "navigable",
+    "metatags": {
+      "og:locale": "pt_BR"
+    },
+    "organization": {
+      "name": "AraraHQ",
+      "logo": "https://docs.ararahq.com/logo/arara-horizontal-light.svg"
+    }
+  },
   "colors": {
     "primary": "#1c99a7",
     "light": "#5fbcc7",

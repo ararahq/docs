@@ -1,12 +1,15 @@
 ---
-title: 'Migrar do Baileys'
-description: 'Sair do Baileys (e whatsapp-web.js, wppconnect) para a WhatsApp Business Platform via Arara: de socket persistente com sessão local para API REST e webhook. Diff de arquitetura, código e plano de migração.'
+title: 'Migrar do Baileys para a API oficial do WhatsApp'
+sidebarTitle: 'Baileys'
+description: 'Saia do Baileys, whatsapp-web.js ou wppconnect para a API oficial da Meta via Arara: o que muda na arquitetura, diff de código e plano de migração por etapas.'
 keywords: ['baileys', 'whatsapp-web.js', 'wppconnect', 'migração', 'whatsapp business platform']
 ---
 
 Baileys é uma biblioteca open source que conecta um número pelo protocolo do WhatsApp Web: roda na sua infra, autentica por QR Code e mantém um socket aberto. A Arara envia pela WhatsApp Business Platform da Meta, por API REST. Migrar é trocar de arquitetura, não só de biblioteca.
 
 Esta página vale também para `whatsapp-web.js` e `wppconnect`, que seguem o mesmo padrão.
+
+Se a dúvida ainda é por que sair de uma biblioteca não oficial, o blog da Arara explica [os riscos reais de banimento da API não oficial do WhatsApp](https://ararahq.com/blog/api-whatsapp-oficial-vs-nao-oficial-riscos) antes do roteiro técnico.
 
 ## O que muda
 
