@@ -247,12 +247,10 @@ Mensagem recebida do cliente (atenção: campos em snake_case, telefones só com
 
 - `GET /v1/organizations/me/business-profile` · `PATCH /v1/organizations/me/business-profile` · `POST /v1/organizations/me/business-profile/sync`
 
-## Planos
+## Contratação e planos
 
-- Não existe plano gratuito nem modo de teste. Quem assinou um plano anterior (Embarque, Essencial ou outro) mantém as condições contratadas.
-- Voo — R$ 997/mês: 50.000 envios por mês, 10 pessoas, 1 número incluso, 10 automações ativas. Inclui recuperação de receita, Brain (IA que responde), teste A/B, formulários, API, SDKs, CLI e MCP. 7 dias de garantia.
-- Primeira Classe — R$ 2.900/mês, mais implantação feita pelo time (R$ 2.900, uma vez): envios, pessoas e automações ilimitados, 3 números inclusos, várias contas na Meta com trilha de auditoria, integração feita com o cliente, encontro mensal, SLA de 99,9%, contrato, DPA, fatura e boleto. Contratação com vendas.
-- Sob medida — para mais de 100 mil mensagens por mês: preço por faixa de volume em contrato, números dedicados. Contratação com vendas.
+- Não existe plano gratuito nem modo de teste. Para prova de conceito, o especialista libera um número de sandbox da Arara, com envio real. Quem assinou um plano anterior mantém as condições contratadas.
+- Contratação por proposta com um especialista (https://ararahq.com/contato#vendas): volume, equipe, números e integrações saem desenhados na proposta, com contrato em português, nota fiscal no CNPJ e cobrança em real. Não há plano para assinar sozinho pelo painel.
 - Em todos os planos a mensagem sai a preço de custo da Meta. Templates sem limite de quantidade (só o Free legado tem teto de 3 aprovados: `403 PLAN_LIMIT_REACHED`).
 - Teto mensal conta mensagens enviadas (API, campanha e respostas de atendente); recebidas não contam. Estourou → `403 PLAN_LIMIT_REACHED` com `details.feature = "MESSAGES_PER_MONTH"`.
 - Identificadores internos em respostas: `VOO` (Voo), `VOO_ASSISTIDO` (Primeira Classe). Contas em planos anteriores trazem `EMBARQUE`, `ESSENTIAL` ou outro identificador antigo.
